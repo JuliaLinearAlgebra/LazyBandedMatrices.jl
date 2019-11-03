@@ -1,5 +1,6 @@
-using LazyBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, Test
+using LazyBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Test
 import LazyArrays: Applied, resizedata!, FillLayout
+import BandedMatrices: BandedStyle
 
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}

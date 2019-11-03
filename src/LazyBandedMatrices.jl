@@ -10,11 +10,11 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         broadcastlayout, applylayout, arguments, _arguments, 
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout,
-                        _mul_args_rows, _mul_args_cols, 
+                        _mul_args_rows, _mul_args_cols, paddeddata,
                         MulMatrix, Mul, CachedMatrix, CachedArray
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
-                        AbstractBandedMatrix, BandedSubBandedMatrix
+                        AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()

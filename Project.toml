@@ -19,3 +19,9 @@ FillArrays = "0.8"
 BandedMatrices = "0.13"
 LazyArrays = "0.13"
 MatrixFactorizations = "0.2"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
