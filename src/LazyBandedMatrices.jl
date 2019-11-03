@@ -1,5 +1,21 @@
 module LazyBandedMatrices
-using BandedMatrices, LazyArrays, ArrayLayouts
+using BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base
+
+import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!
+
+import Base: BroadcastStyle, similar, OneTo
+import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal
+
+import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
+                        broadcastlayout, applylayout, arguments, _arguments, 
+                        LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
+                        LazyLayout, ApplyLayout, BroadcastLayout,
+                        _mul_args_rows, _mul_args_cols, 
+                        MulMatrix, Mul, CachedMatrix, CachedArray
+import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
+                        prodbandwidths, BandedStyle, BandedColumns, BandedRows,
+                        AbstractBandedMatrix, BandedSubBandedMatrix
+import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -19,7 +35,6 @@ end
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
 
-# @lazymul AbstractBandedMatrix
 
 bandwidths(M::Mul) = min.(_bnds(M), prodbandwidths(M.args...))
 
@@ -142,17 +157,6 @@ mulapplystyle(::MulBandedLayout, ::LazyBandedLayout) = FlattenMulStyle()
 # sub materialize
 ###
 
-# determine rows/cols of multiplication
-__mul_args_rows(kr, a) = (kr,)
-__mul_args_rows(kr, a, b...) = 
-    (kr, __mul_args_rows(rowstart(a,first(kr)):rowstop(a,last(kr)), b...)...)
-_mul_args_rows(kr, a, b...) = __mul_args_rows(rowstart(a,first(kr)):rowstop(a,last(kr)), b...)
-__mul_args_cols(jr, z) = (jr,)
-__mul_args_cols(jr, z, y...) = 
-    (__mul_args_cols(colstart(z,first(jr)):colstop(z,last(jr)), y...)..., jr)
-_mul_args_cols(jr, z, y...) = __mul_args_cols(colstart(z,first(jr)):colstop(z,last(jr)), y...)
-    
-
 function arguments(::MulBandedLayout, V::SubArray)
     P = parent(V)
     kr, jr = parentindices(V)
@@ -255,15 +259,6 @@ function resizedata!(B::CachedMatrix{T,BandedMatrix{T,Matrix{T},OneTo{Int}}}, n:
     B
 end
 
-struct BandedFactorizationStyle <: ApplyStyle end
-
-factorizestyle(::AbstractBandedLayout) = BandedFactorizationStyle()
-qr(A::AbstractBandedMatrix) = apply(qr,A)
-qr(A::BandedSubBandedMatrix) = apply(qr,A)
-
-copy(A::Applied{BandedFactorizationStyle,typeof(qr)}) = banded_qr(A.args...)
-copy(A::Applied{BandedFactorizationStyle,typeof(factorize)}) = banded_qr(A.args...)
-
-
+include("bandedql.jl")
 
 end

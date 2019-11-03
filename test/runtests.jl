@@ -1,4 +1,4 @@
-using LazyBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, Test
+using LazyBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, Test
 import LazyArrays: Applied, resizedata!, FillLayout
 
 
@@ -184,4 +184,192 @@ end
     C.data .= NaN
     C .= @~ 1.0 * A*B + 0.0 * C
     @test C == A*B
+end
+
+@testset "Applied" begin
+    A = brand(5,5,1,2)
+    @test applied(*,Symmetric(A),A) isa Applied{MulAddStyle}
+    B = apply(*,A,A,A)
+    @test B isa BandedMatrix
+    @test all(B .=== (A*A)*A)
+    @test bandwidths(B) == (3,4)
+end
+
+@testset "QL tests" begin
+    for T in (Float64,ComplexF64,Float32,ComplexF32)
+        A=brand(T,10,10,3,2)
+        Q,L=ql(A)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        @test Matrix(Q)*Matrix(L) ≈ A
+        b=rand(T,10)
+        @test mul!(similar(b),Q,mul!(similar(b),Q',b)) ≈ b
+        for j=1:size(A,2)
+            @test Q' * A[:,j] ≈ L[:,j]
+        end
+
+        A=brand(T,14,10,3,2)
+        Q,L=ql(A)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        @test_broken Matrix(Q)*Matrix(L) ≈ A
+
+        for k=1:size(A,1),j=1:size(A,2)
+            @test Q[k,j] ≈ Matrix(Q)[k,j]
+        end
+
+        A=brand(T,10,14,3,2)
+        Q,L=ql(A)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        @test Matrix(Q)*Matrix(L) ≈ A
+
+        for k=1:size(Q,1),j=1:size(Q,2)
+            @test Q[k,j] ≈ Matrix(Q)[k,j]
+        end
+
+        A=brand(T,10,14,3,6)
+        Q,L=ql(A)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        @test Matrix(Q)*Matrix(L) ≈ A
+
+        for k=1:size(Q,1),j=1:size(Q,2)
+            @test Q[k,j] ≈ Matrix(Q)[k,j]
+        end
+
+        A=brand(T,100,100,3,4)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        b=rand(T,100)
+        @test ql(A)\b ≈ Matrix(A)\b
+        b=rand(T,100,2)
+        @test ql(A)\b ≈ Matrix(A)\b
+        @test_throws DimensionMismatch ql(A) \ randn(3)
+        @test_throws DimensionMismatch ql(A).Q'randn(3)
+
+        A=brand(T,102,100,3,4)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        b=rand(T,102)
+        @test_broken ql(A)\b ≈ Matrix(A)\b
+        b=rand(T,102,2)
+        @test_broken ql(A)\b ≈ Matrix(A)\b
+        @test_throws DimensionMismatch ql(A) \ randn(3)
+        @test_throws DimensionMismatch ql(A).Q'randn(3)
+
+        A=brand(T,100,102,3,4)
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        b=rand(T,100)
+        @test_broken ql(A)\b ≈ Matrix(A)\b
+
+        A = Tridiagonal(randn(T,99), randn(T,100), randn(T,99))
+        @test ql(A).factors ≈ ql!(Matrix(A)).factors
+        @test ql(A).τ ≈ ql!(Matrix(A)).τ
+        b=rand(T,100)
+        @test ql(A)\b ≈ Matrix(A)\b
+        b=rand(T,100,2)
+        @test ql(A)\b ≈ Matrix(A)\b
+        @test_throws DimensionMismatch ql(A) \ randn(3)
+        @test_throws DimensionMismatch ql(A).Q'randn(3)
+    end
+
+    @testset "lmul!/rmul!" begin
+        for T in (Float32, Float64, ComplexF32, ComplexF64)
+            A = brand(T,100,100,3,4)
+            Q,R = qr(A)
+            x = randn(T,100)
+            b = randn(T,100,2)
+            @test lmul!(Q, copy(x)) ≈ Matrix(Q)*x
+            @test lmul!(Q, copy(b)) ≈ Matrix(Q)*b
+            @test lmul!(Q', copy(x)) ≈ Matrix(Q)'*x
+            @test lmul!(Q', copy(b)) ≈ Matrix(Q)'*b
+            c = randn(T,2,100)
+            @test rmul!(copy(c), Q) ≈ c*Matrix(Q)
+            @test rmul!(copy(c), Q') ≈ c*Matrix(Q')
+
+            A = brand(T,100,100,3,4)
+            Q,L = ql(A)
+            x = randn(T,100)
+            b = randn(T,100,2)
+            @test lmul!(Q, copy(x)) ≈ Matrix(Q)*x
+            @test lmul!(Q, copy(b)) ≈ Matrix(Q)*b
+            @test lmul!(Q', copy(x)) ≈ Matrix(Q)'*x
+            @test lmul!(Q', copy(b)) ≈ Matrix(Q)'*b
+            c = randn(T,2,100)
+            @test rmul!(copy(c), Q) ≈ c*Matrix(Q)
+            @test rmul!(copy(c), Q') ≈ c*Matrix(Q')
+        end
+    end
+
+    @testset "Mixed types" begin
+        A=brand(10,10,3,2)
+        b=rand(ComplexF64,10)
+        Q,L=ql(A)
+        @test L\(Q'*b) ≈ ql(A)\b ≈ Matrix(A)\b
+        @test Q*L ≈ A
+
+        A=brand(ComplexF64,10,10,3,2)
+        b=rand(10)
+        Q,L=ql(A)
+        @test Q*L ≈ A
+        @test L\(Q'*b) ≈ ql(A)\b ≈ Matrix(A)\b
+
+        A = BandedMatrix{Int}(undef, (2,1), (4,4))
+        A.data .= 1:length(A.data)
+        Q, L = ql(A)
+        @test_broken Q*L ≈ A
+    end
+end
+
+@testset "kron" begin
+    A = brand(5,5,2,2)
+    B = brand(2,2,1,0)
+    K = kron(A,B)
+    @test K isa BandedMatrix
+    @test bandwidths(K) == (5,4)
+    @test Matrix(K) == kron(Matrix(A), Matrix(B))
+
+    A = brand(3,4,1,1)
+    B = brand(3,2,1,0)
+    K = kron(A,B)
+    @test K isa BandedMatrix
+    @test bandwidths(K) == (7,2)
+    @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
+    K = kron(B,A)
+    @test Matrix(K) ≈ kron(Matrix(B), Matrix(A))
+
+    K = kron(A, B')
+    K isa BandedMatrix
+    @test Matrix(K) ≈ kron(Matrix(A), Matrix(B'))
+    K = kron(A', B)
+    K isa BandedMatrix
+    @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B))
+    K = kron(A', B')
+    K isa BandedMatrix
+    @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B'))
+
+    A = brand(5,6,2,2)
+    B = brand(3,2,1,0)
+    K = kron(A,B)
+    @test K isa BandedMatrix
+    @test bandwidths(K) == (12,4)
+    @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
+
+    n = 10; h = 1/n
+    D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
+    D_xx = kron(D², Eye(n))
+    @test D_xx isa BandedMatrix
+    @test bandwidths(D_xx) == (10,10)
+    D_yy = kron(Eye(n), D²)
+    @test D_yy isa BandedMatrix
+    @test bandwidths(D_yy) == (1,1)
+    Δ = D_xx + D_yy
+    @test Δ isa BandedMatrix
+    @test bandwidths(Δ) == (10,10)
+
+    @testset "#87" begin
+        @test kron(Diagonal([1,2,3]), Eye(3)) isa Diagonal{Float64,Vector{Float64}}
+    end
 end
