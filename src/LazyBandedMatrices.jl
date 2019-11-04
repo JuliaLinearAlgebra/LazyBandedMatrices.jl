@@ -13,11 +13,11 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout,
                         _mul_args_rows, _mul_args_cols, paddeddata, sublayout,
-                        MulMatrix, Mul, CachedMatrix, CachedArray, applybroadcaststyle
+                        MulMatrix, Mul, CachedMatrix, CachedArray, resizedata!, applybroadcaststyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
-                        banded_rowsupport, banded_colsupport
+                        banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata
 import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
