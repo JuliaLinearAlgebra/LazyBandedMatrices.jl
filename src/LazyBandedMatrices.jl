@@ -14,7 +14,8 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         MulMatrix, Mul, CachedMatrix, CachedArray
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
-                        AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds
+                        AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
+                        banded_rowsupport, banded_colsupport
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
