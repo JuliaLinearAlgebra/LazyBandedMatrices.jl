@@ -1,5 +1,6 @@
-using LazyBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Test
+using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Test
 import LazyArrays: Applied, resizedata!, FillLayout
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix
 import BandedMatrices: BandedStyle
 
 
@@ -36,7 +37,6 @@ BandedMatrices.inbands_getindex(A::PseudoBandedMatrix, j::Int, k::Int) = A.data[
 BandedMatrices.inbands_setindex!(A::PseudoBandedMatrix, v, j::Int, k::Int) = setindex!(A.data, v, j, k)
 LinearAlgebra.fill!(A::PseudoBandedMatrix, v) = fill!(A.data,v)
 
-
 @testset "Mul" begin
     A = PseudoBandedMatrix(rand(5, 4), 1, 2)
     B = PseudoBandedMatrix(rand(4, 4), 2, 3)
@@ -45,7 +45,6 @@ LinearAlgebra.fill!(A::PseudoBandedMatrix, v) = fill!(A.data,v)
 
     @test (C .= Mul(A, B)) ≈ (D .= Mul(A, B)) ≈ A*B
 end
-
 
 @testset "Vcat Zeros special case" begin
     A = BandedMatrices._BandedMatrix((1:10)', 10, -1,1)
@@ -69,7 +68,7 @@ end
     @test isbanded(M) && isbanded(Applied(M))
     @test bandwidths(M) == bandwidths(Applied(M))
     @test BandedMatrix(M) == A*B
-    MemoryLayout(typeof(M))
+    @test MemoryLayout(typeof(M)) isa MulBandedLayout
     @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
     @test rowsupport(M,1) == rowsupport(Applied(M),1) == 1:2
 
@@ -126,7 +125,7 @@ end
     @test bandwidths(isone.(H)) == (2,11)
     
     V = Vcat(A,A)
-    @test V isa BandedMatrices.VcatBandedMatrix
+    @test V isa VcatBandedMatrix
     @test isbanded(V)
     @test bandwidths(V) == (8,1)
     @test BandedMatrix(V) == vcat(A,A) == vcat(A,Matrix(A)) == vcat(Matrix(A),A) == vcat(Matrix(A),Matrix(A))
@@ -372,5 +371,88 @@ end
 
     @testset "#87" begin
         @test kron(Diagonal([1,2,3]), Eye(3)) isa Diagonal{Float64,Vector{Float64}}
+    end
+end
+
+
+struct FiniteDifference{T} <: AbstractBandedMatrix{T}
+    n::Int
+end
+
+FiniteDifference(n) = FiniteDifference{Float64}(n)
+
+getindex(F::FiniteDifference{T}, k::Int, j::Int) where T =
+    if k == j
+        -2*one(T)*F.n^2
+    elseif abs(k-j) == 1
+        one(T)*F.n^2
+    else
+        zero(T)
+    end
+
+bandwidths(F::FiniteDifference) = (1,1)
+size(F::FiniteDifference) = (F.n,F.n)
+
+@testset "Misc" begin
+    @testset "Block banded Kron" begin
+        n = 10
+        h = 1/n
+        D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
+
+        @time D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
+        @time D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        @time Δ = D_xx + D_yy
+
+        @test Δ isa BandedBlockBandedMatrix
+        @test blockbandwidths(Δ) == subblockbandwidths(Δ) == (1,1)
+        @test Δ == kron(Matrix(D²), Matrix(I,n,n)) + kron(Matrix(I,n,n), Matrix(D²))
+
+        n = 10
+        D² = FiniteDifference(n)
+        D̃_xx = Kron(D², Eye(n))
+        @test blockbandwidths(D̃_xx) == (1,1)
+        @test subblockbandwidths(D̃_xx) == (0,0)
+
+        V = view(D̃_xx, Block(1,1))
+        @test bandwidths(V) == (0,0)
+
+        @test BandedBlockBandedMatrix(D̃_xx) ≈ D_xx
+
+        D̃_yy = Kron(Eye(n), D²)
+        @test blockbandwidths(D̃_yy) == (0,0)
+        @test subblockbandwidths(D̃_yy) == (1,1)
+
+        V = view(D̃_yy, Block(1,1))
+        @test bandwidths(V) == (1,1)
+
+        @test BandedBlockBandedMatrix(D̃_yy) ≈ D_yy
+    end
+
+    @testset "Diagonal interface" begin
+        n = 10
+        h = 1/n
+        D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
+        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
+
+        D = Diagonal(randn(n^2))
+        @test D_xx + D isa BandedBlockBandedMatrix
+        @test blockbandwidths(D_xx + D) == blockbandwidths(D_xx)
+        @test subblockbandwidths(D_xx + D) == subblockbandwidths(D_xx)
+        @test D_xx + D == Matrix(D_xx) + D
+
+        @test D_xx - D isa BandedBlockBandedMatrix
+        @test blockbandwidths(D_xx - D) == blockbandwidths(D_xx)
+        @test subblockbandwidths(D_xx - D) == subblockbandwidths(D_xx)
+        @test D_xx - D == Matrix(D_xx) - D
+
+        @test D_xx*D == Matrix(D_xx)*D
+        @test D_xx*D isa BandedBlockBandedMatrix
+        @test blockbandwidths(D_xx*D) == blockbandwidths(D_xx)
+        @test subblockbandwidths(D_xx*D) == subblockbandwidths(D_xx)
+
+        @test D*D_xx == D*Matrix(D_xx)
+        @test D*D_xx isa BandedBlockBandedMatrix
+        @test blockbandwidths(D*D_xx) == blockbandwidths(D_xx)
+        @test subblockbandwidths(D*D_xx) == subblockbandwidths(D_xx)
     end
 end

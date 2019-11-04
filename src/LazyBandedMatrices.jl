@@ -1,22 +1,24 @@
 module LazyBandedMatrices
-using BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base
+using BandedMatrices, BlockBandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base
 
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!
 
 import Base: BroadcastStyle, similar, OneTo
+import Base.Broadcast: Broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal
 
+import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, 
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout,
-                        _mul_args_rows, _mul_args_cols, paddeddata,
-                        MulMatrix, Mul, CachedMatrix, CachedArray
+                        _mul_args_rows, _mul_args_cols, paddeddata, sublayout,
+                        MulMatrix, Mul, CachedMatrix, CachedArray, applybroadcaststyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport
-import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd
+import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -261,5 +263,32 @@ function resizedata!(B::CachedMatrix{T,BandedMatrix{T,Matrix{T},OneTo{Int}}}, n:
 end
 
 include("bandedql.jl")
+
+###
+# BlockBanded
+###
+
+mulapplystyle(::DiagonalLayout, ::AbstractBlockBandedLayout) = MulAddStyle()
+mulapplystyle(::AbstractBlockBandedLayout, ::DiagonalLayout) = MulAddStyle()
+
+isblockbanded(K::Kron{<:Any,2}) = isbanded(first(K.args))
+isbandedblockbanded(K::Kron{<:Any,2}) = all(isbanded, K.args)
+blockbandwidths(K::Kron{<:Any,2}) = bandwidths(first(K.args))
+subblockbandwidths(K::Kron{<:Any,2}) = bandwidths(last(K.args))
+function blocksizes(K::Kron{<:Any,2})
+    A,B = K.args
+    BlockSizes(Fill(size(B,1), size(A,1)), Fill(size(B,2), size(A,2)))
+end
+
+const SubKron{T,M1,M2,R1,R2} =
+    SubArray{T,2,<:Kron{T,2,Tuple{M1,M2}},Tuple{BlockSlice{R1},BlockSlice{R2}}}
+
+
+BroadcastStyle(::Type{<:SubKron{<:Any,<:Any,B,Block1,Block1}}) where B =
+    BroadcastStyle(B)
+
+@inline bandwidths(V::SubKron{<:Any,<:Any,<:Any,Block1,Block1}) =
+    subblockbandwidths(parent(V))
+
 
 end
