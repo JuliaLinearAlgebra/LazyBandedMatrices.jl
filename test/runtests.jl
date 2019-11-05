@@ -381,7 +381,7 @@ end
 
 FiniteDifference(n) = FiniteDifference{Float64}(n)
 
-getindex(F::FiniteDifference{T}, k::Int, j::Int) where T =
+Base.getindex(F::FiniteDifference{T}, k::Int, j::Int) where T =
     if k == j
         -2*one(T)*F.n^2
     elseif abs(k-j) == 1
@@ -390,8 +390,8 @@ getindex(F::FiniteDifference{T}, k::Int, j::Int) where T =
         zero(T)
     end
 
-bandwidths(F::FiniteDifference) = (1,1)
-size(F::FiniteDifference) = (F.n,F.n)
+BandedMatrices.bandwidths(F::FiniteDifference) = (1,1)
+Base.size(F::FiniteDifference) = (F.n,F.n)
 
 @testset "Misc" begin
     @testset "Block banded Kron" begin

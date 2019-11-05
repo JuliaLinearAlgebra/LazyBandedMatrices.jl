@@ -18,7 +18,9 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata
-import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1
+import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1,
+                        isblockbanded, isbandedblockbanded, blockbandwidths, 
+                        subblockbandwidths, blocksizes
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
