@@ -1,8 +1,10 @@
-using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, ArrayLayouts, MatrixFactorizations, LinearAlgebra, Test
+using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
+            ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
 import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle
 import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix
 
+Random.seed!(0)
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -105,9 +107,11 @@ end
 @testset "Cat" begin
     A = brand(6,5,2,1)
     H = Hcat(A,A)
+    @test H[1,1] == applied(hcat,A,A)[1,1] == A[1,1]
     @test isbanded(H)
     @test bandwidths(H) == (2,6)
-    @test BandedMatrix(H) == hcat(A,A) == hcat(A,Matrix(A)) == hcat(Matrix(A),A) == hcat(Matrix(A),Matrix(A))
+    @test BandedMatrix(H) == BandedMatrix(H,(2,6)) == hcat(A,A) == hcat(A,Matrix(A)) == 
+            hcat(Matrix(A),A) == hcat(Matrix(A),Matrix(A))
     @test hcat(A,A) isa BandedMatrix
     @test hcat(A,Matrix(A)) isa Matrix
     @test hcat(Matrix(A),A) isa Matrix
