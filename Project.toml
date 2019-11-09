@@ -18,7 +18,7 @@ ArrayLayouts = "0.1"
 FillArrays = "0.8"
 BandedMatrices = "0.14"
 BlockBandedMatrices = "0.6"
-LazyArrays = "0.14"
+LazyArrays = "0.14.1"
 MatrixFactorizations = "0.2.1"
 
 [extras]
