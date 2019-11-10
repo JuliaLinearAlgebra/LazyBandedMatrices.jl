@@ -3,17 +3,17 @@ using BandedMatrices, BlockBandedMatrices, LazyArrays, ArrayLayouts, MatrixFacto
 
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!
 
-import Base: BroadcastStyle, similar, OneTo
+import Base: BroadcastStyle, similar, OneTo, copy
 import Base.Broadcast: Broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal, 
                         lmul!, rmul!
 
-import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing
+import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing, sublayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, 
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout,
-                        _mul_args_rows, _mul_args_cols, paddeddata, sublayout,
+                        _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle,
                         MulMatrix, Mul, CachedMatrix, CachedArray, resizedata!, applybroadcaststyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
