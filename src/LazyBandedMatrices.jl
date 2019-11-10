@@ -19,7 +19,7 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
-                        banded_qr_lmul!, banded_qr_rmul!
+                        banded_qr_lmul!, banded_qr_rmul!, banded_qr
 import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1,
                         isblockbanded, isbandedblockbanded, blockbandwidths, 
                         subblockbandwidths, blocksizes, BlockSizes
