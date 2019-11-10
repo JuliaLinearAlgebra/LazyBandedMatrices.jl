@@ -5,9 +5,10 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
 
 import Base: BroadcastStyle, similar, OneTo
 import Base.Broadcast: Broadcasted
-import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal
+import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal, 
+                        lmul!, rmul!
 
-import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd
+import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, 
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -17,13 +18,16 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
-                        banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata
+                        banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
+                        banded_qr_lmul!, banded_qr_rmul!
 import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1,
                         isblockbanded, isbandedblockbanded, blockbandwidths, 
                         subblockbandwidths, blocksizes, BlockSizes
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
+BroadcastStyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
+BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 
 bandedcolumns(::ML) where ML<:LazyLayout = BandedColumns{ML}()
 bandedcolumns(::ML) where ML<:ApplyLayout = BandedColumns{LazyLayout}()
@@ -113,7 +117,6 @@ applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = MulBandedLayout()
 
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulBandedLayout) = BandedStyle()
 # applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulLayout{<:Tuple{BandedColumns{LazyLayout},Vararg{<:AbstractBandedLayout}}}) = LazyArrayStyle{2}()
-BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 
 @inline colsupport(::MulBandedLayout, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::MulBandedLayout, A, j) = banded_rowsupport(A, j)
