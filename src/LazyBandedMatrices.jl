@@ -12,7 +12,7 @@ import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, 
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
-                        LazyLayout, ApplyLayout, BroadcastLayout,
+                        LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle,
                         _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle,
                         MulMatrix, Mul, CachedMatrix, CachedArray, resizedata!, applybroadcaststyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
