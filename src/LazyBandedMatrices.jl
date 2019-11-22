@@ -3,7 +3,7 @@ using BandedMatrices, BlockBandedMatrices, LazyArrays, ArrayLayouts, MatrixFacto
 
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!
 
-import Base: BroadcastStyle, similar, OneTo, copy
+import Base: BroadcastStyle, similar, OneTo, copy, *
 import Base.Broadcast: Broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal, 
                         lmul!, rmul!
@@ -13,7 +13,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         broadcastlayout, applylayout, arguments, _arguments, 
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle,
-                        _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle,
+                        _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, resizedata!, applybroadcaststyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
@@ -131,6 +131,7 @@ bandwidths(M::BroadcastMatrix) = bandwidths(Broadcasted(M))
 isbanded(M::BroadcastMatrix) = isbanded(Broadcasted(M))
 
 struct BroadcastBandedLayout{F} <: AbstractBandedLayout end
+
 struct LazyBandedLayout <: AbstractBandedLayout end
 
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
@@ -175,6 +176,7 @@ end
 
 @inline sub_materialize(::MulBandedLayout, V) = BandedMatrix(V)
 @inline sub_materialize(::BroadcastBandedLayout, V) = BandedMatrix(V)
+@inline sub_materialize(::BandedColumns{LazyLayout}, V) = V
 
 _BandedMatrix(::MulBandedLayout, V::AbstractMatrix) = apply(*, map(BandedMatrix,arguments(V))...)
 for op in (:+, :-)
@@ -295,5 +297,15 @@ BroadcastStyle(::Type{<:SubKron{<:Any,<:Any,B,Block1,Block1}}) where B =
 @inline bandwidths(V::SubKron{<:Any,<:Any,<:Any,Block1,Block1}) =
     subblockbandwidths(parent(V))
 
+struct ApplyBandedLayout{F} <: AbstractBandedLayout end
+
+arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
+sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+applylayout(::Type{typeof(vcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
+
+*(A::ApplyMatrix, B::AbstractBandedMatrix) = apply(*, A, B)    
+*(A::AbstractBandedMatrix, B::ApplyMatrix) = apply(*, A, B)
 
 end
