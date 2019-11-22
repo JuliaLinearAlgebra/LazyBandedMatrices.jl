@@ -1,7 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix
 
 Random.seed!(0)
@@ -458,5 +458,16 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test D*D_xx isa BandedBlockBandedMatrix
         @test blockbandwidths(D*D_xx) == blockbandwidths(D_xx)
         @test subblockbandwidths(D*D_xx) == subblockbandwidths(D_xx)
+    end
+
+    @testset "Banded Vcat" begin
+        A = Vcat(Zeros(1,10), brand(9,10,1,1))
+        @test isbanded(A)
+        @test bandwidths(A) == (2,0)
+        @test MemoryLayout(typeof(A)) isa ApplyBandedLayout{typeof(vcat)}
+        @test BandedMatrix(A) == Array(A) == A
+        @test A*A isa BandedMatrix
+        @test A*A == BandedMatrix(A)*A == A*BandedMatrix(A)
+        @test A[1:5,1:5] isa BandedMatrix
     end
 end
