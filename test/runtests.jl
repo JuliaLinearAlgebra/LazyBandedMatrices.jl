@@ -60,6 +60,14 @@ end
     @test A*x isa Vcat{Float64,1,<:Tuple{<:Vector,<:Zeros}}
     @test length((A*x).args[1]) == 10
     @test A*x ≈ A*Vector(x)
+
+    A = Vcat(Zeros(1,10), brand(9,10,0,2))
+    @test bandwidths(A) == (1,1)
+    @test BandedMatrix(A) == Array(A) == A
+
+    A = Hcat(Zeros(5,2), brand(5,5,1,1))
+    @test bandwidths(A) == (0,3)
+    @test BandedMatrix(A) == Array(A) == A
 end
 
 @testset "MulMatrix" begin

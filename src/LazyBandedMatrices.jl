@@ -200,11 +200,21 @@ sublayout(M::BroadcastBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) 
 # Concat banded matrix
 ######
 
-bandwidths(M::Hcat) = (bandwidth(M.args[1],1),sum(size.(M.args[1:end-1],2)) + bandwidth(M.args[end],2))
-isbanded(M::Hcat) = all(isbanded, M.args)
+# cumsum for tuples
+_cumsum(a) = a
+_cumsum(a, b...) = tuple(a, (a .+ _cumsum(b...))...)
 
-bandwidths(M::Vcat) = (sum(size.(M.args[1:end-1],1)) + bandwidth(M.args[end],1), bandwidth(M.args[1],2))
+function bandwidths(M::Vcat) 
+    cs = tuple(0, _cumsum(size.(M.args[1:end-1],1))...) # cumsum of sizes
+    (maximum(cs .+ bandwidth.(M.args,1)), maximum(bandwidth.(M.args,2) .- cs))
+end
 isbanded(M::Vcat) = all(isbanded, M.args)
+
+function bandwidths(M::Hcat) 
+    cs = tuple(0, _cumsum(size.(M.args[1:end-1],2))...) # cumsum of sizes
+    (maximum(bandwidth.(M.args,1) .- cs), maximum(bandwidth.(M.args,2) .+ cs))
+end
+isbanded(M::Hcat) = all(isbanded, M.args)
 
 
 const HcatBandedMatrix{T,N} = Hcat{T,NTuple{N,BandedMatrix{T,Matrix{T},OneTo{Int}}}}
