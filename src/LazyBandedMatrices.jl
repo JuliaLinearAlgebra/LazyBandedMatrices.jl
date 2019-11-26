@@ -177,7 +177,8 @@ end
 
 @inline sub_materialize(::MulBandedLayout, V) = BandedMatrix(V)
 @inline sub_materialize(::BroadcastBandedLayout, V) = BandedMatrix(V)
-@inline sub_materialize(::BandedColumns{LazyLayout}, V) = V
+@inline sub_materialize(::BandedColumns{LazyLayout}, V, _) = V
+@inline sub_materialize(::BandedColumns{LazyLayout}, V, ::Tuple{<:OneTo,<:OneTo}) = BandedMatrix(V)
 
 _BandedMatrix(::MulBandedLayout, V::AbstractMatrix) = apply(*, map(BandedMatrix,arguments(V))...)
 for op in (:+, :-)
