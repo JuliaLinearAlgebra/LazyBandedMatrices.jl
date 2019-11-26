@@ -1,6 +1,6 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport
 import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix
 
@@ -161,8 +161,27 @@ end
     A = BroadcastMatrix(*, brand(5,5,1,2), brand(5,5,2,1))
     @test eltype(A) == Float64
     @test bandwidths(A) == (1,1)
-    @test LazyArrays.colsupport(A, 1) == 1:2
+    @test colsupport(A, 1) == 1:2
+    @test rowsupport(A, 1) == 1:2
     @test A == broadcast(*, A.args...)
+    @test MemoryLayout(typeof(A)) isa BroadcastBandedLayout{typeof(*)}
+
+    @test MemoryLayout(typeof(A')) isa BroadcastBandedLayout{typeof(*)}
+    @test bandwidths(A') == (1,1)
+    @test colsupport(A',1) == rowsupport(A', 1) == 1:2
+    @test A' == BroadcastArray(A') == Array(A)'
+
+    V = view(A, 2:3, 3:5)
+    @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
+    @test bandwidths(V) == (2,0)
+    @test colsupport(V,1) == 1:2
+    @test V == BroadcastArray(V) == Array(A)[2:3,3:5]
+
+    V = view(A, 2:3, 3:5)'
+    @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
+    @test bandwidths(V) == (0,2)
+    @test colsupport(V,1) == 1:1
+    @test V == BroadcastArray(V) == Array(A)[2:3,3:5]'
 
     B = BroadcastMatrix(+, brand(5,5,1,2), 2)
     @test B == broadcast(+, B.args...)

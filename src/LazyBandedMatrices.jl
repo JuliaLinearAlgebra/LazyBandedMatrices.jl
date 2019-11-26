@@ -8,9 +8,9 @@ import Base.Broadcast: Broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal, 
                         lmul!, rmul!
 
-import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing, sublayout
+import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing, sublayout, transposelayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
-                        broadcastlayout, applylayout, arguments, _arguments, 
+                        broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle,
                         _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle, sub_materialize,
@@ -131,8 +131,9 @@ bandwidths(M::BroadcastMatrix) = bandwidths(Broadcasted(M))
 isbanded(M::BroadcastMatrix) = isbanded(Broadcasted(M))
 
 struct BroadcastBandedLayout{F} <: AbstractBandedLayout end
-
 struct LazyBandedLayout <: AbstractBandedLayout end
+
+BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
 for op in (:*, :/, :\)
@@ -190,10 +191,13 @@ function arguments(::BroadcastBandedLayout, V::SubArray)
 end
 
 
+call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
 
 sublayout(M::MulBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
 sublayout(M::BroadcastBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
 
+transposelayout(b::BroadcastBandedLayout) = b
+arguments(b::BroadcastBandedLayout, A::AdjOrTrans) where F = arguments(BroadcastLayout(b), A)
 
 
 ######
