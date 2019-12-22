@@ -12,7 +12,7 @@ import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
-                        LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle,
+                        LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
                         _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, resizedata!, applybroadcaststyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
@@ -115,6 +115,7 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 struct MulBandedLayout <: AbstractBandedLayout end
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = MulBandedLayout()    
 
+
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulBandedLayout) = BandedStyle()
 # applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulLayout{<:Tuple{BandedColumns{LazyLayout},Vararg{<:AbstractBandedLayout}}}) = LazyArrayStyle{2}()
 
@@ -155,6 +156,11 @@ for op in (:+, :-)
     @eval broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
 end
 
+combine_mul_styles(::BroadcastBandedLayout, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::MulBandedLayout, ::MulBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::MulBandedLayout, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::BroadcastBandedLayout, ::MulBandedLayout) = LazyArrayApplyStyle()
+
 mulapplystyle(::LazyBandedLayout, ::MulBandedLayout) = FlattenMulStyle()
 mulapplystyle(::MulBandedLayout, ::LazyBandedLayout) = FlattenMulStyle()
 
@@ -175,8 +181,8 @@ function arguments(::MulBandedLayout, V::SubArray)
     view.(as, (kr, kjr...), (kjr..., jr))
 end
 
-@inline sub_materialize(::MulBandedLayout, V) = BandedMatrix(V)
-@inline sub_materialize(::BroadcastBandedLayout, V) = BandedMatrix(V)
+@inline sub_materialize(::MulBandedLayout, V, _) = BandedMatrix(V)
+@inline sub_materialize(::BroadcastBandedLayout, V, _) = BandedMatrix(V)
 @inline sub_materialize(::BandedColumns{LazyLayout}, V, _) = V
 @inline sub_materialize(::BandedColumns{LazyLayout}, V, ::Tuple{<:OneTo,<:OneTo}) = BandedMatrix(V)
 
@@ -338,5 +344,6 @@ sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange
 
 *(A::ApplyMatrix, B::AbstractBandedMatrix) = apply(*, A, B)    
 *(A::AbstractBandedMatrix, B::ApplyMatrix) = apply(*, A, B)
+*(A::AbstractBandedMatrix, b::CachedVector) = apply(*, A, b)
 
 end
