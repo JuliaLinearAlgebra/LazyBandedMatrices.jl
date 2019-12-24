@@ -20,10 +20,12 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
                         banded_qr_lmul!, banded_qr_rmul!, banded_qr
-import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1,
+import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths, 
+                        bandedblockbandedbroadcaststyle, bandedblockbandedcolumns, 
+                        BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix
-
+import BlockArrays: blockbroadcaststyle
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
 BroadcastStyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
@@ -34,7 +36,8 @@ bandedcolumns(::ML) where ML<:ApplyLayout = BandedColumns{LazyLayout}()
 
 for LazyLay in (:(BandedColumns{LazyLayout}), :(BandedRows{LazyLayout}), 
                 :(TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT}),
-                :(TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT}))
+                :(TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT}),
+                :(BlockBandedColumns{LazyLayout}), :(BandedBlockBandedColumns{LazyLayout}))
     @eval begin
         combine_mul_styles(::$LazyLay) = LazyArrayApplyStyle()
         mulapplystyle(::QLayout, ::$LazyLay) = LazyArrayApplyStyle()
@@ -123,6 +126,22 @@ applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulBandedLayout) = BandedStyle()
 @inline rowsupport(::MulBandedLayout, A, j) = banded_rowsupport(A, j)
 # @inline colsupport(::MulLayout{<:Tuple{<:AbstractBandedLayout,<:AbstractStridedLayout}}, A, j) = banded_colsupport(A, j)
 @inline _arguments(::MulBandedLayout, A) = arguments(A)
+
+
+struct MulBlockBandedLayout <: AbstractBlockBandedLayout end
+applylayout(::Type{typeof(*)}, ::AbstractBlockBandedLayout...) = MulBlockBandedLayout()    
+
+
+prodblockbandwidths(A) = blockbandwidths(A)
+prodblockbandwidths() = (0,0)
+prodblockbandwidths(A...) = broadcast(+, blockbandwidths.(A)...)
+
+prodsubblockbandwidths(A) = subblockbandwidths(A)
+prodsubblockbandwidths() = (0,0)
+prodsubblockbandwidths(A...) = broadcast(+, subblockbandwidths.(A)...)
+
+blockbandwidths(M::MulMatrix) = prodblockbandwidths(M.args...)
+subblockbandwidths(M::MulMatrix) = prodsubblockbandwidths(M.args...)
 
 ###
 # BroadcastMatrix
@@ -296,9 +315,14 @@ include("bandedql.jl")
 # BlockBanded
 ###
 
+blockbroadcaststyle(::LazyArrayStyle{N}) where N = LazyArrayStyle{N}()
+
 mulapplystyle(::DiagonalLayout, ::AbstractBlockBandedLayout) = MulAddStyle()
 mulapplystyle(::AbstractBlockBandedLayout, ::DiagonalLayout) = MulAddStyle()
-
+bandedblockbandedbroadcaststyle(::LazyArrayStyle{2}) = LazyArrayStyle{2}()
+bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
+bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
+bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
 struct BlockKron{T,A,B} <: AbstractBandedMatrix{T}
     args::Tuple{A,B}
