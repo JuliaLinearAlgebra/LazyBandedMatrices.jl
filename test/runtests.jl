@@ -432,6 +432,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         @time D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
         @time D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        @test D_xx == kron(D², Eye(n))
         @time Δ = D_xx + D_yy
 
         @test Δ isa BandedBlockBandedMatrix
@@ -440,7 +441,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         n = 10
         D² = FiniteDifference(n)
-        D̃_xx = Kron(D², Eye(n))
+        D̃_xx = BlockKron(D², Eye(n))
         @test blockbandwidths(D̃_xx) == (1,1)
         @test subblockbandwidths(D̃_xx) == (0,0)
 
