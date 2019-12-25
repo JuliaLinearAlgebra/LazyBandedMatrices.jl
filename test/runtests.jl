@@ -1,7 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix
 
 Random.seed!(0)
@@ -161,8 +161,27 @@ end
     A = BroadcastMatrix(*, brand(5,5,1,2), brand(5,5,2,1))
     @test eltype(A) == Float64
     @test bandwidths(A) == (1,1)
-    @test LazyArrays.colsupport(A, 1) == 1:2
+    @test colsupport(A, 1) == 1:2
+    @test rowsupport(A, 1) == 1:2
     @test A == broadcast(*, A.args...)
+    @test MemoryLayout(typeof(A)) isa BroadcastBandedLayout{typeof(*)}
+
+    @test MemoryLayout(typeof(A')) isa BroadcastBandedLayout{typeof(*)}
+    @test bandwidths(A') == (1,1)
+    @test colsupport(A',1) == rowsupport(A', 1) == 1:2
+    @test A' == BroadcastArray(A') == Array(A)'
+
+    V = view(A, 2:3, 3:5)
+    @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
+    @test bandwidths(V) == (2,0)
+    @test colsupport(V,1) == 1:2
+    @test V == BroadcastArray(V) == Array(A)[2:3,3:5]
+
+    V = view(A, 2:3, 3:5)'
+    @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
+    @test bandwidths(V) == (0,2)
+    @test colsupport(V,1) == 1:1
+    @test V == BroadcastArray(V) == Array(A)[2:3,3:5]'
 
     B = BroadcastMatrix(+, brand(5,5,1,2), 2)
     @test B == broadcast(+, B.args...)
@@ -413,6 +432,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         @time D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
         @time D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        @test D_xx == kron(D², Eye(n))
         @time Δ = D_xx + D_yy
 
         @test Δ isa BandedBlockBandedMatrix
@@ -421,7 +441,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         n = 10
         D² = FiniteDifference(n)
-        D̃_xx = Kron(D², Eye(n))
+        D̃_xx = BlockKron(D², Eye(n))
         @test blockbandwidths(D̃_xx) == (1,1)
         @test subblockbandwidths(D̃_xx) == (0,0)
 
