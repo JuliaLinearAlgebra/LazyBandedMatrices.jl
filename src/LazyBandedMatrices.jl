@@ -366,8 +366,8 @@ sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 applylayout(::Type{typeof(vcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
 sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
 
-*(A::ApplyMatrix, B::AbstractBandedMatrix) = apply(*, A, B)    
-*(A::AbstractBandedMatrix, B::ApplyMatrix) = apply(*, A, B)
-*(A::AbstractBandedMatrix, b::CachedVector) = apply(*, A, b)
+*(A::LazyMatrix, B::AbstractBandedMatrix) = apply(*, A, B)    
+*(A::AbstractBandedMatrix, B::LazyMatrix) = apply(*, A, B)
+*(A::AbstractBandedMatrix, b::LazyVector) = apply(*, A, b)
 
 end
