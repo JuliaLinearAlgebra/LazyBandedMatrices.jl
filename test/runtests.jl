@@ -499,3 +499,10 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test A[1:5,1:5] isa BandedMatrix
     end
 end
+
+@testset "QR" begin
+    A = brand(100_000,100_000,1,1)
+    F = qr(A)
+    b = Vcat([1,2,3],Zeros(size(A,1)-3))
+    @test F.Q'b == apply(*,F.Q',b)
+end
