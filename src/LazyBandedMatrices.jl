@@ -288,8 +288,13 @@ function bandeddata(B::SubArray{<:Any,2,<:CachedMatrix})
     bandeddata(view(A.data,kr,jr))
 end
 
-function resizedata!(B::CachedMatrix{T,BandedMatrix{T,Matrix{T},OneTo{Int}}}, n::Integer, m::Integer) where T<:Number
-    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize beyound size of operator"))
+function resize(A::BandedMatrix, n::Integer, m::Integer)
+    l,u = bandwidths(A)
+    _BandedMatrix(reshape(resize!(vec(bandeddata(A)), (l+u+1)*m), l+u+1, m), n, l,u)
+end
+
+function resizedata!(::BandedColumns{DenseColumnMajor}, _, B::AbstractMatrix{T}, n::Integer, m::Integer) where T<:Number
+    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize beyound size of matrix"))
 
     # increase size of array if necessary
     olddata = B.data
@@ -301,7 +306,7 @@ function resizedata!(B::CachedMatrix{T,BandedMatrix{T,Matrix{T},OneTo{Int}}}, n:
         λ,ω = bandwidths(B.data)
         if n ≥ size(B.data,1) || m ≥ size(B.data,2)
             M = 2*max(m,n+u)
-            B.data = _BandedMatrix(reshape(resize!(vec(olddata.data), (λ+ω+1)*M), λ+ω+1, M), M+λ, λ,ω)
+            B.data = resize(olddata, M+λ, M)
         end
         if ν > 0 # upper-right
             kr = max(1,μ+1-ω):ν
