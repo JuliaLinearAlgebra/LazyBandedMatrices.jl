@@ -288,13 +288,18 @@ function bandeddata(B::SubArray{<:Any,2,<:CachedMatrix})
     bandeddata(view(A.data,kr,jr))
 end
 
-function resize(A::BandedMatrix, n::Integer, m::Integer)
+function resize(A::BandedMatrix, n::Integer, m::Integer) 
     l,u = bandwidths(A)
     _BandedMatrix(reshape(resize!(vec(bandeddata(A)), (l+u+1)*m), l+u+1, m), n, l,u)
 end
+function resize(A::BandedSubBandedMatrix, n::Integer, m::Integer)
+    l,u = bandwidths(A)
+    _BandedMatrix(reshape(resize!(vec(copy(bandeddata(A))), (l+u+1)*m), l+u+1, m), n, l,u)
+end
 
 function resizedata!(::BandedColumns{DenseColumnMajor}, _, B::AbstractMatrix{T}, n::Integer, m::Integer) where T<:Number
-    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize beyound size of matrix"))
+    (n ≤ 0 || m ≤ 0) && return B
+    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize to ($n,$m) which is beyond size $(size(B))"))
 
     # increase size of array if necessary
     olddata = B.data
