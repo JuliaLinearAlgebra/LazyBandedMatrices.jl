@@ -13,14 +13,14 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
-                        _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle, sub_materialize,
+                        _mul_args_rows, _mul_args_cols, paddeddata, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, resizedata!, applybroadcaststyle,
                         LazyMatrix, LazyVector, LazyArray
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
-                        banded_qr_lmul!, banded_qr_rmul!, banded_qr
+                        banded_qr_lmul!, banded_qr_rmul!
 import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths, 
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns, 
@@ -220,6 +220,7 @@ end
 
 
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
+call(b::BroadcastBandedLayout, a::SubArray) = call(BroadcastLayout(b), a)
 
 sublayout(M::MulBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
 sublayout(M::BroadcastBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M

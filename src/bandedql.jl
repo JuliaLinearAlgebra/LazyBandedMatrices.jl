@@ -2,13 +2,6 @@
 # MatrixFactorizations.QRPackedQ
 ###
 
-struct BandedFactorizationStyle <: ApplyStyle end
-
-factorizestyle(::AbstractBandedLayout) = BandedFactorizationStyle()
-
-copy(A::Applied{BandedFactorizationStyle,typeof(qr)}) = banded_qr(A.args...)
-copy(A::Applied{BandedFactorizationStyle,typeof(factorize)}) = banded_qr(A.args...)
-
 banded_lmul!(A::QRPackedQ, B::AbstractVecOrMat) = banded_qr_lmul!(A, B)
 banded_lmul!(adjA::Adjoint{<:Any,<:QRPackedQ}, B::AbstractVecOrMat) = banded_qr_lmul!(adjA, B)
 banded_rmul!(A::AbstractMatrix, Q::QRPackedQ) = banded_qr_rmul!(A, Q)
