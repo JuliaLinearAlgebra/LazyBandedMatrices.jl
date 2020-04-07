@@ -498,6 +498,13 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test A*A == BandedMatrix(A)*A == A*BandedMatrix(A)
         @test A[1:5,1:5] isa BandedMatrix
     end
+
+    @testset "resize" begin
+        A = brand(4,5,1,1)
+        @test LazyBandedMatrices.resize(A,6,5)[1:4,1:5] == A
+        @test LazyBandedMatrices.resize(view(A,2:3,2:5),5,5) isa BandedMatrix
+        @test LazyBandedMatrices.resize(view(A,2:3,2:5),5,5)[1:2,1:4] == A[2:3,2:5]
+    end
 end
 
 @testset "QR" begin
