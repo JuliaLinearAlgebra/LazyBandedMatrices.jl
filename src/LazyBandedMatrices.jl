@@ -13,14 +13,14 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
-                        _mul_args_rows, _mul_args_cols, paddeddata, factorizestyle, sub_materialize,
+                        _mul_args_rows, _mul_args_cols, paddeddata, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, resizedata!, applybroadcaststyle,
                         LazyMatrix, LazyVector, LazyArray
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
-                        banded_qr_lmul!, banded_qr_rmul!, banded_qr
+                        banded_qr_lmul!, banded_qr_rmul!
 import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths, 
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns, 
@@ -220,6 +220,7 @@ end
 
 
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
+call(b::BroadcastBandedLayout, a::SubArray) = call(BroadcastLayout(b), a)
 
 sublayout(M::MulBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
 sublayout(M::BroadcastBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
@@ -288,8 +289,18 @@ function bandeddata(B::SubArray{<:Any,2,<:CachedMatrix})
     bandeddata(view(A.data,kr,jr))
 end
 
-function resizedata!(B::CachedMatrix{T,BandedMatrix{T,Matrix{T},OneTo{Int}}}, n::Integer, m::Integer) where T<:Number
-    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize beyound size of operator"))
+function resize(A::BandedMatrix, n::Integer, m::Integer) 
+    l,u = bandwidths(A)
+    _BandedMatrix(reshape(resize!(vec(bandeddata(A)), (l+u+1)*m), l+u+1, m), n, l,u)
+end
+function resize(A::BandedSubBandedMatrix, n::Integer, m::Integer)
+    l,u = bandwidths(A)
+    _BandedMatrix(reshape(resize!(vec(copy(bandeddata(A))), (l+u+1)*m), l+u+1, m), n, l,u)
+end
+
+function resizedata!(::BandedColumns{DenseColumnMajor}, _, B::AbstractMatrix{T}, n::Integer, m::Integer) where T<:Number
+    (n ≤ 0 || m ≤ 0) && return B
+    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize to ($n,$m) which is beyond size $(size(B))"))
 
     # increase size of array if necessary
     olddata = B.data
@@ -301,7 +312,7 @@ function resizedata!(B::CachedMatrix{T,BandedMatrix{T,Matrix{T},OneTo{Int}}}, n:
         λ,ω = bandwidths(B.data)
         if n ≥ size(B.data,1) || m ≥ size(B.data,2)
             M = 2*max(m,n+u)
-            B.data = _BandedMatrix(reshape(resize!(vec(olddata.data), (λ+ω+1)*M), λ+ω+1, M), M+λ, λ,ω)
+            B.data = resize(olddata, M+λ, M)
         end
         if ν > 0 # upper-right
             kr = max(1,μ+1-ω):ν
