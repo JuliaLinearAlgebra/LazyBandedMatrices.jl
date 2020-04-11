@@ -72,13 +72,16 @@ end
 
 @testset "MulMatrix" begin
     A = brand(6,5,0,1)
+    M = ApplyArray(*, A)
+    @test BandedMatrix(M) == copyto!(similar(A), M) == A
+
     B = brand(5,5,1,0)
     M = ApplyArray(*,A,B)
 
     @test isbanded(M) && isbanded(Applied(M))
     @test bandwidths(M) == bandwidths(Applied(M))
-    @test BandedMatrix(M) == A*B
-    @test MemoryLayout(typeof(M)) isa MulBandedLayout
+    @test BandedMatrix(M) == A*B == copyto!(BandedMatrix(M), M)
+    @test MemoryLayout(typeof(M)) isa MulBandedLayouts
     @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
     @test rowsupport(M,1) == rowsupport(Applied(M),1) == 1:2
 
@@ -105,7 +108,7 @@ end
     M = @inferred(ApplyArray(*,A,B,C))
     @test @inferred(eltype(M)) == Float64
     @test bandwidths(M) == (3,3)
-    @test BandedMatrix(M) ≈ A*B*C
+    @test BandedMatrix(M) ≈ A*B*C ≈ copyto!(BandedMatrix(M), M)
 
     M = ApplyArray(*, A, Zeros(5))
     @test colsupport(M,1) == colsupport(Applied(M),1)
@@ -190,7 +193,7 @@ end
     @test bandwidths(C) == (3,2)
     @test MemoryLayout(typeof(C)) == BroadcastBandedLayout{typeof(+)}()
     @test isbanded(C) == true
-    @test BandedMatrix(C) == C
+    @test BandedMatrix(C) == C == copyto!(BandedMatrix(C), C)
 end
 
 @testset "Cache" begin
