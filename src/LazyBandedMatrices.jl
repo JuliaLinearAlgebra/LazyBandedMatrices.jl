@@ -16,7 +16,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
                         _mul_args_rows, _mul_args_cols, paddeddata, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, resizedata!, applybroadcaststyle,
-                        LazyMatrix, LazyVector, LazyArray
+                        LazyMatrix, LazyVector, LazyArray, MulAddStyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -185,6 +185,7 @@ combine_mul_styles(::BroadcastBandedLayout, ::MulBandedLayout) = LazyArrayApplyS
 
 mulapplystyle(::LazyBandedLayout, ::MulBandedLayout) = FlattenMulStyle()
 mulapplystyle(::MulBandedLayout, ::LazyBandedLayout) = FlattenMulStyle()
+mulapplystyle(::AbstractBandedLayout, ::PaddedLayout) = MulAddStyle()
 
 
 @inline colsupport(::BroadcastBandedLayout, A, j) = banded_colsupport(A, j)
