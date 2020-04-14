@@ -2,7 +2,7 @@ using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
 import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout
 import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron
-import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, LazyLayot
+import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix
 
 Random.seed!(0)
 
