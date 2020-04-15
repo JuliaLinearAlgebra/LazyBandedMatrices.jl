@@ -6,7 +6,7 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex
 import Base.Broadcast: Broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal, 
-                        lmul!, rmul!
+                        lmul!, rmul!, checksquare
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing, 
                     sublayout, transposelayout, _copyto!
@@ -28,6 +28,8 @@ import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, Abstr
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix
 import BlockArrays: blockbroadcaststyle
+
+export DiagTrav
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -411,5 +413,7 @@ sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange
 *(A::LazyMatrix, B::AbstractBandedMatrix) = apply(*, A, B)    
 *(A::AbstractBandedMatrix, B::LazyMatrix) = apply(*, A, B)
 *(A::AbstractBandedMatrix, b::LazyVector) = apply(*, A, b)
+
+include("blockkron.jl")
 
 end

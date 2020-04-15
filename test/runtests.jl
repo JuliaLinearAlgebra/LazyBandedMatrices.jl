@@ -516,3 +516,5 @@ end
     b = Vcat([1,2,3],Zeros(size(A,1)-3))
     @test F.Q'b == apply(*,F.Q',b)
 end
+
+include("test_blockkron.jl")
