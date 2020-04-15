@@ -1,8 +1,8 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron
-import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout
+import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
 
 Random.seed!(0)
 
@@ -38,6 +38,17 @@ BandedMatrices.bandwidths(A::PseudoBandedMatrix) = (A.l , A.u)
 BandedMatrices.inbands_getindex(A::PseudoBandedMatrix, j::Int, k::Int) = A.data[j, k]
 BandedMatrices.inbands_setindex!(A::PseudoBandedMatrix, v, j::Int, k::Int) = setindex!(A.data, v, j, k)
 LinearAlgebra.fill!(A::PseudoBandedMatrix, v) = fill!(A.data,v)
+
+struct MyLazyArray{T,N} <: AbstractArray{T,N}
+    data::Array{T,N}
+end
+
+
+Base.size(A::MyLazyArray) = size(A.data)
+Base.getindex(A::MyLazyArray, j::Int...) = A.data[j...]
+LazyArrays.MemoryLayout(::Type{<:MyLazyArray}) = LazyLayout()
+LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
+
 
 @testset "Mul" begin
     A = PseudoBandedMatrix(rand(5, 4), 1, 2)
@@ -514,6 +525,18 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test MemoryLayout(A) isa BandedColumns{LazyLayout}
         x = Vcat([1,2], Zeros(3))
         @test A*x isa Vcat
+    end
+
+    @testset "Lazy banded" begin
+        A = _BandedMatrix(Ones{Int}(1,10),10,0,0)'
+        B = _BandedMatrix((-2:-2:-20)', 10,-1,1)
+        C = Diagonal( BroadcastVector(/, 2, (1:2:20)))
+        @test MemoryLayout(A) isa BandedRows{FillLayout}
+        @test MemoryLayout(B) isa BandedColumns{UnknownLayout}
+        @test MemoryLayout(C) isa DiagonalLayout{LazyLayout}
+        BC = BroadcastArray(*, B, permutedims(MyLazyArray(Array(C.diag))))
+        @test MemoryLayout(BC) isa LazyBandedLayout
+        @test A*BC isa MulMatrix
     end
 end
 
