@@ -537,6 +537,8 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         BC = BroadcastArray(*, B, permutedims(MyLazyArray(Array(C.diag))))
         @test MemoryLayout(BC) isa LazyBandedLayout
         @test A*BC isa MulMatrix
+        @test BC*B isa MulMatrix
+        @test BC*BC isa MulMatrix
     end
 end
 
