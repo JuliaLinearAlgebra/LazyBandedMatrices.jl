@@ -10,17 +10,85 @@ blockvec(A::AbstractMatrix) = PseudoBlockVector(vec(A), Fill(size(A,1), size(A,2
 """
     diagtrav(A::AbstractMatrix)
 """
-struct DiagTrav{T, AA<:AbstractMatrix} <: AbstractBlockVector{T}
-    matrix::AA
-    function DiagTrav{T,AA}(matrix::AA) where {T,AA<:AbstractMatrix}
-        checksquare(matrix)
-        new{T,AA}(matrix)
+struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
+    array::AA
+end
+
+function axes(A::DiagTrav{<:Any,2}) 
+    m,n = size(A.array)
+    mn = min(m,n)
+    (blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn))),)
+end
+
+function axes(A::DiagTrav{<:Any,3}) 
+    m,n,p = size(A.array)
+    @assert m == n == p
+    (blockedrange(cumsum(OneTo(m))),)
+end
+
+
+function getindex(A::DiagTrav{<:Any,2}, K::Block{1}) 
+    k = Int(K)
+    m,n = size(A.array)
+    mn = min(m,n)
+    st = stride(A.array,2)
+    if k ≤ m
+        A.array[range(k; step=st-1, length=min(k,mn))] 
+    else
+        A.array[range(m+(k-m)*st; step=st-1, length=min(k,mn))]
     end
 end
 
-DiagTrav(A::AA) where AA<:AbstractMatrix{T} where T = DiagTrav{T,AA}(A)
+function getindex(A::DiagTrav{T,3}, K::Block{1}) where T
+    k = Int(K)
+    m,n,p = size(A.array)
+    @assert m == n == p
+    st = stride(A.array,2)
+    st3 = stride(A.array,3)
+    ret = A.array[range(k; step=st-1, length=k)]
+    for j = 1:k-1
+        append!(ret, view(A.array, range(j*st3 + (k-j); step=st-1, length=k-j)))
+    end
+    ret
+end
 
-axes(A::DiagTrav) = (blockedrange(Base.OneTo(size(A.matrix,1))),)
-
-getindex(A::DiagTrav, K::Block{1}) = A.matrix[range(Int(K); step=size(A.matrix,1)-1, length=Int(K))]
 getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
+
+struct KronTrav{T, N, AA<:AbstractArray{T,N}, BB<:AbstractArray{T,N}} <: AbstractBlockArray{T, N}
+    A::AA
+    B::BB
+end
+
+KronTrav(A::AbstractArray{T,N}, B::AbstractArray{V,N}) where {T,V,N} =  
+    KronTrav{promote_type(T,V), N, typeof(A), typeof(B)}(A, B, axes)
+
+function _krontrav_axes(A::NTuple{N,OneTo{Int}}, B::NTuple{N,OneTo{Int}}) where N
+    m,n = length.(A), length.(B)
+    mn = min.(m,n)
+    @. blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
+end
+
+axes(A::KronTrav) = _krontrav_axes(axes(A.A), axes(A.B))
+
+function getindex(A::KronTrav{<:Any,1}, K::Block{1}) 
+    m,n = length(A.A), length(A.B)
+    mn = min(m,n)
+    k = Int(K)
+    if k ≤ mn
+        A.A[1:k] .* A.B[k:-1:1]
+    elseif m < n
+        A.A .* A.B[k:-1:(k-m+1)]
+    else # n < m
+        A.A[(k-n+1):k] .* A.B[end:-1:1]
+    end
+end
+
+function getindex(A::KronTrav{<:Any,2}, K::Block{2}) 
+    m,n = size(A.A), size(A.B)
+    @assert m == n
+    k,j = K.n
+    # layout_getindex to avoid SparseArrays from Diagonal
+    layout_getindex(A.A,1:k,1:j) .* A.B[k:-1:1,j:-1:1] 
+end
+getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N = 
+    A[findblockindex.(axes(A), kj)...]
