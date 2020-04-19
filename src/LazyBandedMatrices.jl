@@ -7,10 +7,10 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex
 import Base.Broadcast: Broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal, 
-                        lmul!, rmul!, checksquare
+                        lmul!, rmul!, checksquare, StructuredMatrixStyle
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing, 
-                    sublayout, transposelayout, _copyto!
+                    sublayout, transposelayout, _copyto!, MemoryLayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -27,7 +27,8 @@ import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, Abstr
                         isblockbanded, isbandedblockbanded, blockbandwidths, 
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns, 
                         BandedBlockBandedColumns, BlockBandedColumns,
-                        subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix
+                        subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
+                        AbstractBandedBlockBandedLayout, BandedBlockBandedStyle
 import BlockArrays: blockbroadcaststyle
 
 export DiagTrav, KronTrav, blockkron

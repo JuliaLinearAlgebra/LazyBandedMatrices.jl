@@ -1,4 +1,6 @@
-using LazyBandedMatrices, FillArrays, BandedMatrices, BlockArrays, Test
+using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, Test
+import BlockBandedMatrices: isbandedblockbanded, BandedBlockBandedStyle
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout
 
 @testset "DiagTrav" begin
     A = [1 2 3; 4 5 6; 7 8 9]
@@ -15,6 +17,7 @@ using LazyBandedMatrices, FillArrays, BandedMatrices, BlockArrays, Test
                           A.array[2,1,2], A.array[1,2,2], A.array[1,1,3]]
     @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
 end
+
 @testset "KronTrav" begin
     a = [1,2,3]
     b = [4,5,6]
@@ -32,7 +35,28 @@ end
 
     n = 4
     Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+    A = KronTrav(Δ, Eye(n))
+    B = KronTrav(Eye(n), Δ)
+    
     X = triu!(randn(n,n))[:,end:-1:1]
-    @test KronTrav(Δ, Eye(n)) * DiagTrav(X) == DiagTrav(X * Δ')
-    @test KronTrav(Eye(n), Δ) * DiagTrav(X) == DiagTrav(Δ * X)
+    @test A * DiagTrav(X) == DiagTrav(X * Δ')
+    @test B * DiagTrav(X) == DiagTrav(Δ * X)
+
+    @test blockbandwidths(A) == blockbandwidths(B) == (1,1)
+    @test subblockbandwidths(A) == (1,1)
+    @test subblockbandwidths(B) == (0,0)
+    @test isblockbanded(A)
+    @test isbandedblockbanded(A)
+    @test BandedBlockBandedMatrix(A) == A
+   
+    @test MemoryLayout(A) isa KronTravBandedBlockBandedLayout
+    V = view(A, Block.(2:4), Block.(1:4))
+    @test blockbandwidths(V) == (0,2)
+    @test subblockbandwidths(V) == (1,1)
+    @test BandedBlockBandedMatrix(V) == A[Block.(2:4), Block.(1:4)]
+    @test A[Block.(2:4), Block.(1:4)] isa BandedBlockBandedMatrix
+
+    @test Base.BroadcastStyle(typeof(A)) isa BandedBlockBandedStyle
+    @test A+B isa BandedBlockBandedMatrix
+    @test A+B == Matrix(A) + Matrix(B)
 end

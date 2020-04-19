@@ -92,3 +92,27 @@ function getindex(A::KronTrav{<:Any,2}, K::Block{2})
 end
 getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N = 
     A[findblockindex.(axes(A), kj)...]
+
+# A.A[1:k,1:j] has A_l,A_u
+# A.B[k:-1:1,j:-1:1] has bandwidths (B_u + k-j, B_l + j-k)
+subblockbandwidths(A::KronTrav) = bandwidths(A.A)
+blockbandwidths(A::KronTrav) = bandwidths(A.A) .+ bandwidths(A.B)
+isblockbanded(A::KronTrav) = isbanded(A.A) && isbanded(A.B)
+isbandedblockbanded(A::KronTrav) = isbanded(A.A) && isbanded(A.B)
+
+struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
+
+krontravlayout(_, _) = UnknownLayout()
+krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedBlockBandedLayout()
+MemoryLayout(::Type{KronTrav{T,N,AA,BB}}) where {T,N,AA,BB} = krontravlayout(MemoryLayout(AA), MemoryLayout(BB))
+
+
+krontavbroadcaststyle(::BandedStyle, ::BandedStyle) = BandedBlockBandedStyle()
+krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = BandedBlockBandedStyle()
+krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
+BroadcastStyle(::Type{KronTrav{T,N,AA,BB}}) where {T,N,AA,BB} = 
+    krontavbroadcaststyle(BroadcastStyle(AA), BroadcastStyle(BB))
+
+
+Base.replace_in_print_matrix(A::KronTrav, i::Integer, j::Integer, s::AbstractString) = 
+    BlockBandedMatrices._bandedblockbanded_replace_in_print_matrix(A, i, j, s)
