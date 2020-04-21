@@ -16,7 +16,8 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
                         _mul_args_rows, _mul_args_cols, paddeddata, sub_materialize,
-                        MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, resizedata!, applybroadcaststyle,
+                        MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
+                        resizedata!, applybroadcaststyle,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
@@ -155,16 +156,33 @@ subblockbandwidths(M::MulMatrix) = prodsubblockbandwidths(M.args...)
 ###
 
 bandwidths(M::BroadcastMatrix) = bandwidths(Broadcasted(M))
+# TODO: Generalize
+for op in (:+, :-)
+    @eval begin
+        blockbandwidths(M::BroadcastMatrix{<:Any,typeof($op)}) = 
+            broadcast(max, map(blockbandwidths,arguments(M))...)
+        subblockbandwidths(M::BroadcastMatrix{<:Any,typeof($op)}) = 
+            broadcast(max, map(subblockbandwidths,arguments(M))...)            
+    end
+end
+
 isbanded(M::BroadcastMatrix) = isbanded(Broadcasted(M))
 
 struct BroadcastBandedLayout{F} <: AbstractBandedLayout end
+struct BroadcastBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+struct BroadcastBandedBlockBandedLayout{F} <: AbstractBandedBlockBandedLayout end
 struct LazyBandedLayout <: AbstractBandedLayout end
 
 BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
-for op in (:*, :/, :\)
-    @eval broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
+# functions that satisfy f(0,0) == 0
+for op in (:*, :/, :\, :+, :-)
+    @eval begin
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBlockBandedLayout, ::AbstractBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+    end
 end
 for op in (:*, :/)
     @eval broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
@@ -177,10 +195,6 @@ broadcastlayout(::Type{typeof(*)}, ::LazyLayout, ::AbstractBandedLayout) = LazyB
 broadcastlayout(::Type{typeof(/)}, ::AbstractBandedLayout, ::LazyLayout) = LazyBandedLayout()
 broadcastlayout(::Type{typeof(\)}, ::LazyLayout, ::AbstractBandedLayout) = LazyBandedLayout()
 
-# functions that satisfy f(0,0) == 0
-for op in (:+, :-)
-    @eval broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
-end
 
 combine_mul_styles(::BroadcastBandedLayout, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
 combine_mul_styles(::MulBandedLayout, ::MulBandedLayout) = LazyArrayApplyStyle()
@@ -198,6 +212,11 @@ mulapplystyle(::AbstractBandedLayout, ::PaddedLayout) = MulAddStyle()
 @inline colsupport(::BroadcastBandedLayout, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::BroadcastBandedLayout, A, j) = banded_rowsupport(A, j)
 
+
+function _cache(::AbstractBlockBandedLayout, A::AbstractMatrix{T}) where T
+    kr,jr = axes(A)
+    CachedArray(BlockBandedMatrix{T}(undef, (kr[Block.(1:0)], jr[Block.(1:0)]), blockbandwidths(A)), A)
+end
 
 ###
 # sub materialize
@@ -321,6 +340,12 @@ function resize(A::BandedSubBandedMatrix, n::Integer, m::Integer)
     l,u = bandwidths(A)
     _BandedMatrix(reshape(resize!(vec(copy(bandeddata(A))), (l+u+1)*m), l+u+1, m), n, l,u)
 end
+function resize(A::BlockBandedMatrix{T}, ax::NTuple{2,AbstractUnitRange{Int}}) where T
+    l,u = blockbandwidths(A)
+    ret = BlockBandedMatrix{T}(undef, ax, (l,u))
+    ret.data[1:length(A.data)] .= A.data
+    ret
+end
 
 function resizedata!(::BandedColumns{DenseColumnMajor}, _, B::AbstractMatrix{T}, n::Integer, m::Integer) where T<:Number
     (n ≤ 0 || m ≤ 0) && return B
@@ -351,6 +376,50 @@ function resizedata!(::BandedColumns{DenseColumnMajor}, _, B::AbstractMatrix{T},
             jr = max(1,ν+1-λ):μ
             if !isempty(kr) && !isempty(jr)
                 view(B.data, kr, jr) .= B.array[kr, jr]
+            end
+        end
+        B.datasize = (n,m)
+    end
+
+    B
+end
+
+function resizedata!(::BlockBandedColumns{<:AbstractColumnMajor}, _, B::AbstractMatrix{T}, n::Integer, m::Integer) where T<:Number
+    (n ≤ 0 || m ≤ 0) && return B
+    @boundscheck checkbounds(Bool, B, n, m) || throw(ArgumentError("Cannot resize to ($n,$m) which is beyond size $(size(B))"))
+
+    # increase size of array if necessary
+    olddata = B.data
+    ν,μ = B.datasize
+    n,m = max(ν,n), max(μ,m)
+    N,M = findblock.(axes(B), (n,m))
+    
+    N_old = ν == 0 ? Block(0) : findblock(axes(B)[1], ν)
+    M_old = μ == 0 ? Block(0) : findblock(axes(B)[2], μ)
+
+    n,m = last.(getindex.(axes(B), (N,M)))
+    N_max, M_max = Block.(blocksize(B))
+
+    if (ν,μ) ≠ (n,m)
+        l,u = blockbandwidths(B.array)
+        λ,ω = blockbandwidths(B.data)
+        if Int(N) > blocksize(B.data,1) || Int(M) > blocksize(B.data,2)
+            M̃ = 2*max(M,N+u)
+            B.data = resize(olddata, (axes(B)[1][Block(1):min(M̃+λ,M_max)], axes(B)[2][Block(1):min(M̃,N_max)]))
+        end
+        if ν > 0 # upper-right
+            KR = max(Block(1),M_old+1-ω):N_old
+            JR = M_old+1:min(M,N_old+ω)
+            if !isempty(KR) && !isempty(JR)
+                view(B.data, KR, JR) .= B.array[KR, JR]
+            end
+        end
+        view(B.data, N_old+1:N, M_old+1:M) .= B.array[N_old+1:N, M_old+1:M]
+        if μ > 0
+            KR = N_old+1:min(N,M_old+λ)
+            JR = max(Block(1),N_old+1-λ):M_old
+            if !isempty(KR) && !isempty(JR)
+                view(B.data, KR, JR) .= B.array[KR, JR]
             end
         end
         B.datasize = (n,m)

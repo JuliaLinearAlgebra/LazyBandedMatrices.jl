@@ -1,7 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
 import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
 
 Random.seed!(0)
@@ -539,6 +539,23 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test A*BC isa MulMatrix
         @test BC*B isa MulMatrix
         @test BC*BC isa MulMatrix
+    end
+
+    @testset "banded-block-banded Kron" begin
+        n = 4
+        h = 1/n
+        D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
+
+        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
+        D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        Δ = BroadcastArray(+, D_xx, D_yy)
+        @test MemoryLayout(Δ) isa BroadcastBandedBlockBandedLayout
+        @test blockbandwidths(Δ) == (1,1)
+        @test subblockbandwidths(Δ) == (1,1)
+        B = cache(Δ);
+        resizedata!(B,5,5);
+        @test B.data[1:5,1:5] == Δ[1:5,1:5]
+        @test B == Δ
     end
 end
 

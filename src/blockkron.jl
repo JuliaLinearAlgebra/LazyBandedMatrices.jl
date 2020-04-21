@@ -88,7 +88,7 @@ function getindex(A::KronTrav{<:Any,2}, K::Block{2})
     @assert m == n
     k,j = K.n
     # layout_getindex to avoid SparseArrays from Diagonal
-    layout_getindex(A.A,1:k,1:j) .* A.B[k:-1:1,j:-1:1] 
+    layout_getindex(A.A,1:k,1:j) .* layout_getindex(A.B,k:-1:1,j:-1:1)
 end
 getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N = 
     A[findblockindex.(axes(A), kj)...]
@@ -110,6 +110,8 @@ MemoryLayout(::Type{KronTrav{T,N,AA,BB}}) where {T,N,AA,BB} = krontravlayout(Mem
 krontavbroadcaststyle(::BandedStyle, ::BandedStyle) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
+krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 BroadcastStyle(::Type{KronTrav{T,N,AA,BB}}) where {T,N,AA,BB} = 
     krontavbroadcaststyle(BroadcastStyle(AA), BroadcastStyle(BB))
 
