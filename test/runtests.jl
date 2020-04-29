@@ -1,8 +1,9 @@
-using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
+using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata
 import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
+import ArrayLayouts: StridedLayout
 
 Random.seed!(0)
 
@@ -556,6 +557,40 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         resizedata!(B,5,5);
         @test B.data[1:5,1:5] == Δ[1:5,1:5]
         @test B == Δ
+    end
+
+    @testset "Padded Block" begin
+        b = PseudoBlockArray(cache(Zeros(55)),1:10);
+        b[10] = 5;
+        @test MemoryLayout(b) isa PaddedLayout{DenseColumnMajor}
+        @test paddeddata(b) isa PseudoBlockVector
+        @test paddeddata(b) == [zeros(9); 5]
+    end
+
+    @testset "Banded rot" begin
+        A = brand(5,5,1,2)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (2,1)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+
+        A = brand(5,4,1,2)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (3,0)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+        
+        A = brand(5,6,1,-1)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (-2,2)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+
+        A = brand(6,5,-1,1)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (2,-2)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
     end
 end
 

@@ -1,4 +1,53 @@
 
+###
+# BlockBanded
+###
+
+blockbroadcaststyle(::LazyArrayStyle{N}) where N = LazyArrayStyle{N}()
+
+mulapplystyle(::DiagonalLayout, ::AbstractBlockBandedLayout) = MulAddStyle()
+mulapplystyle(::AbstractBlockBandedLayout, ::DiagonalLayout) = MulAddStyle()
+bandedblockbandedbroadcaststyle(::LazyArrayStyle{2}) = LazyArrayStyle{2}()
+bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
+bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
+bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
+
+struct BlockKron{T,A,B} <: AbstractBandedMatrix{T}
+    args::Tuple{A,B}
+end
+
+BlockKron{T}(A::AA, B::BB) where {T,AA,BB} = BlockKron{T,AA,BB}((A,B))
+BlockKron(A, B) = BlockKron{promote_type(eltype(A),eltype(B))}(A, B)
+BlockKron(K::Kron{T,2}) where T = BlockKron{T}(K.args...)
+
+Kron(B::BlockKron) = Kron(B.args...)
+
+size(B::BlockKron) = size(Kron(B))
+getindex(B::BlockKron, k::Int, j::Int) = Kron(B)[k,j]
+
+isblockbanded(K::BlockKron) = isbanded(first(K.args))
+isbandedblockbanded(K::BlockKron) = all(isbanded, K.args)
+blockbandwidths(K::BlockKron) = bandwidths(first(K.args))
+subblockbandwidths(K::BlockKron) = bandwidths(last(K.args))
+function axes(K::BlockKron)
+    A,B = K.args
+    blockedrange.((Fill(size(B,1), size(A,1)), Fill(size(B,2), size(A,2))))
+end
+
+const SubKron{T,M1,M2,R1,R2} = SubArray{T,2,<:BlockKron{T,M1,M2},<:Tuple{<:BlockSlice{R1},<:BlockSlice{R2}}}
+
+
+BroadcastStyle(::Type{<:SubKron{<:Any,<:Any,B,Block1,Block1}}) where B =
+    BroadcastStyle(B)
+
+@inline bandwidths(V::SubKron{<:Any,<:Any,<:Any,Block1,Block1}) =
+    subblockbandwidths(parent(V))
+
+BandedBlockBandedMatrix(K::Kron) = BandedBlockBandedMatrix(BlockKron(K))
+BlockBandedMatrix(K::Kron) = BlockBandedMatrix(BlockKron(K))
+
+
+
 """
     blockvec(A::AbstractMatrix)
 
@@ -14,26 +63,26 @@ struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
     array::AA
 end
 
-function axes(A::DiagTrav{<:Any,2}) 
+function axes(A::DiagTrav{<:Any,2})
     m,n = size(A.array)
     mn = min(m,n)
     (blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn))),)
 end
 
-function axes(A::DiagTrav{<:Any,3}) 
+function axes(A::DiagTrav{<:Any,3})
     m,n,p = size(A.array)
     @assert m == n == p
     (blockedrange(cumsum(OneTo(m))),)
 end
 
 
-function getindex(A::DiagTrav{<:Any,2}, K::Block{1}) 
+function getindex(A::DiagTrav{<:Any,2}, K::Block{1})
     k = Int(K)
     m,n = size(A.array)
     mn = min(m,n)
     st = stride(A.array,2)
     if k ≤ m
-        A.array[range(k; step=st-1, length=min(k,mn))] 
+        A.array[range(k; step=st-1, length=min(k,mn))]
     else
         A.array[range(m+(k-m)*st; step=st-1, length=min(k,mn))]
     end
@@ -54,13 +103,17 @@ end
 
 getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
 
-struct KronTrav{T, N, AA<:AbstractArray{T,N}, BB<:AbstractArray{T,N}} <: AbstractBlockArray{T, N}
+struct KronTrav{T, N, AA<:AbstractArray{T,N}, BB<:AbstractArray{T,N}, AXES} <: AbstractBlockArray{T, N}
     A::AA
     B::BB
+    axes::AXES
 end
 
-KronTrav(A::AbstractArray{T,N}, B::AbstractArray{V,N}) where {T,V,N} =  
-    KronTrav{promote_type(T,V), N, typeof(A), typeof(B)}(A, B, axes)
+KronTrav(A::AbstractArray{T,N}, B::AbstractArray{V,N}, axes) where {T,V,N} =
+    KronTrav{promote_type(T,V),N,typeof(A),typeof(B),typeof(axes)}(A, B, axes)
+
+KronTrav(A::AbstractArray{T,N}, B::AbstractArray{V,N}) where {T,V,N} =
+    KronTrav(A, B, _krontrav_axes(axes(A), axes(B)))
 
 function _krontrav_axes(A::NTuple{N,OneTo{Int}}, B::NTuple{N,OneTo{Int}}) where N
     m,n = length.(A), length.(B)
@@ -68,9 +121,9 @@ function _krontrav_axes(A::NTuple{N,OneTo{Int}}, B::NTuple{N,OneTo{Int}}) where 
     @. blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
 end
 
-axes(A::KronTrav) = _krontrav_axes(axes(A.A), axes(A.B))
+axes(A::KronTrav) = A.axes
 
-function getindex(A::KronTrav{<:Any,1}, K::Block{1}) 
+function getindex(A::KronTrav{<:Any,1}, K::Block{1})
     m,n = length(A.A), length(A.B)
     mn = min(m,n)
     k = Int(K)
@@ -83,14 +136,18 @@ function getindex(A::KronTrav{<:Any,1}, K::Block{1})
     end
 end
 
-function getindex(A::KronTrav{<:Any,2}, K::Block{2}) 
+
+
+function getindex(A::KronTrav{<:Any,2}, K::Block{2})
     m,n = size(A.A), size(A.B)
     @assert m == n
     k,j = K.n
+    # Following is equivalent to A.A[1:k,1:j] .* A.B[k:-1:1,j:-1:1]
     # layout_getindex to avoid SparseArrays from Diagonal
-    layout_getindex(A.A,1:k,1:j) .* layout_getindex(A.B,k:-1:1,j:-1:1)
+    # rot180 to preserve bandedness
+    layout_getindex(A.A,1:k,1:j) .* rot180(layout_getindex(A.B,1:k,1:j))
 end
-getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N = 
+getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N =
     A[findblockindex.(axes(A), kj)...]
 
 # A.A[1:k,1:j] has A_l,A_u
@@ -104,7 +161,18 @@ struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 
 krontravlayout(_, _) = UnknownLayout()
 krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedBlockBandedLayout()
-MemoryLayout(::Type{KronTrav{T,N,AA,BB}}) where {T,N,AA,BB} = krontravlayout(MemoryLayout(AA), MemoryLayout(BB))
+MemoryLayout(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} = krontravlayout(MemoryLayout(AA), MemoryLayout(BB))
+
+
+sublayout(::KronTravBandedBlockBandedLayout, ::Type{NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
+
+call(b::BroadcastBandedLayout{typeof(*)}, a::SubArray) = *
+
+function _broadcast_sub_arguments(::KronTravBandedBlockBandedLayout, A, V)
+    K,J = parentindices(V)
+    k,j = Int(K.block),Int(J.block)
+    view(A.A,1:k,1:j), ApplyMatrix(rot180,view(A.B,1:k,1:j))
+end
 
 
 krontavbroadcaststyle(::BandedStyle, ::BandedStyle) = BandedBlockBandedStyle()
@@ -112,9 +180,9 @@ krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = Band
 krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
 krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
-BroadcastStyle(::Type{KronTrav{T,N,AA,BB}}) where {T,N,AA,BB} = 
+BroadcastStyle(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} =
     krontavbroadcaststyle(BroadcastStyle(AA), BroadcastStyle(BB))
 
 
-Base.replace_in_print_matrix(A::KronTrav, i::Integer, j::Integer, s::AbstractString) = 
+Base.replace_in_print_matrix(A::KronTrav, i::Integer, j::Integer, s::AbstractString) =
     BlockBandedMatrices._bandedblockbanded_replace_in_print_matrix(A, i, j, s)
