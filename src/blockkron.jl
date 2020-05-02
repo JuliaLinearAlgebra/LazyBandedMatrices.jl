@@ -103,6 +103,20 @@ end
 
 getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
 
+struct InvDiagTrav{T, AA<:AbstractVector{T}} <: AbstractMatrix{T}
+    vector::AA
+end
+
+size(A::InvDiagTrav) = (blocksize(A.vector,1),blocksize(A.vector,1))
+
+function getindex(A::InvDiagTrav{T}, k::Int, j::Int)  where T
+    if k+j-1 ≤ blocksize(A.vector,1)
+        A.vector[Block(k+j-1)][j]
+    else
+        zero(T)
+    end
+end
+
 struct KronTrav{T, N, AA<:AbstractArray{T,N}, BB<:AbstractArray{T,N}, AXES} <: AbstractBlockArray{T, N}
     A::AA
     B::BB
@@ -180,6 +194,7 @@ krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = Band
 krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
 krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 BroadcastStyle(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} =
     krontavbroadcaststyle(BroadcastStyle(AA), BroadcastStyle(BB))
 

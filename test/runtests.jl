@@ -591,6 +591,12 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test MemoryLayout(R) isa BandedColumns{StridedLayout}
         @test bandwidths(R) == (2,-2)
         @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+
+        B = brand(5,4,1,1)
+        R = ApplyArray(rot180, ApplyArray(*, A, B))
+        MemoryLayout(R) isa MulBandedLayout
+        @test bandwidths(R) == (4,-2)
+        @test R == rot180(A*B)
     end
 end
 

@@ -30,7 +30,8 @@ import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, Abstr
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
-                        AbstractBandedBlockBandedLayout, BandedBlockBandedStyle
+                        AbstractBandedBlockBandedLayout, BandedBlockBandedStyle,
+                        blockcolsupport, BlockRange1
 import BlockArrays: blockbroadcaststyle, BlockSlice1
 
 export DiagTrav, KronTrav, blockkron
@@ -113,15 +114,42 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
     y
 end
 
+
+
 function paddeddata(P::PseudoBlockVector)
     C = P.blocks
+    data = paddeddata(C)
     ax = axes(P,1)
-    N = findblock(ax,C.datasize[1])
+    N = findblock(ax,length(data))
     n = last(ax[N])
-    resizedata!(C,n)
-    PseudoBlockVector(paddeddata(C), (ax[Block(1):N],))
+    if n ≠ length(data)
+        resizedata!(C,n)
+    end
+    PseudoBlockVector(data, (ax[Block(1):N],))
 end
 
+
+function similar(Ml::MulAdd{<:AbstractBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _) where T
+    A,x = Ml.A,Ml.B
+    xf = paddeddata(x)
+    ax1,ax2 = axes(A)
+    N = findblock(ax2,length(xf))
+    M = last(blockcolsupport(A,N))
+    m = last(ax1[M]) # number of non-zero entries
+    PseudoBlockVector(Vcat(Vector{T}(undef, m), Zeros{T}(length(ax1)-m)), (ax1,))
+end
+
+function materialize!(M::MatMulVecAdd{<:AbstractBlockBandedLayout,<:PaddedLayout,<:PaddedLayout})
+    α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
+    length(y) == size(A,1) || throw(DimensionMismatch())
+    length(x) == size(A,2) || throw(DimensionMismatch())
+
+    ỹ = paddeddata(y)
+    x̃ = paddeddata(x)
+
+    muladd!(α, view(A, blockaxes(ỹ,1), blockaxes(x̃,1)) , x̃, β, ỹ)
+    y
+end
 
 
 ###
@@ -137,11 +165,9 @@ applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = MulBandedLayout()
 
 
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulBandedLayout) = BandedStyle()
-# applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulLayout{<:Tuple{BandedColumns{LazyLayout},Vararg{<:AbstractBandedLayout}}}) = LazyArrayStyle{2}()
 
 @inline colsupport(::MulBandedLayout, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::MulBandedLayout, A, j) = banded_rowsupport(A, j)
-# @inline colsupport(::MulLayout{<:Tuple{<:AbstractBandedLayout,<:AbstractStridedLayout}}, A, j) = banded_colsupport(A, j)
 @inline _arguments(::MulBandedLayout, A) = arguments(A)
 
 
@@ -175,6 +201,13 @@ for op in (:+, :-)
     end
 end
 
+for func in (:blockbandwidths, :subblockbandwidths)
+    @eval begin
+        $func(M::BroadcastMatrix{<:Any,typeof(*),<:Tuple{<:Number,<:AbstractMatrix}}) = $func(M.args[2])
+        $func(M::BroadcastMatrix{<:Any,typeof(*),<:Tuple{<:AbstractMatrix,<:Number,}}) = $func(M.args[1])
+    end
+end
+
 isbanded(M::BroadcastMatrix) = isbanded(Broadcasted(M))
 
 struct BroadcastBandedLayout{F} <: AbstractBandedLayout end
@@ -194,16 +227,26 @@ for op in (:*, :/, :\, :+, :-)
     end
 end
 for op in (:*, :/)
-    @eval broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
+    @eval begin
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBlockBandedLayout, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+    end
 end
 for op in (:*, :\)
-    @eval broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
+    @eval begin
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+    end
 end
 broadcastlayout(::Type{typeof(*)}, ::AbstractBandedLayout, ::LazyLayout) = LazyBandedLayout()
 broadcastlayout(::Type{typeof(*)}, ::LazyLayout, ::AbstractBandedLayout) = LazyBandedLayout()
 broadcastlayout(::Type{typeof(/)}, ::AbstractBandedLayout, ::LazyLayout) = LazyBandedLayout()
 broadcastlayout(::Type{typeof(\)}, ::LazyLayout, ::AbstractBandedLayout) = LazyBandedLayout()
 
+
+sublayout(LAY::BroadcastBandedBlockBandedLayout, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = LAY
 
 combine_mul_styles(::BroadcastBandedLayout, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
 combine_mul_styles(::MulBandedLayout, ::MulBandedLayout) = LazyArrayApplyStyle()
@@ -262,6 +305,8 @@ for op in (:+, :-)
         @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix) = apply($op, map(BandedMatrix,arguments(V))...)
         _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
             broadcast!($op, dest, map(BandedMatrix, arguments(src))...)
+        _copyto!(::AbstractBandedBlockBandedLayout, ::BroadcastBandedBlockBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
+            broadcast!($op, dest, map(BandedBlockBandedMatrix, arguments(src))...)
     end
 end
 
@@ -272,13 +317,14 @@ _mulbanded_copyto!(dest, a) = copyto!(dest, a)
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b, zero(T), dest)
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b, c, d...) where T = _mulbanded_copyto!(dest, apply(*,a,b), c, d...)
 
-function _broadcast_sub_arguments(::BroadcastBandedLayout, A, V)
+function _broadcast_sub_arguments(_, A, V)
     kr, jr = parentindices(V)
     view.(arguments(A), Ref(kr), Ref(jr))
 end
 
 _broadcast_sub_arguments(A, V) = _broadcast_sub_arguments(MemoryLayout(A), A, V)
 arguments(::BroadcastBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
+arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
 
 
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
@@ -468,7 +514,16 @@ sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange
 applylayout(::Type{typeof(rot180)}, ::BandedColumns{LAY}) where LAY =
     BandedColumns{typeof(sublayout(LAY(), NTuple{2,StepRange{Int,Int}}))}()
 
-function bandwidths(R::ApplyMatrix{<:Any,typeof(rot180)})
+applylayout(::Type{typeof(rot180)}, ::AbstractBandedLayout) =
+    ApplyBandedLayout{typeof(rot180)}()
+
+call(::MulBandedLayout, A::ApplyMatrix{<:Any,typeof(rot180)}) = *
+applylayout(::Type{typeof(rot180)}, ::MulBandedLayout) = MulBandedLayout()
+arguments(::MulBandedLayout, A::ApplyMatrix{<:Any,typeof(rot180)}) = ApplyMatrix.(rot180, arguments(A.args...))
+
+
+bandwidths(R::ApplyMatrix{<:Any,typeof(rot180)}) = bandwidths(Applied(R))
+function bandwidths(R::Applied{<:Any,typeof(rot180)})
     m,n = size(R)
     sh = m-n
     l,u = bandwidths(arguments(R)[1])
