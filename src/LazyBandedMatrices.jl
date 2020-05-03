@@ -24,7 +24,7 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
-                        banded_qr_lmul!, banded_qr_rmul!
+                        banded_qr_lmul!, banded_qr_rmul!, _banded_broadcast!
 import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths,
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
@@ -269,8 +269,11 @@ _broadcasted(bc) = Base.broadcasted(call(bc), arguments(bc)...)
 _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
     copyto!(dest, _broadcasted(bc))
 
-_copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) = 
-    copyto!(dest, _broadcasted(bc))  
+_copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
+    copyto!(dest, _broadcasted(bc))
+
+_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, ::Tuple{<:Any,MulBandedLayout}) where {T,V} =
+    broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
 
 
 function _cache(::AbstractBlockBandedLayout, A::AbstractMatrix{T}) where T
@@ -300,9 +303,10 @@ end
 ###
 
 _BandedMatrix(::MulBandedLayout, V::AbstractMatrix) = apply(*, map(BandedMatrix,arguments(V))...)
-for op in (:+, :-)
+
+for op in (:+, :-, :*)
     @eval begin
-        @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix) = apply($op, map(BandedMatrix,arguments(V))...)
+        @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix) = broadcast($op, map(BandedMatrix,arguments(V))...)
         _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
             broadcast!($op, dest, map(BandedMatrix, arguments(src))...)
         _copyto!(::AbstractBandedBlockBandedLayout, ::BroadcastBandedBlockBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
@@ -317,11 +321,8 @@ _mulbanded_copyto!(dest, a) = copyto!(dest, a)
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b, zero(T), dest)
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b, c, d...) where T = _mulbanded_copyto!(dest, apply(*,a,b), c, d...)
 
-function _broadcast_sub_arguments(_, A, V)
-    kr, jr = parentindices(V)
-    view.(arguments(A), Ref(kr), Ref(jr))
-end
-
+_broadcast_sub_arguments(::BroadcastBandedLayout{F}, A, V) where F = arguments(BroadcastLayout{F}(), V)
+_broadcast_sub_arguments(::BroadcastBandedBlockBandedLayout{F}, A, V) where F = arguments(BroadcastLayout{F}(), V)
 _broadcast_sub_arguments(A, V) = _broadcast_sub_arguments(MemoryLayout(A), A, V)
 arguments(::BroadcastBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
 arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
