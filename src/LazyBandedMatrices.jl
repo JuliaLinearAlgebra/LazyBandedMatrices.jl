@@ -18,7 +18,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
                         _mul_args_rows, _mul_args_cols, paddeddata, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
-                        resizedata!, applybroadcaststyle,
+                        resizedata!, applybroadcaststyle, 
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
@@ -480,7 +480,7 @@ function resizedata!(::BlockBandedColumns{<:AbstractColumnMajor}, _, B::Abstract
             KR = max(Block(1),M_old+1-ω):N_old
             JR = M_old+1:min(M,N_old+ω)
             if !isempty(KR) && !isempty(JR)
-                view(B.data, KR, JR) .= B.array[KR, JR]
+                copyto!(view(B.data, KR, JR), B.array[KR, JR])
             end
         end
         view(B.data, N_old+1:N, M_old+1:M) .= B.array[N_old+1:N, M_old+1:M]

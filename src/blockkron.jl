@@ -40,9 +40,6 @@ const SubKron{T,M1,M2,R1,R2} = SubArray{T,2,<:BlockKron{T,M1,M2},<:Tuple{<:Block
 BroadcastStyle(::Type{<:SubKron{<:Any,<:Any,B,Block1,Block1}}) where B =
     BroadcastStyle(B)
 
-@inline bandwidths(V::SubKron{<:Any,<:Any,<:Any,Block1,Block1}) =
-    subblockbandwidths(parent(V))
-
 BandedBlockBandedMatrix(K::Kron) = BandedBlockBandedMatrix(BlockKron(K))
 BlockBandedMatrix(K::Kron) = BlockBandedMatrix(BlockKron(K))
 

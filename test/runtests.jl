@@ -188,13 +188,14 @@ end
 
     V = view(A, 2:3, 3:5)
     @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
-    @test bandwidths(V) == (2,0)
+    @test bandwidths(V) == (1,0)
     @test colsupport(V,1) == 1:2
     @test V == BroadcastArray(V) == Array(A)[2:3,3:5]
+    @test bandwidths(view(A,2:4,3:5)) == (2,0)
 
     V = view(A, 2:3, 3:5)'
     @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
-    @test bandwidths(V) == (0,2)
+    @test bandwidths(V) == (0,1)
     @test colsupport(V,1) == 1:1
     @test V == BroadcastArray(V) == Array(A)[2:3,3:5]'
 
@@ -553,6 +554,25 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test MemoryLayout(Δ) isa BroadcastBandedBlockBandedLayout
         @test blockbandwidths(Δ) == (1,1)
         @test subblockbandwidths(Δ) == (1,1)
+        @test Δ[Block.(1:4),Block.(2:4)] == Δ[:,5:end]
+
+
+        @testset "irradic indexing" begin
+            B = cache(Δ);
+            resizedata!(B,16,1);
+            # we do blockwise
+            @test B.data[1:16,1:4] == Δ[1:16,1:4]
+            resizedata!(B,1,16);
+            @test B.datasize == (16,16)
+            @test B.data == Δ
+        end
+
+        @testset "Cache-block indexing" begin
+            B = cache(Δ);
+            @test B[Block(1,1)] == B[Block(1),Block(1)] == Δ[Block(1,1)]
+            @test B[Block.(1:3),Block.(1:2)] == Δ[Block.(1:3),Block.(1:2)]
+        end
+    
         B = cache(Δ);
         resizedata!(B,5,5);
         @test B.data[1:5,1:5] == Δ[1:5,1:5]
