@@ -2,22 +2,11 @@
 # MatrixFactorizations.QRPackedQ
 ###
 
-banded_lmul!(A::QRPackedQ, B::AbstractVecOrMat) = banded_qr_lmul!(A, B)
-banded_lmul!(adjA::Adjoint{<:Any,<:QRPackedQ}, B::AbstractVecOrMat) = banded_qr_lmul!(adjA, B)
-banded_rmul!(A::AbstractMatrix, Q::QRPackedQ) = banded_qr_rmul!(A, Q)
-banded_rmul!(A::AbstractMatrix, adjQ::Adjoint{<:Any,<:QRPackedQ}) = banded_qr_rmul!(A, adjQ)
+materialize!(M::Lmul{<:QRPackedQLayout{<:AbstractBandedLayout}}) = banded_qr_lmul!(M.A,M.B)
+materialize!(M::Lmul{<:AdjQRPackedQLayout{<:AbstractBandedLayout}}) = banded_qr_lmul!(M.A,M.B)
 
-lmul!(A::QRPackedQ{<:Any,<:AbstractBandedMatrix}, B::AbstractVecOrMat) = banded_lmul!(A,B)
-lmul!(adjA::Adjoint{<:Any,<:QRPackedQ{<:Any,<:AbstractBandedMatrix}}, B::AbstractVecOrMat) = banded_lmul!(adjA,B)
-lmul!(A::QRPackedQ{<:Any,BandedSubBandedMatrix{T,C,R,I1,I2}}, B::AbstractVecOrMat) where {T,C,R,I1<:AbstractUnitRange,I2<:AbstractUnitRange} = 
-    banded_lmul!(A,B)
-lmul!(adjA::Adjoint{T,<:QRPackedQ{T,<:BandedSubBandedMatrix{T,C,R,I1,I2,t}}}, B::AbstractVecOrMat) where {T,C,R,I1<:AbstractUnitRange,I2<:AbstractUnitRange,t} = 
-    banded_lmul!(adjA,B)
-# rmul!(A::AbstractMatrix, adjQ::Adjoint{<:Any,<:QRPackedQ{<:Any,<:AbstractBandedMatrix}}) = banded_rmul!(A, adjA)
-# rmul!(A::StridedMatrix, adjQ::Adjoint{<:Any,<:QRPackedQ{<:Any,<:AbstractBandedMatrix}}) = banded_rmul!(A, adjA)
-rmul!(A::StridedVecOrMat{T}, Q::QRPackedQ{T,B}) where {T<:BlasFloat,B<:AbstractBandedMatrix{T}} = banded_rmul!(A, Q)
-rmul!(A::StridedVecOrMat{T}, adjQ::Adjoint{<:Any,QRPackedQ{T,B}}) where {T<:BlasComplex,B<:AbstractBandedMatrix{T}} = banded_rmul!(A, adjQ)
-rmul!(A::StridedVecOrMat{T}, adjQ::Adjoint{<:Any,QRPackedQ{T,B}}) where {T<:BlasReal,B<:AbstractBandedMatrix{T}} = banded_rmul!(A, adjQ)
+materialize!(M::Rmul{<:Any,<:QRPackedQLayout{<:AbstractBandedLayout}}) = banded_qr_rmul!(M.A,M.B)
+materialize!(M::Rmul{<:Any,<:AdjQRPackedQLayout{<:AbstractBandedLayout}}) = banded_qr_rmul!(M.A,M.B)
 
 
 ###
@@ -50,7 +39,8 @@ function banded_ql!(L::BandedMatrix{T}) where T
     QL(L, τ)
 end
 
-function lmul!(A::QLPackedQ{<:Any,<:BandedMatrix}, B::AbstractVecOrMat)
+function materialize!(M::Lmul{<:QLPackedQLayout{<:AbstractBandedLayout}})
+    A,B = M.A,M.B
     require_one_based_indexing(B)
     mA, nA = size(A.factors)
     mB, nB = size(B,1), size(B,2)
@@ -59,28 +49,26 @@ function lmul!(A::QLPackedQ{<:Any,<:BandedMatrix}, B::AbstractVecOrMat)
     end
     Afactors = A.factors
     l,u = bandwidths(Afactors)
-    D = Afactors.data
-    begin
-        for k = max(nA - mA + 1,1):nA
-            μ = mA+k-nA
-            for j = 1:nB
-                vBj = B[μ,j]
-                for i = max(1,k-u):μ-1
-                    vBj += conj(D[i-k+u+1,k])*B[i,j]
-                end
-                vBj = A.τ[k-nA+min(mA,nA)]*vBj
-                B[μ,j] -= vBj
-                for i = max(1,k-u):μ-1
-                    B[i,j] -= D[i-k+u+1,k]*vBj
-                end
+    D = bandeddata(Afactors)
+    for k = max(nA - mA + 1,1):nA
+        μ = mA+k-nA
+        for j = 1:nB
+            vBj = B[μ,j]
+            for i = max(1,k-u):μ-1
+                vBj += conj(D[i-k+u+1,k])*B[i,j]
+            end
+            vBj = A.τ[k-nA+min(mA,nA)]*vBj
+            B[μ,j] -= vBj
+            for i = max(1,k-u):μ-1
+                B[i,j] -= D[i-k+u+1,k]*vBj
             end
         end
     end
     B
 end
 
-
-function lmul!(adjA::Adjoint{<:Any,<:QLPackedQ{<:Any,<:BandedMatrix}}, B::AbstractVecOrMat)
+function materialize!(M::Lmul{<:AdjQLPackedQLayout{<:AbstractBandedLayout}})
+    adjA,B = M.A,M.B
     require_one_based_indexing(B)
     A = adjA.parent
     mA, nA = size(A.factors)
@@ -90,7 +78,7 @@ function lmul!(adjA::Adjoint{<:Any,<:QLPackedQ{<:Any,<:BandedMatrix}}, B::Abstra
     end
     Afactors = A.factors
     l,u = bandwidths(Afactors)
-    D = Afactors.data
+    D = bandeddata(Afactors)
     @inbounds begin
         for k = nA:-1:max(nA - mA + 1,1)
             μ = mA+k-nA
@@ -111,7 +99,8 @@ function lmul!(adjA::Adjoint{<:Any,<:QLPackedQ{<:Any,<:BandedMatrix}}, B::Abstra
 end
 
 ### QBc/QcBc
-function rmul!(A::AbstractMatrix,Q::QLPackedQ{<:Any,<:BandedMatrix})
+function materialize!(M::Rmul{<:QLPackedQLayout{<:AbstractBandedLayout}})
+    A,Q = M.A,M.B
     mQ, nQ = size(Q.factors)
     mA, nA = size(A,1), size(A,2)
     if nA != mQ
@@ -140,7 +129,8 @@ function rmul!(A::AbstractMatrix,Q::QLPackedQ{<:Any,<:BandedMatrix})
 end
 
 ### AQc
-function rmul!(A::AbstractMatrix, adjQ::Adjoint{<:Any,<:QLPackedQ{<:Any,<:BandedMatrix}})
+function materialize!(M::Rmul{<:AdjQLPackedQLayout{<:AbstractBandedLayout}})
+    A,adjQ = M.A,M.B
     Q = adjQ.parent
     mQ, nQ = size(Q.factors)
     mA, nA = size(A,1), size(A,2)
@@ -185,7 +175,7 @@ function _banded_square_ldiv!(A::QL, B)
     B
 end
 
-for Typ in (:StridedVector, :StridedMatrix, :AbstractVecOrMat) 
+for Typ in (:StridedVector, :StridedMatrix, :AbstractVecOrMat)
     @eval function ldiv!(A::QL{T,<:BandedMatrix}, B::$Typ{T}) where T
         m, n = size(A)
         if m == n

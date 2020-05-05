@@ -1,8 +1,9 @@
-using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, 
+using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
+import ArrayLayouts: StridedLayout
 
 Random.seed!(0)
 
@@ -187,13 +188,14 @@ end
 
     V = view(A, 2:3, 3:5)
     @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
-    @test bandwidths(V) == (2,0)
+    @test bandwidths(V) == (1,0)
     @test colsupport(V,1) == 1:2
     @test V == BroadcastArray(V) == Array(A)[2:3,3:5]
+    @test bandwidths(view(A,2:4,3:5)) == (2,0)
 
     V = view(A, 2:3, 3:5)'
     @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
-    @test bandwidths(V) == (0,2)
+    @test bandwidths(V) == (0,1)
     @test colsupport(V,1) == 1:1
     @test V == BroadcastArray(V) == Array(A)[2:3,3:5]'
 
@@ -540,6 +542,82 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test BC*B isa MulMatrix
         @test BC*BC isa MulMatrix
     end
+
+    @testset "banded-block-banded Kron" begin
+        n = 4
+        h = 1/n
+        D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
+
+        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
+        D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        Δ = BroadcastArray(+, D_xx, D_yy)
+        @test MemoryLayout(Δ) isa BroadcastBandedBlockBandedLayout
+        @test blockbandwidths(Δ) == (1,1)
+        @test subblockbandwidths(Δ) == (1,1)
+        @test Δ[Block.(1:4),Block.(2:4)] == Δ[:,5:end]
+
+
+        @testset "irradic indexing" begin
+            B = cache(Δ);
+            resizedata!(B,16,1);
+            # we do blockwise
+            @test B.data[1:16,1:4] == Δ[1:16,1:4]
+            resizedata!(B,1,16);
+            @test B.datasize == (16,16)
+            @test B.data == Δ
+        end
+
+        @testset "Cache-block indexing" begin
+            B = cache(Δ);
+            @test B[Block(1,1)] == B[Block(1),Block(1)] == Δ[Block(1,1)]
+            @test B[Block.(1:3),Block.(1:2)] == Δ[Block.(1:3),Block.(1:2)]
+        end
+    
+        B = cache(Δ);
+        resizedata!(B,5,5);
+        @test B.data[1:5,1:5] == Δ[1:5,1:5]
+        @test B == Δ
+    end
+
+    @testset "Padded Block" begin
+        b = PseudoBlockArray(cache(Zeros(55)),1:10);
+        b[10] = 5;
+        @test MemoryLayout(b) isa PaddedLayout{DenseColumnMajor}
+        @test paddeddata(b) isa PseudoBlockVector
+        @test paddeddata(b) == [zeros(9); 5]
+    end
+
+    @testset "Banded rot" begin
+        A = brand(5,5,1,2)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (2,1)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+
+        A = brand(5,4,1,2)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (3,0)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+        
+        A = brand(5,6,1,-1)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (-2,2)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+
+        A = brand(6,5,-1,1)
+        R = ApplyArray(rot180, A)
+        @test MemoryLayout(R) isa BandedColumns{StridedLayout}
+        @test bandwidths(R) == (2,-2)
+        @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
+
+        B = brand(5,4,1,1)
+        R = ApplyArray(rot180, ApplyArray(*, A, B))
+        MemoryLayout(R) isa MulBandedLayout
+        @test bandwidths(R) == (4,-2)
+        @test R == rot180(A*B)
+    end
 end
 
 @testset "QR" begin
@@ -548,3 +626,5 @@ end
     b = Vcat([1,2,3],Zeros(size(A,1)-3))
     @test F.Q'b == apply(*,F.Q',b)
 end
+
+include("test_blockkron.jl")
