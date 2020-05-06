@@ -207,6 +207,12 @@ end
     @test MemoryLayout(typeof(C)) == BroadcastBandedLayout{typeof(+)}()
     @test isbanded(C) == true
     @test BandedMatrix(C) == C == copyto!(BandedMatrix(C), C)
+
+    D = BroadcastMatrix(*, 2, brand(5,5,1,2))
+    @test bandwidths(D) == (1,2)
+    @test MemoryLayout(typeof(D)) == BroadcastBandedLayout{typeof(*)}()
+    @test isbanded(D) == true
+    @test BandedMatrix(D) == D == copyto!(BandedMatrix(D), D) == 2*D.args[2]
 end
 
 @testset "Cache" begin
