@@ -1,7 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
 import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
+import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
 import ArrayLayouts: StridedLayout
 
@@ -194,7 +194,7 @@ end
     @test bandwidths(view(A,2:4,3:5)) == (2,0)
 
     V = view(A, 2:3, 3:5)'
-    @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
+    @test MemoryLayout(V) isa BroadcastBandedLayout{typeof(*)}
     @test bandwidths(V) == (0,1)
     @test colsupport(V,1) == 1:1
     @test V == BroadcastArray(V) == Array(A)[2:3,3:5]'
@@ -204,15 +204,26 @@ end
 
     C = BroadcastMatrix(+, brand(5,5,1,2), brand(5,5,3,1))
     @test bandwidths(C) == (3,2)
-    @test MemoryLayout(typeof(C)) == BroadcastBandedLayout{typeof(+)}()
+    @test MemoryLayout(C) == BroadcastBandedLayout{typeof(+)}()
     @test isbanded(C) == true
     @test BandedMatrix(C) == C == copyto!(BandedMatrix(C), C)
 
     D = BroadcastMatrix(*, 2, brand(5,5,1,2))
     @test bandwidths(D) == (1,2)
-    @test MemoryLayout(typeof(D)) == BroadcastBandedLayout{typeof(*)}()
+    @test MemoryLayout(D) == BroadcastBandedLayout{typeof(*)}()
     @test isbanded(D) == true
     @test BandedMatrix(D) == D == copyto!(BandedMatrix(D), D) == 2*D.args[2]
+    
+    D = BroadcastMatrix(*, 2, BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1)))
+    @test blockbandwidths(D) == (1,1)
+    @test subblockbandwidths(D) == (1,1)
+    @test MemoryLayout(D) == BroadcastBandedBlockBandedLayout{typeof(*)}()
+    @test BandedBlockBandedMatrix(D) == D == copyto!(BandedBlockBandedMatrix(D), D) == 2*D.args[2]
+
+    D = BroadcastMatrix(*, 2, BlockBandedMatrix(randn(6,6),1:3,1:3,(1,1)))
+    @test blockbandwidths(D) == (1,1)
+    @test MemoryLayout(D) == BroadcastBlockBandedLayout{typeof(*)}()
+    @test BandedBlockBandedMatrix(D) == D == copyto!(BandedBlockBandedMatrix(D), D) == 2*D.args[2]
 end
 
 @testset "Cache" begin
