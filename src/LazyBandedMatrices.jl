@@ -11,7 +11,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
                         lmul!, rmul!, checksquare, StructuredMatrixStyle
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
-                    sublayout, transposelayout, _copyto!, MemoryLayout
+                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -50,7 +50,7 @@ for LazyLay in (:(BandedColumns{LazyLayout}), :(BandedRows{LazyLayout}),
                 :(BlockBandedColumns{LazyLayout}), :(BandedBlockBandedColumns{LazyLayout}))
     @eval begin
         combine_mul_styles(::$LazyLay) = LazyArrayApplyStyle()
-        mulapplystyle(::QLayout, ::$LazyLay) = LazyArrayApplyStyle()
+        mulapplystyle(::AbstractQLayout, ::$LazyLay) = LazyArrayApplyStyle()
     end
 end
 
@@ -304,13 +304,18 @@ end
 
 _BandedMatrix(::MulBandedLayout, V::AbstractMatrix) = apply(*, map(BandedMatrix,arguments(V))...)
 
+_broadcast_BandedMatrix(a::AbstractMatrix) = BandedMatrix(a)
+_broadcast_BandedMatrix(a) = a
+_broadcast_BandedBlockBandedMatrix(a::AbstractMatrix) = BandedBlockBandedMatrix(a)
+_broadcast_BandedBlockBandedMatrix(a) = a
+
 for op in (:+, :-, :*)
     @eval begin
-        @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix) = broadcast($op, map(BandedMatrix,arguments(V))...)
+        @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix) = broadcast($op, map(_broadcast_BandedMatrix,arguments(V))...)
         _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
-            broadcast!($op, dest, map(BandedMatrix, arguments(src))...)
+            broadcast!($op, dest, map(_broadcast_BandedMatrix, arguments(src))...)
         _copyto!(::AbstractBandedBlockBandedLayout, ::BroadcastBandedBlockBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
-            broadcast!($op, dest, map(BandedBlockBandedMatrix, arguments(src))...)
+            broadcast!($op, dest, map(_broadcast_BandedBlockBandedMatrix, arguments(src))...)
     end
 end
 
