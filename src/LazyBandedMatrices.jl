@@ -302,7 +302,8 @@ end
 # copyto!
 ###
 
-_BandedMatrix(::MulBandedLayout, V::AbstractMatrix) = apply(*, map(BandedMatrix,arguments(V))...)
+_BandedMatrix(::MulBandedLayout, V::AbstractMatrix{T}) where T = 
+    copyto!(BandedMatrix{T}(undef, axes(V), bandwidths(V)), V)
 
 _broadcast_BandedMatrix(a::AbstractMatrix) = BandedMatrix(a)
 _broadcast_BandedMatrix(a) = a
@@ -319,8 +320,12 @@ for op in (:+, :-, :*)
     end
 end
 
+_mulbanded_BandedMatrix(A, _) = A
+_mulbanded_BandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedMatrix(A)
+_mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, axes(A))
+
 _copyto!(::AbstractBandedLayout, ::MulBandedLayout, dest::AbstractMatrix, src::AbstractMatrix) =
-    _mulbanded_copyto!(dest, map(BandedMatrix,arguments(src))...)
+    _mulbanded_copyto!(dest, map(_mulbanded_BandedMatrix,arguments(src))...)
 
 _mulbanded_copyto!(dest, a) = copyto!(dest, a)
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b, zero(T), dest)
