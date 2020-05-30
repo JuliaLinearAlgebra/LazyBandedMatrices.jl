@@ -25,14 +25,14 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
                         banded_qr_lmul!, banded_qr_rmul!, _banded_broadcast!
-import BlockBandedMatrices: AbstractBlockBandedLayout, BlockSlice, Block1, AbstractBlockBandedLayout,
+import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths,
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1
-import BlockArrays: blockbroadcaststyle, BlockSlice1
+import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout
 
 export DiagTrav, KronTrav, blockkron
 
@@ -128,8 +128,9 @@ function paddeddata(P::PseudoBlockVector)
     PseudoBlockVector(data, (ax[Block(1):N],))
 end
 
+const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
 
-function similar(Ml::MulAdd{<:AbstractBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _) where T
+function similar(Ml::MulAdd{<:AllBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _) where T
     A,x = Ml.A,Ml.B
     xf = paddeddata(x)
     ax1,ax2 = axes(A)
@@ -139,7 +140,7 @@ function similar(Ml::MulAdd{<:AbstractBlockBandedLayout,<:PaddedLayout}, ::Type{
     PseudoBlockVector(Vcat(Vector{T}(undef, m), Zeros{T}(length(ax1)-m)), (ax1,))
 end
 
-function materialize!(M::MatMulVecAdd{<:AbstractBlockBandedLayout,<:PaddedLayout,<:PaddedLayout})
+function materialize!(M::MatMulVecAdd{<:AllBlockBandedLayout,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
@@ -160,19 +161,29 @@ bandwidths(M::MulMatrix) = bandwidths(Applied(M))
 isbanded(M::Mul) = all(isbanded, M.args)
 isbanded(M::MulMatrix) = isbanded(Applied(M))
 
-struct MulBandedLayout <: AbstractBandedLayout end
-applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = MulBandedLayout()
+###
+# ApplyBanded
+###
+
+struct ApplyBandedLayout{F} <: AbstractBandedLayout end
+struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+
+arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
+sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+arguments(::ApplyBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
+sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
+applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
 
 
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::MulBandedLayout) = BandedStyle()
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout{typeof(*)}) = BandedStyle()
 
-@inline colsupport(::MulBandedLayout, A, j) = banded_colsupport(A, j)
-@inline rowsupport(::MulBandedLayout, A, j) = banded_rowsupport(A, j)
-@inline _arguments(::MulBandedLayout, A) = arguments(A)
+@inline colsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_colsupport(A, j)
+@inline rowsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_rowsupport(A, j)
+@inline _arguments(::ApplyBandedLayout{typeof(*)}, A) = arguments(A)
 
-
-struct MulBlockBandedLayout <: AbstractBlockBandedLayout end
-applylayout(::Type{typeof(*)}, ::AbstractBlockBandedLayout...) = MulBlockBandedLayout()
 
 
 prodblockbandwidths(A) = blockbandwidths(A)
@@ -219,24 +230,25 @@ BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
 # functions that satisfy f(0,0) == 0
+
 for op in (:*, :/, :\, :+, :-)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AbstractBlockBandedLayout, ::AbstractBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :/)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AbstractBlockBandedLayout, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :\)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
@@ -246,18 +258,19 @@ broadcastlayout(::Type{typeof(/)}, ::AbstractBandedLayout, ::LazyLayout) = LazyB
 broadcastlayout(::Type{typeof(\)}, ::LazyLayout, ::AbstractBandedLayout) = LazyBandedLayout()
 
 
+sublayout(LAY::BroadcastBlockBandedLayout, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = LAY
 sublayout(LAY::BroadcastBandedBlockBandedLayout, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = LAY
 
 combine_mul_styles(::BroadcastBandedLayout, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
-combine_mul_styles(::MulBandedLayout, ::MulBandedLayout) = LazyArrayApplyStyle()
-combine_mul_styles(::MulBandedLayout, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
-combine_mul_styles(::BroadcastBandedLayout, ::MulBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::ApplyBandedLayout{typeof(*)}, ::ApplyBandedLayout{typeof(*)}) = LazyArrayApplyStyle()
+combine_mul_styles(::ApplyBandedLayout{typeof(*)}, ::BroadcastBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::BroadcastBandedLayout, ::ApplyBandedLayout{typeof(*)}) = LazyArrayApplyStyle()
 
 mulapplystyle(::LazyBandedLayout, ::LazyBandedLayout) = LazyArrayApplyStyle()
 mulapplystyle(::LazyBandedLayout, ::AbstractBandedLayout) = LazyArrayApplyStyle()
 mulapplystyle(::AbstractBandedLayout, ::LazyBandedLayout) = LazyArrayApplyStyle()
-mulapplystyle(::LazyBandedLayout, ::MulBandedLayout) = FlattenMulStyle()
-mulapplystyle(::MulBandedLayout, ::LazyBandedLayout) = FlattenMulStyle()
+mulapplystyle(::LazyBandedLayout, ::ApplyBandedLayout{typeof(*)}) = FlattenMulStyle()
+mulapplystyle(::ApplyBandedLayout{typeof(*)}, ::LazyBandedLayout) = FlattenMulStyle()
 mulapplystyle(::AbstractBandedLayout, ::PaddedLayout) = MulAddStyle()
 
 
@@ -272,11 +285,11 @@ _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout, dest::AbstractMatrix, 
 _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
     copyto!(dest, _broadcasted(bc))
 
-_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, ::Tuple{<:Any,MulBandedLayout}) where {T,V} =
+_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
 
 
-function _cache(::AbstractBlockBandedLayout, A::AbstractMatrix{T}) where T
+function _cache(::AllBlockBandedLayout, A::AbstractMatrix{T}) where T
     kr,jr = axes(A)
     CachedArray(BlockBandedMatrix{T}(undef, (kr[Block.(1:0)], jr[Block.(1:0)]), blockbandwidths(A)), A)
 end
@@ -285,7 +298,7 @@ end
 # sub materialize
 ###
 
-function arguments(::MulBandedLayout, V::SubArray)
+function arguments(::ApplyBandedLayout{typeof(*)}, V::SubArray)
     P = parent(V)
     kr, jr = parentindices(V)
     as = arguments(P)
@@ -293,16 +306,18 @@ function arguments(::MulBandedLayout, V::SubArray)
     view.(as, (kr, kjr...), (kjr..., jr))
 end
 
-@inline sub_materialize(::MulBandedLayout, V, _) = BandedMatrix(V)
+@inline sub_materialize(::ApplyBandedLayout{typeof(*)}, V, _) = BandedMatrix(V)
 @inline sub_materialize(::BroadcastBandedLayout, V, _) = BandedMatrix(V)
 @inline sub_materialize(::BandedColumns{LazyLayout}, V, _) = V
 @inline sub_materialize(::BandedColumns{LazyLayout}, V, ::Tuple{<:OneTo,<:OneTo}) = BandedMatrix(V)
+
+@inline sub_materialize(::ApplyBlockBandedLayout{typeof(*)}, V, _) = BlockBandedMatrix(V)
 
 ###
 # copyto!
 ###
 
-_BandedMatrix(::MulBandedLayout, V::AbstractMatrix{T}) where T = 
+_BandedMatrix(::ApplyBandedLayout{typeof(*)}, V::AbstractMatrix{T}) where T = 
     copyto!(BandedMatrix{T}(undef, axes(V), bandwidths(V)), V)
 
 _broadcast_BandedMatrix(a::AbstractMatrix) = BandedMatrix(a)
@@ -324,7 +339,7 @@ _mulbanded_BandedMatrix(A, _) = A
 _mulbanded_BandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedMatrix(A)
 _mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, axes(A))
 
-_copyto!(::AbstractBandedLayout, ::MulBandedLayout, dest::AbstractMatrix, src::AbstractMatrix) =
+_copyto!(::AbstractBandedLayout, ::ApplyBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedMatrix,arguments(src))...)
 
 _mulbanded_copyto!(dest, a) = copyto!(dest, a)
@@ -341,11 +356,13 @@ arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_argu
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
 call(b::BroadcastBandedLayout, a::SubArray) = call(BroadcastLayout(b), a)
 
-sublayout(M::MulBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
+sublayout(M::ApplyBandedLayout{typeof(*)}, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
 sublayout(M::BroadcastBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
 
 transposelayout(b::BroadcastBandedLayout) = b
 arguments(b::BroadcastBandedLayout, A::AdjOrTrans) where F = arguments(BroadcastLayout(b), A)
+
+sublayout(M::ApplyBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = M
 
 
 ######
@@ -374,11 +391,6 @@ const VcatBandedMatrix{T,N} = Vcat{T,2,NTuple{N,BandedMatrix{T,Matrix{T},OneTo{I
 
 BroadcastStyle(::Type{HcatBandedMatrix{T,N}}) where {T,N} = BandedStyle()
 BroadcastStyle(::Type{VcatBandedMatrix{T,N}}) where {T,N} = BandedStyle()
-
-Base.replace_in_print_matrix(A::HcatBandedMatrix, i::Integer, j::Integer, s::AbstractString) =
-    -bandwidth(A,1) ≤ j-i ≤ bandwidth(A,2) ? s : Base.replace_with_centered_mark(s)
-Base.replace_in_print_matrix(A::VcatBandedMatrix, i::Integer, j::Integer, s::AbstractString) =
-    -bandwidth(A,1) ≤ j-i ≤ bandwidth(A,2) ? s : Base.replace_with_centered_mark(s)
 
 hcat(A::BandedMatrix...) = BandedMatrix(Hcat(A...))
 hcat(A::BandedMatrix, B::AbstractMatrix...) = Matrix(Hcat(A, B...))
@@ -511,13 +523,8 @@ include("bandedql.jl")
 include("blockkron.jl")
 
 ###
-# ApplyBanded
+# Concat and rot ArrayLayouts
 ###
-
-struct ApplyBandedLayout{F} <: AbstractBandedLayout end
-
-arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
-sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 
 applylayout(::Type{typeof(vcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
 sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
@@ -528,9 +535,9 @@ applylayout(::Type{typeof(rot180)}, ::BandedColumns{LAY}) where LAY =
 applylayout(::Type{typeof(rot180)}, ::AbstractBandedLayout) =
     ApplyBandedLayout{typeof(rot180)}()
 
-call(::MulBandedLayout, A::ApplyMatrix{<:Any,typeof(rot180)}) = *
-applylayout(::Type{typeof(rot180)}, ::MulBandedLayout) = MulBandedLayout()
-arguments(::MulBandedLayout, A::ApplyMatrix{<:Any,typeof(rot180)}) = ApplyMatrix.(rot180, arguments(A.args...))
+call(::ApplyBandedLayout{typeof(*)}, A::ApplyMatrix{<:Any,typeof(rot180)}) = *
+applylayout(::Type{typeof(rot180)}, ::ApplyBandedLayout{typeof(*)}) = ApplyBandedLayout{typeof(*)}()
+arguments(::ApplyBandedLayout{typeof(*)}, A::ApplyMatrix{<:Any,typeof(rot180)}) = ApplyMatrix.(rot180, arguments(A.args...))
 
 
 bandwidths(R::ApplyMatrix{<:Any,typeof(rot180)}) = bandwidths(Applied(R))

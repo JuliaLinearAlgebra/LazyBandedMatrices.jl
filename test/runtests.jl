@@ -1,7 +1,8 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
 import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata
-import LazyBandedMatrices: MulBandedLayout, VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
+import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
+                    ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
 import ArrayLayouts: StridedLayout
 
@@ -39,6 +40,7 @@ BandedMatrices.bandwidths(A::PseudoBandedMatrix) = (A.l , A.u)
 BandedMatrices.inbands_getindex(A::PseudoBandedMatrix, j::Int, k::Int) = A.data[j, k]
 BandedMatrices.inbands_setindex!(A::PseudoBandedMatrix, v, j::Int, k::Int) = setindex!(A.data, v, j, k)
 LinearAlgebra.fill!(A::PseudoBandedMatrix, v) = fill!(A.data,v)
+LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
 
 struct MyLazyArray{T,N} <: AbstractArray{T,N}
     data::Array{T,N}
@@ -93,7 +95,7 @@ end
     @test isbanded(M) && isbanded(Applied(M))
     @test bandwidths(M) == bandwidths(Applied(M))
     @test BandedMatrix(M) == A*B == copyto!(BandedMatrix(M), M)
-    @test MemoryLayout(typeof(M)) isa MulBandedLayout
+    @test MemoryLayout(typeof(M)) isa ApplyBandedLayout{typeof(*)}
     @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
     @test rowsupport(M,1) == rowsupport(Applied(M),1) == 1:2
 
@@ -140,6 +142,7 @@ end
     @test hcat(Matrix(A),A) isa Matrix
     @test isone.(H) isa BandedMatrix
     @test bandwidths(isone.(H)) == (2,6)
+    @test @inferred(colsupport(H,1)) == 1:3
     @test Base.replace_in_print_matrix(H,4,1,"0") == "⋅"
 
     H = Hcat(A,A,A)
@@ -631,7 +634,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         B = brand(5,4,1,1)
         R = ApplyArray(rot180, ApplyArray(*, A, B))
-        MemoryLayout(R) isa MulBandedLayout
+        MemoryLayout(R) isa ApplyBandedLayout{typeof(*)}
         @test bandwidths(R) == (4,-2)
         @test R == rot180(A*B)
     end
