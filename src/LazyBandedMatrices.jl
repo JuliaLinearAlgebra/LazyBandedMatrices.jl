@@ -145,6 +145,10 @@ function materialize!(M::MatMulVecAdd{<:AllBlockBandedLayout,<:PaddedLayout,<:Pa
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
 
+    if !blockisequal(axes(A,2), axes(x,1))
+        return muladd!(α, A, PseudoBlockVector(x, (axes(A,2),)), β, y)
+    end
+
     ỹ = paddeddata(y)
     x̃ = paddeddata(x)
 
@@ -285,7 +289,7 @@ _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout, dest::AbstractMatrix, 
 _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
     copyto!(dest, _broadcasted(bc))
 
-_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
+_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
 
 
