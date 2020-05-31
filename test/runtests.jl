@@ -1,8 +1,8 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata
+import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
-                    ApplyBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
+                    ApplyBandedLayout, ApplyBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
 import ArrayLayouts: StridedLayout
 
@@ -85,48 +85,65 @@ end
 end
 
 @testset "MulMatrix" begin
-    A = brand(6,5,0,1)
-    M = ApplyArray(*, A)
-    @test BandedMatrix(M) == copyto!(similar(A), M) == A
+    @testset "MulBanded" begin
+        A = brand(6,5,0,1)
+        B = brand(5,5,1,0)
 
-    B = brand(5,5,1,0)
-    M = ApplyArray(*,A,B)
+        M = ApplyArray(*, A)
+        @test BandedMatrix(M) == copyto!(similar(A), M) == A
 
-    @test isbanded(M) && isbanded(Applied(M))
-    @test bandwidths(M) == bandwidths(Applied(M))
-    @test BandedMatrix(M) == A*B == copyto!(BandedMatrix(M), M)
-    @test MemoryLayout(typeof(M)) isa ApplyBandedLayout{typeof(*)}
-    @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
-    @test rowsupport(M,1) == rowsupport(Applied(M),1) == 1:2
+        M = ApplyArray(*,A,B)
+        @test isbanded(M) && isbanded(Applied(M))
+        @test bandwidths(M) == bandwidths(Applied(M))
+        @test BandedMatrix(M) == A*B == copyto!(BandedMatrix(M), M)
+        @test MemoryLayout(typeof(M)) isa ApplyBandedLayout{typeof(*)}
+        @test arguments(M) == (A,B)
+        @test call(M) == *
+        @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
+        @test rowsupport(M,1) == rowsupport(Applied(M),1) == 1:2
 
-    @test Base.BroadcastStyle(typeof(M)) isa BandedStyle
-    @test M .+ A isa BandedMatrix
+        @test Base.BroadcastStyle(typeof(M)) isa BandedStyle
+        @test M .+ A isa BandedMatrix
 
-    V = view(M,1:4,1:4)
-    @test bandwidths(V) == (1,1)
-    @test MemoryLayout(typeof(V)) == MemoryLayout(typeof(M))
-    @test M[1:4,1:4] isa BandedMatrix
+        V = view(M,1:4,1:4)
+        @test bandwidths(V) == (1,1)
+        @test MemoryLayout(typeof(V)) == MemoryLayout(typeof(M))
+        @test M[1:4,1:4] isa BandedMatrix
 
-    A = brand(5,5,0,1)
-    B = brand(6,5,1,0)
-    @test_throws DimensionMismatch ApplyArray(*,A,B)
+        A = brand(5,5,0,1)
+        B = brand(6,5,1,0)
+        @test_throws DimensionMismatch ApplyArray(*,A,B)
 
-    A = brand(6,5,0,1)
-    B = brand(5,5,1,0)
-    C = brand(5,6,2,2)
-    M = Mul(A,B,C)
-    @test @inferred(eltype(M)) == Float64
-    @test bandwidths(M) == (3,3)
-    @test M[1,1] ≈ (A*B*C)[1,1]
+        A = brand(6,5,0,1)
+        B = brand(5,5,1,0)
+        C = brand(5,6,2,2)
+        M = Mul(A,B,C)
+        @test @inferred(eltype(M)) == Float64
+        @test bandwidths(M) == (3,3)
+        @test M[1,1] ≈ (A*B*C)[1,1]
 
-    M = @inferred(ApplyArray(*,A,B,C))
-    @test @inferred(eltype(M)) == Float64
-    @test bandwidths(M) == (3,3)
-    @test BandedMatrix(M) ≈ A*B*C ≈ copyto!(BandedMatrix(M), M)
+        M = @inferred(ApplyArray(*,A,B,C))
+        @test @inferred(eltype(M)) == Float64
+        @test bandwidths(M) == (3,3)
+        @test BandedMatrix(M) ≈ A*B*C ≈ copyto!(BandedMatrix(M), M)
 
-    M = ApplyArray(*, A, Zeros(5))
-    @test colsupport(M,1) == colsupport(Applied(M),1)
-    @test_skip colsupport(M,1) == 1:0
+        M = ApplyArray(*, A, Zeros(5))
+        @test colsupport(M,1) == colsupport(Applied(M),1)
+        @test_skip colsupport(M,1) == 1:0
+    end
+    @testset "MulBlockBanded" begin
+        A = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0)); A.data .= randn.();
+        B = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,1)); B.data .= randn.();
+        M = ApplyMatrix(*, A, B)
+        @test blockbandwidths(M) == (2,1)
+        @test MemoryLayout(M) isa ApplyBlockBandedLayout{typeof(*)}
+        @test BlockBandedMatrix(M) == A*B
+        @test arguments(M) == (A,B)
+        V = view(M, Block.(1:2), Block.(1:2))
+        @test MemoryLayout(V) isa ApplyBlockBandedLayout{typeof(*)}
+        @test arguments(V) == (A[Block.(1:2),Block.(1:2)], B[Block.(1:2),Block.(1:2)])
+        @test M[Block.(1:2), Block.(1:2)] isa BlockBandedMatrix
+    end
 end
 
 @testset "Cat" begin
@@ -439,6 +456,8 @@ end
     @testset "#87" begin
         @test kron(Diagonal([1,2,3]), Eye(3)) isa Diagonal{Float64,Vector{Float64}}
     end
+
+    @test Block(5) in BroadcastVector(+, Block.(1:5), 1)
 end
 
 
