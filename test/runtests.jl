@@ -137,7 +137,7 @@ end
         M = ApplyMatrix(*, A, B)
         @test blockbandwidths(M) == (2,1)
         @test MemoryLayout(M) isa ApplyBlockBandedLayout{typeof(*)}
-        @test BlockBandedMatrix(M) == A*B
+        @test BlockBandedMatrix(M) ≈ A*B
         @test arguments(M) == (A,B)
         V = view(M, Block.(1:2), Block.(1:2))
         @test MemoryLayout(V) isa ApplyBlockBandedLayout{typeof(*)}
