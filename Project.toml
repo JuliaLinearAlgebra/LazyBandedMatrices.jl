@@ -15,13 +15,13 @@ MatrixFactorizations = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-ArrayLayouts = "0.2.6, 0.3"
-BandedMatrices = "0.15.6"
-BlockArrays = "0.12.5"
-BlockBandedMatrices = "0.8.3"
-FillArrays = "0.8.8"
-LazyArrays = "0.16.7"
-MatrixFactorizations = "0.4"
+ArrayLayouts = "0.3.3"
+BandedMatrices = "0.15.10"
+BlockArrays = "0.12.7"
+BlockBandedMatrices = "0.8.5"
+FillArrays = "0.8.10"
+LazyArrays = "0.16.10"
+MatrixFactorizations = "0.4.1"
 julia = "1.2"
 
 [extras]
