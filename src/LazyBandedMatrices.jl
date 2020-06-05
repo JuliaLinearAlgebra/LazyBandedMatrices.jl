@@ -92,6 +92,23 @@ end
 # needed for ∞-dimensional banded linear algebra
 ###
 
+function paddeddata(P::PseudoBlockVector)
+    C = P.blocks
+    data = paddeddata(C)
+    ax = axes(P,1)
+    N = findblock(ax,length(data))
+    n = last(ax[N])
+    if n ≠ length(data)
+        resizedata!(C,n)
+    end
+    PseudoBlockVector(data, (ax[Block(1):N],))
+end
+
+function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
+    dat = paddeddata(v)
+    PseudoBlockVector(Vcat(dat, Zeros{T}(length(v) - length(dat))), ax)
+end
+
 function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
@@ -112,20 +129,6 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
 
     materialize!(MulAdd(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ))
     y
-end
-
-
-
-function paddeddata(P::PseudoBlockVector)
-    C = P.blocks
-    data = paddeddata(C)
-    ax = axes(P,1)
-    N = findblock(ax,length(data))
-    n = last(ax[N])
-    if n ≠ length(data)
-        resizedata!(C,n)
-    end
-    PseudoBlockVector(data, (ax[Block(1):N],))
 end
 
 const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
