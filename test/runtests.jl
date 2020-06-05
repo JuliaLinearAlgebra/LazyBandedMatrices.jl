@@ -89,6 +89,10 @@ end
         @test MemoryLayout(A*b) isa PaddedLayout
         @test MemoryLayout(A*c) isa PaddedLayout
         @test A*b ≈ A*c ≈ Matrix(A)*Vector(b)
+
+        @test b[Block.(2:3)] isa PseudoBlockVector{Float64,<:ApplyArray}
+        @test MemoryLayout(b[Block.(2:3)]) isa PaddedLayout
+        @test b[Block.(2:3)] == b[2:6]
     end
 end
 
