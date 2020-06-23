@@ -18,36 +18,13 @@ bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
-struct BlockKron{T,A,B} <: AbstractBandedMatrix{T}
-    args::Tuple{A,B}
-end
-
-BlockKron{T}(A::AA, B::BB) where {T,AA,BB} = BlockKron{T,AA,BB}((A,B))
-BlockKron(A, B) = BlockKron{promote_type(eltype(A),eltype(B))}(A, B)
 BlockKron(K::Kron{T,2}) where T = BlockKron{T}(K.args...)
-
 Kron(B::BlockKron) = Kron(B.args...)
-
-size(B::BlockKron) = size(Kron(B))
-getindex(B::BlockKron, k::Int, j::Int) = Kron(B)[k,j]
 
 isblockbanded(K::BlockKron) = isbanded(first(K.args))
 isbandedblockbanded(K::BlockKron) = all(isbanded, K.args)
 blockbandwidths(K::BlockKron) = bandwidths(first(K.args))
 subblockbandwidths(K::BlockKron) = bandwidths(last(K.args))
-function axes(K::BlockKron)
-    A,B = K.args
-    blockedrange.((Fill(size(B,1), size(A,1)), Fill(size(B,2), size(A,2))))
-end
-
-const SubKron{T,M1,M2,R1,R2} = SubArray{T,2,<:BlockKron{T,M1,M2},<:Tuple{<:BlockSlice{R1},<:BlockSlice{R2}}}
-
-
-BroadcastStyle(::Type{<:SubKron{<:Any,<:Any,B,Block1,Block1}}) where B =
-    BroadcastStyle(B)
-
-BandedBlockBandedMatrix(K::Kron) = BandedBlockBandedMatrix(BlockKron(K))
-BlockBandedMatrix(K::Kron) = BlockBandedMatrix(BlockKron(K))
 
 
 
