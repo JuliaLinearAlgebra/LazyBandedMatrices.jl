@@ -11,7 +11,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
                         lmul!, rmul!, checksquare, StructuredMatrixStyle
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
-                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout
+                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, _mul
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -51,6 +51,7 @@ for LazyLay in (:(BandedColumns{LazyLayout}), :(BandedRows{LazyLayout}),
     @eval begin
         combine_mul_styles(::$LazyLay) = LazyArrayApplyStyle()
         mulapplystyle(::AbstractQLayout, ::$LazyLay) = LazyArrayApplyStyle()
+        _mul(::$LazyLay, _, A, B) = apply(*, A, B)
     end
 end
 
@@ -174,16 +175,18 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 
 struct ApplyBandedLayout{F} <: AbstractBandedLayout end
 struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 
 arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
-
 arguments(::ApplyBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
+sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
-
+applylayout(::Type{typeof(*)}, ::AbstractBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
 
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout{typeof(*)}) = BandedStyle()
 
@@ -319,6 +322,7 @@ end
 @inline sub_materialize(::BandedColumns{LazyLayout}, V, ::Tuple{<:OneTo,<:OneTo}) = BandedMatrix(V)
 
 @inline sub_materialize(::ApplyBlockBandedLayout{typeof(*)}, V, _) = BlockBandedMatrix(V)
+@inline sub_materialize(::ApplyBandedBlockBandedLayout{typeof(*)}, V, _) = BandedBlockBandedMatrix(V)
 
 ###
 # copyto!
@@ -370,6 +374,7 @@ transposelayout(b::BroadcastBandedLayout) = b
 arguments(b::BroadcastBandedLayout, A::AdjOrTrans) where F = arguments(BroadcastLayout(b), A)
 
 sublayout(M::ApplyBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = M
+sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = M
 
 
 ######

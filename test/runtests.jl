@@ -2,7 +2,7 @@ using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, Block
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
 import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
-                    ApplyBandedLayout, ApplyBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
+                    ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
 import ArrayLayouts: StridedLayout
 
@@ -160,6 +160,20 @@ end
         @test MemoryLayout(V) isa ApplyBlockBandedLayout{typeof(*)}
         @test arguments(V) == (A[Block.(1:2),Block.(1:2)], B[Block.(1:2),Block.(1:2)])
         @test M[Block.(1:2), Block.(1:2)] isa BlockBandedMatrix
+    end
+    @testset "MulBandedBlockBanded" begin
+        A = BandedBlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0), (1,0)); A.data .= randn.();
+        B = BandedBlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,1), (1,1)); B.data .= randn.();
+        M = ApplyMatrix(*, A, B)
+        @test blockbandwidths(M) == (2,1)
+        @test subblockbandwidths(M) == (2,1)
+        @test MemoryLayout(M) isa ApplyBandedBlockBandedLayout{typeof(*)}
+        @test BandedBlockBandedMatrix(M) ≈ BlockBandedMatrix(M) ≈ A*B
+        @test arguments(M) == (A,B)
+        V = view(M, Block.(1:2), Block.(1:2))
+        @test MemoryLayout(V) isa ApplyBandedBlockBandedLayout{typeof(*)}
+        @test arguments(V) == (A[Block.(1:2),Block.(1:2)], B[Block.(1:2),Block.(1:2)])
+        @test M[Block.(1:2), Block.(1:2)] isa BandedBlockBandedMatrix
     end
     @testset "Psuedo Mul" begin
         A = PseudoBandedMatrix(rand(5, 4), 1, 2)
