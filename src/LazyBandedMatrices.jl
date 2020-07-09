@@ -16,10 +16,11 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayo
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, ApplyLayout, BroadcastLayout, FlattenMulStyle, CachedVector,
-                        _mul_args_rows, _mul_args_cols, paddeddata, sub_materialize,
+                        _mat_mul_arguments, paddeddata, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, 
-                        LazyMatrix, LazyVector, LazyArray, MulAddStyle
+                        LazyMatrix, LazyVector, LazyArray, MulAddStyle,
+                        _mul_args_colsupport, _mul_args_rowsupport
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -31,7 +32,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedStyle,
-                        blockcolsupport, BlockRange1
+                        blockcolsupport, BlockRange1, blockrowsupport
 import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout
 
 export DiagTrav, KronTrav, blockkron
@@ -179,6 +180,15 @@ struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 
 arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+
+# The following catches the arguments machinery to work for BlockRange
+# see LazyArrays.jl/src/mul.jl
+
+_mul_args_colsupport(a, kr::BlockRange) = blockcolsupport(a, kr)
+_mul_args_rowsupport(a, kr::BlockRange) = blockrowsupport(a, kr)
+_mat_mul_arguments(args, (kr,jr)::Tuple{BlockSlice,BlockSlice}) = _mat_mul_arguments(args, (kr.block, jr.block))
+
 arguments(::ApplyBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
@@ -308,14 +318,6 @@ end
 # sub materialize
 ###
 
-function arguments(::ApplyBandedLayout{typeof(*)}, V::SubArray)
-    P = parent(V)
-    kr, jr = parentindices(V)
-    as = arguments(P)
-    kjr = intersect.(_mul_args_rows(kr, as...), _mul_args_cols(jr, reverse(as)...))
-    view.(as, (kr, kjr...), (kjr..., jr))
-end
-
 @inline sub_materialize(::ApplyBandedLayout{typeof(*)}, V, _) = BandedMatrix(V)
 @inline sub_materialize(::BroadcastBandedLayout, V, _) = BandedMatrix(V)
 @inline sub_materialize(::BandedColumns{LazyLayout}, V, _) = V
@@ -346,6 +348,10 @@ for op in (:+, :-, :*)
     end
 end
 
+_mulbanded_copyto!(dest, a) = copyto!(dest, a)
+_mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b, zero(T), dest)
+_mulbanded_copyto!(dest::AbstractArray{T}, a, b, c, d...) where T = _mulbanded_copyto!(dest, apply(*,a,b), c, d...)
+
 _mulbanded_BandedMatrix(A, _) = A
 _mulbanded_BandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedMatrix(A)
 _mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, axes(A))
@@ -353,9 +359,13 @@ _mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, axes(A))
 _copyto!(::AbstractBandedLayout, ::ApplyBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedMatrix,arguments(src))...)
 
-_mulbanded_copyto!(dest, a) = copyto!(dest, a)
-_mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b, zero(T), dest)
-_mulbanded_copyto!(dest::AbstractArray{T}, a, b, c, d...) where T = _mulbanded_copyto!(dest, apply(*,a,b), c, d...)
+_mulbanded_BandedBlockBandedMatrix(A, _) = A
+_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedBlockBandedMatrix(A)
+_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, axes(A))
+
+_copyto!(::AbstractBandedBlockBandedLayout, ::ApplyBandedBlockBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
+    _mulbanded_copyto!(dest, map(_mulbanded_BandedBlockBandedMatrix,arguments(src))...)
+
 
 _broadcast_sub_arguments(::BroadcastBandedLayout{F}, A, V) where F = arguments(BroadcastLayout{F}(), V)
 _broadcast_sub_arguments(::BroadcastBandedBlockBandedLayout{F}, A, V) where F = arguments(BroadcastLayout{F}(), V)
