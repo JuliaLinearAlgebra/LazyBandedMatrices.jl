@@ -16,11 +16,11 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 ArrayLayouts = "0.3.6"
-BandedMatrices = "0.15.10"
-BlockArrays = "0.12.8"
-BlockBandedMatrices = "0.8.5"
-FillArrays = "0.8.10"
-LazyArrays = "0.16.12"
+BandedMatrices = "0.15.15"
+BlockArrays = "0.12.10"
+BlockBandedMatrices = "0.8.10"
+FillArrays = "0.8.13"
+LazyArrays = "0.16.15"
 MatrixFactorizations = "0.4.1, 0.5"
 julia = "1.2"
 
