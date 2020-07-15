@@ -174,6 +174,10 @@ end
         @test MemoryLayout(V) isa ApplyBandedBlockBandedLayout{typeof(*)}
         @test arguments(V) == (A[Block.(1:2),Block.(1:2)], B[Block.(1:2),Block.(1:2)])
         @test M[Block.(1:2), Block.(1:2)] isa BandedBlockBandedMatrix
+        V = view(M, 1:3, 1:3)
+        @test MemoryLayout(V) isa ApplyLayout{typeof(*)}
+        @test arguments(V) == (A[1:3,1:3], B[1:3,1:3])
+        @test M[1:3, 1:3] ≈ (A*B)[1:3,1:3]
     end
     @testset "Psuedo Mul" begin
         A = PseudoBandedMatrix(rand(5, 4), 1, 2)
