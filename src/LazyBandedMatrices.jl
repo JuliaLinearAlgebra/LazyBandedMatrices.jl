@@ -11,7 +11,8 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
                         lmul!, rmul!, checksquare, StructuredMatrixStyle
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
-                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, _mul
+                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, _mul,
+                    OnesLayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -45,16 +46,19 @@ BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 bandedcolumns(::ML) where ML<:LazyLayout = BandedColumns{ML}()
 bandedcolumns(::ML) where ML<:ApplyLayout = BandedColumns{LazyLayout}()
 
-for LazyLay in (:(BandedColumns{LazyLayout}), :(BandedRows{LazyLayout}),
-                :(TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT}),
-                :(TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT}),
-                :(BlockBandedColumns{LazyLayout}), :(BandedBlockBandedColumns{LazyLayout}))
-    @eval begin
-        combine_mul_styles(::$LazyLay) = LazyArrayApplyStyle()
-        mulapplystyle(::AbstractQLayout, ::$LazyLay) = LazyArrayApplyStyle()
-        _mul(::$LazyLay, _, A, B) = apply(*, A, B)
-    end
-end
+BandedLazyLayouts = Union{BandedColumns{LazyLayout}, BandedRows{LazyLayout},
+                TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
+                TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
+                BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}}
+
+combine_mul_styles(::BandedLazyLayouts) = LazyArrayApplyStyle()
+mulapplystyle(::AbstractQLayout, ::BandedLazyLayouts) = LazyArrayApplyStyle()
+_mul(::BandedLazyLayouts, ::BandedLazyLayouts, A, B) = ApplyArray(*, A, B)
+_mul(::BandedLazyLayouts, _, A, B) = ApplyArray(*, A, B)
+_mul(_, ::BandedLazyLayouts, A, B) = ApplyArray(*, A, B)
+_mul(::BandedLazyLayouts, D::DiagonalLayout{<:OnesLayout}, A, B) = _mul(UnknownLayout(), D, A, B)
+_mul(D::DiagonalLayout{<:OnesLayout}, ::BandedLazyLayouts, A, B) = _mul(D, UnknownLayout(), A, B)
+
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
@@ -126,8 +130,12 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
     ỹ = paddeddata(y)
     x̃ = paddeddata(x)
 
-    length(ỹ) ≥ min(length(M),length(x̃)+bandwidth(A,1)) ||
-        throw(InexactError("Cannot assign non-zero entries to Zero"))
+    if length(ỹ) < min(length(M),length(x̃)+bandwidth(A,1))
+        # its ok if the entries are actually zero
+        for k = max(1,length(x̃)-bandwidth(A,1)):length(x̃)
+            iszero(x̃[k]) || throw(InexactError("Cannot assign non-zero entries to Zero"))
+        end
+    end
 
     materialize!(MulAdd(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ))
     y
@@ -177,6 +185,10 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 struct ApplyBandedLayout{F} <: AbstractBandedLayout end
 struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+
+combine_mul_styles(::ApplyBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::ApplyBlockBandedLayout) = LazyArrayApplyStyle()
+combine_mul_styles(::ApplyBandedBlockBandedLayout) = LazyArrayApplyStyle()
 
 arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
