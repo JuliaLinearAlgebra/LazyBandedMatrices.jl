@@ -11,7 +11,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
                         lmul!, rmul!, checksquare, StructuredMatrixStyle
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
-                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, _mul,
+                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
                     OnesLayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
@@ -46,18 +46,15 @@ BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 bandedcolumns(::ML) where ML<:LazyLayout = BandedColumns{ML}()
 bandedcolumns(::ML) where ML<:ApplyLayout = BandedColumns{LazyLayout}()
 
-BandedLazyLayouts = Union{BandedColumns{LazyLayout}, BandedRows{LazyLayout},
+struct LazyBandedLayout <: AbstractBandedLayout end
+
+LazyBandedLayouts = Union{LazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}}
 
-combine_mul_styles(::BandedLazyLayouts) = LazyArrayApplyStyle()
-mulapplystyle(::AbstractQLayout, ::BandedLazyLayouts) = LazyArrayApplyStyle()
-_mul(::BandedLazyLayouts, ::BandedLazyLayouts, A, B) = ApplyArray(*, A, B)
-_mul(::BandedLazyLayouts, _, A, B) = ApplyArray(*, A, B)
-_mul(_, ::BandedLazyLayouts, A, B) = ApplyArray(*, A, B)
-_mul(::BandedLazyLayouts, D::DiagonalLayout{<:OnesLayout}, A, B) = _mul(UnknownLayout(), D, A, B)
-_mul(D::DiagonalLayout{<:OnesLayout}, ::BandedLazyLayouts, A, B) = _mul(D, UnknownLayout(), A, B)
+combine_mul_styles(::LazyBandedLayouts) = LazyArrayApplyStyle()
+mulapplystyle(::AbstractQLayout, ::LazyBandedLayouts) = LazyArrayApplyStyle()
 
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
@@ -127,13 +124,14 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
 
-    ỹ = paddeddata(y)
     x̃ = paddeddata(x)
+    resizedata!(y, min(length(M),length(x̃)+bandwidth(A,1)))
+    ỹ = paddeddata(y)
 
     if length(ỹ) < min(length(M),length(x̃)+bandwidth(A,1))
         # its ok if the entries are actually zero
         for k = max(1,length(x̃)-bandwidth(A,1)):length(x̃)
-            iszero(x̃[k]) || throw(InexactError("Cannot assign non-zero entries to Zero"))
+            iszero(x̃[k]) || throw(ArgumentError("Cannot assign non-zero entries to Zero"))
         end
     end
 
@@ -185,6 +183,7 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 struct ApplyBandedLayout{F} <: AbstractBandedLayout end
 struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+ApplyLayouts{F} = Union{ApplyLayout{F},ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
 
 combine_mul_styles(::ApplyBandedLayout) = LazyArrayApplyStyle()
 combine_mul_styles(::ApplyBlockBandedLayout) = LazyArrayApplyStyle()
@@ -258,7 +257,9 @@ isbanded(M::BroadcastMatrix) = isbanded(Broadcasted(M))
 struct BroadcastBandedLayout{F} <: AbstractBandedLayout end
 struct BroadcastBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 struct BroadcastBandedBlockBandedLayout{F} <: AbstractBandedBlockBandedLayout end
-struct LazyBandedLayout <: AbstractBandedLayout end
+
+BroadcastLayouts{F} = Union{BroadcastLayout{F},BroadcastBandedLayout{F},BroadcastBlockBandedLayout{F},BroadcastBandedBlockBandedLayout{F}}
+
 
 BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
@@ -590,6 +591,19 @@ bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
 *(A::LazyMatrix, B::AbstractBandedMatrix) = apply(*, A, B)
 *(A::AbstractBandedMatrix, B::LazyMatrix) = apply(*, A, B)
 *(A::AbstractBandedMatrix, b::LazyVector) = apply(*, A, b)
+
+
+
+copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts, <:LazyBandedLayouts}) = ApplyArray(*, M.A, M.B)
+copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts}) = ApplyArray(*, M.A, M.B)
+copy(M::ArrayLayouts.Mul{<:Any, <:LazyBandedLayouts}) = ApplyArray(*, M.A, M.B)
+copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts, D}) where D<:DiagonalLayout{<:OnesLayout} = copy(Mul{UnknownLayout,D}(M.A, M.B))
+copy(M::ArrayLayouts.Mul{D, <:LazyBandedLayouts}) where D<:DiagonalLayout{<:OnesLayout} = copy(Mul{D,UnknownLayout}(M.A, M.B))
+copy(M::ArrayLayouts.Mul{<:ApplyLayouts{typeof(*)},<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, arguments(M.A)..., arguments(M.B)...)
+copy(M::ArrayLayouts.Mul{<:ApplyLayouts{typeof(*)},<:LazyBandedLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
+copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
+copy(M::ArrayLayouts.Mul{<:ApplyLayouts{typeof(*)},<:BroadcastLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
+copy(M::ArrayLayouts.Mul{<:BroadcastLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
 
 
 end

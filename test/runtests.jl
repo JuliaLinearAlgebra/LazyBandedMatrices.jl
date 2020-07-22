@@ -4,7 +4,7 @@ import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, col
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
-import ArrayLayouts: StridedLayout
+import ArrayLayouts: StridedLayout, OnesLayout
 
 Random.seed!(0)
 
@@ -192,7 +192,7 @@ end
         B = brand(5,5,1,0)
         C = BroadcastMatrix(*, A, 2)
         M = ApplyArray(*,A,B)
-        @test M*M isa ApplyMatrix{Float64,typeof(*)}
+        @test M^2 isa ApplyMatrix{Float64,typeof(*)}
         @test M*C isa ApplyMatrix{Float64,typeof(*)}
         @test C*M isa ApplyMatrix{Float64,typeof(*)}
     end
@@ -636,7 +636,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         A = _BandedMatrix(Ones{Int}(1,10),10,0,0)'
         B = _BandedMatrix((-2:-2:-20)', 10,-1,1)
         C = Diagonal( BroadcastVector(/, 2, (1:2:20)))
-        @test MemoryLayout(A) isa BandedRows{FillLayout}
+        @test MemoryLayout(A) isa BandedRows{OnesLayout}
         @test MemoryLayout(B) isa BandedColumns{UnknownLayout}
         @test MemoryLayout(C) isa DiagonalLayout{LazyLayout}
         BC = BroadcastArray(*, B, permutedims(MyLazyArray(Array(C.diag))))
@@ -658,7 +658,6 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test blockbandwidths(Δ) == (1,1)
         @test subblockbandwidths(Δ) == (1,1)
         @test Δ[Block.(1:4),Block.(2:4)] == Δ[:,5:end]
-
 
         @testset "irradic indexing" begin
             B = cache(Δ);
