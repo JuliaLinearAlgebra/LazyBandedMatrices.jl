@@ -12,7 +12,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
-                    OnesLayout
+                    OnesLayout, DualLayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, mulapplystyle, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -43,8 +43,9 @@ BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
 BroadcastStyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 
-bandedcolumns(::ML) where ML<:LazyLayout = BandedColumns{ML}()
-bandedcolumns(::ML) where ML<:ApplyLayout = BandedColumns{LazyLayout}()
+bandedcolumns(::LazyLayout) = BandedColumns{LazyLayout}()
+bandedcolumns(::DualLayout{LazyLayout}) = BandedColumns{LazyLayout}()
+bandedcolumns(::ApplyLayout) = BandedColumns{LazyLayout}()
 
 struct LazyBandedLayout <: AbstractBandedLayout end
 
@@ -597,8 +598,8 @@ bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
 copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts, <:LazyBandedLayouts}) = ApplyArray(*, M.A, M.B)
 copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts}) = ApplyArray(*, M.A, M.B)
 copy(M::ArrayLayouts.Mul{<:Any, <:LazyBandedLayouts}) = ApplyArray(*, M.A, M.B)
-copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts, D}) where D<:DiagonalLayout{<:OnesLayout} = copy(Mul{UnknownLayout,D}(M.A, M.B))
-copy(M::ArrayLayouts.Mul{D, <:LazyBandedLayouts}) where D<:DiagonalLayout{<:OnesLayout} = copy(Mul{D,UnknownLayout}(M.A, M.B))
+copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts, D}) where D<:DiagonalLayout{<:OnesLayout} = copy(ArrayLayouts.Mul{UnknownLayout,D}(M.A, M.B))
+copy(M::ArrayLayouts.Mul{D, <:LazyBandedLayouts}) where D<:DiagonalLayout{<:OnesLayout} = copy(ArrayLayouts.Mul{D,UnknownLayout}(M.A, M.B))
 copy(M::ArrayLayouts.Mul{<:ApplyLayouts{typeof(*)},<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, arguments(M.A)..., arguments(M.B)...)
 copy(M::ArrayLayouts.Mul{<:ApplyLayouts{typeof(*)},<:LazyBandedLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
 copy(M::ArrayLayouts.Mul{<:LazyBandedLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
