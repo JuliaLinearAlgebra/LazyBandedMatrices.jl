@@ -1,6 +1,6 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout
+import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
@@ -134,7 +134,7 @@ end
         A = brand(6,5,0,1)
         B = brand(5,5,1,0)
         C = brand(5,6,2,2)
-        M = Mul(A,B,C)
+        M = applied(*,A,B,C)
         @test @inferred(eltype(M)) == Float64
         @test bandwidths(M) == (3,3)
         @test M[1,1] ≈ (A*B*C)[1,1]
@@ -185,7 +185,7 @@ end
         C = PseudoBandedMatrix(zeros(5, 4), 3, 4)
         D = zeros(5, 4)
 
-        @test (C .= Mul(A, B)) ≈ (D .= Mul(A, B)) ≈ A*B
+        @test (C .= applied(*, A, B)) ≈ (D .= applied(*, A, B)) ≈ A*B
     end
     @testset "MulStyle" begin
         A = brand(5,5,0,1)
@@ -328,7 +328,7 @@ end
     C = BandedMatrix{Float64}(undef, (1,2), (0,2)); C.data .= NaN;
     A = brand(1,1,0,1)
     B = brand(1,2,0,2)
-    C .= Mul(A,B)
+    C .= applied(*, A,B)
     @test C == A*B
 
     C.data .= NaN
@@ -338,7 +338,7 @@ end
 
 @testset "Applied" begin
     A = brand(5,5,1,2)
-    @test applied(*,Symmetric(A),A) isa Applied{MulAddStyle}
+    @test applied(*,Symmetric(A),A) isa Applied{MulStyle}
     B = apply(*,A,A,A)
     @test B isa BandedMatrix
     @test all(B .=== (A*A)*A)
