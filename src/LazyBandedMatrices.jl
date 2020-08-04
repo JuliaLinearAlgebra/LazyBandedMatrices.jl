@@ -181,7 +181,9 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 struct ApplyBandedLayout{F} <: AbstractBandedLayout end
 struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+SparseApplyLayouts{F} = Union{ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
 ApplyLayouts{F} = Union{ApplyLayout{F},ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
+
 
 arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
@@ -223,6 +225,13 @@ prodsubblockbandwidths(A...) = broadcast(+, subblockbandwidths.(A)...)
 
 blockbandwidths(M::MulMatrix) = prodblockbandwidths(M.args...)
 subblockbandwidths(M::MulMatrix) = prodsubblockbandwidths(M.args...)
+
+mulreduce(M::Mul{<:SparseApplyLayouts{F},<:SparseApplyLayouts{G}}) where {F,G} = Mul{ApplyLayout{F},ApplyLayout{G}}(M.A, M.B)
+mulreduce(M::Mul{<:SparseApplyLayouts{F},D}) where {F,D} = Mul{ApplyLayout{F},D}(M.A, M.B)
+mulreduce(M::Mul{D,<:SparseApplyLayouts{F}}) where {F,D} = Mul{D,ApplyLayout{F}}(M.A, M.B)
+mulreduce(M::Mul{<:SparseApplyLayouts{F},<:DiagonalLayout}) where F = Rmul(M)
+mulreduce(M::Mul{<:DiagonalLayout,<:SparseApplyLayouts{F}}) where F = Lmul(M)
+
 
 ###
 # BroadcastMatrix
