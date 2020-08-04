@@ -16,7 +16,7 @@ import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
-                        LazyLayout, ApplyLayout, BroadcastLayout, CachedVector,
+                        LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector,
                         _mat_mul_arguments, paddeddata, sub_materialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, 
@@ -579,23 +579,27 @@ end
 bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
     @view bandeddata(arguments(R)[1])[end:-1:1,end:-1:1]
 
-
-
-mulreduce(M::Mul{<:LazyBandedLayouts, <:LazyBandedLayouts}) = ApplyArray(M)
-mulreduce(M::Mul{<:LazyBandedLayouts}) = ApplyArray(M)
-mulreduce(M::Mul{<:Any, <:LazyBandedLayouts}) = ApplyArray(M)
-mulreduce(M::Mul{<:LazyBandedLayouts, <:DiagonalLayout}) = ApplyArray(M)
-mulreduce(M::Mul{<:DiagonalLayout, <:LazyBandedLayouts}) = ApplyArray(M)
-mulreduce(M::Mul{<:LazyBandedLayouts, <:DiagonalLayout{<:OnesLayout}}) = Rmul(M)
-mulreduce(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:LazyBandedLayouts}) = Lmul(M)
-mulreduce(M::Mul{<:ApplyLayouts{typeof(*)},<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, arguments(M.A)..., arguments(M.B)...)
-mulreduce(M::Mul{<:ApplyLayouts{typeof(*)},<:LazyBandedLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
-mulreduce(M::Mul{<:LazyBandedLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
-mulreduce(M::Mul{<:ApplyLayouts{typeof(*)},<:BroadcastLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
-mulreduce(M::Mul{<:BroadcastLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
+# leave lazy banded matrices lazy when multiplying.
+# overload copy as overloading `mulreduce` requires `copyto!` overloads
+copy(M::Mul{<:LazyBandedLayouts, <:LazyBandedLayouts}) = copy(ApplyArray(M))
+copy(M::Mul{<:LazyBandedLayouts}) = copy(ApplyArray(M))
+copy(M::Mul{<:Any, <:LazyBandedLayouts}) = copy(ApplyArray(M))
+copy(M::Mul{<:LazyBandedLayouts, <:AbstractLazyLayout}) = copy(ApplyArray(M))
+copy(M::Mul{<:AbstractLazyLayout, <:LazyBandedLayouts}) = copy(ApplyArray(M))
+copy(M::Mul{<:LazyBandedLayouts, <:DiagonalLayout}) = copy(ApplyArray(M))
+copy(M::Mul{<:DiagonalLayout, <:LazyBandedLayouts}) = copy(ApplyArray(M))
+copy(M::Mul{<:LazyBandedLayouts, <:DiagonalLayout{<:OnesLayout}}) = copy(Rmul(M))
+copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:LazyBandedLayouts}) = copy(Lmul(M))
+copy(M::Mul{<:ApplyLayouts{typeof(*)},<:ApplyLayouts{typeof(*)}}) = copy(ApplyArray(*, arguments(M.A)..., arguments(M.B)...))
+copy(M::Mul{<:ApplyLayouts{typeof(*)},<:LazyBandedLayouts}) = copy(ApplyArray(*, arguments(M.A)..., M.B))
+copy(M::Mul{<:LazyBandedLayouts,<:ApplyLayouts{typeof(*)}}) = copy(ApplyArray(*, M.A, arguments(M.B)...))
+copy(M::Mul{<:ApplyLayouts{typeof(*)},<:BroadcastLayouts}) = copy(ApplyArray(*, arguments(M.A)..., M.B))
+copy(M::Mul{<:BroadcastLayouts,<:ApplyLayouts{typeof(*)}}) = copy(ApplyArray(*, M.A, arguments(M.B)...))
 
 ## padded copy
 mulreduce(M::Mul{<:LazyBandedLayouts, <:PaddedLayout}) = MulAdd(M)
+# need to overload copy due to above
+copy(M::Mul{<:LazyBandedLayouts, <:PaddedLayout}) = copy(mulreduce(M))
 
 
 end
