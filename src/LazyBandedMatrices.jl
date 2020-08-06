@@ -6,7 +6,7 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
 
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex
-import Base.Broadcast: Broadcasted
+import Base.Broadcast: Broadcasted, broadcasted
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle
 
@@ -47,13 +47,8 @@ bandedcolumns(::LazyLayout) = BandedColumns{LazyLayout}()
 bandedcolumns(::DualLayout{LazyLayout}) = BandedColumns{LazyLayout}()
 bandedcolumns(::ApplyLayout) = BandedColumns{LazyLayout}()
 
+
 struct LazyBandedLayout <: AbstractBandedLayout end
-
-LazyBandedLayouts = Union{LazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
-                TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
-                TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
-                BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}}
-
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
@@ -579,27 +574,43 @@ end
 bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
     @view bandeddata(arguments(R)[1])[end:-1:1,end:-1:1]
 
+
 # leave lazy banded matrices lazy when multiplying.
 # overload copy as overloading `mulreduce` requires `copyto!` overloads
-copy(M::Mul{<:LazyBandedLayouts, <:LazyBandedLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:LazyBandedLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:Any, <:LazyBandedLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:LazyBandedLayouts, <:AbstractLazyLayout}) = lazymaterialize(M)
-copy(M::Mul{<:AbstractLazyLayout, <:LazyBandedLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:LazyBandedLayouts, <:DiagonalLayout}) = lazymaterialize(M)
-copy(M::Mul{<:DiagonalLayout, <:LazyBandedLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:LazyBandedLayouts, <:DiagonalLayout{<:OnesLayout}}) = copy(Rmul(M))
-copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:LazyBandedLayouts}) = copy(Lmul(M))
+# Should probably be redesigned in a trait-based way, but hard to see how to do this
+LazyStructuredLayouts = Union{LazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
+                TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
+                TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
+                BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
+                BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
+                BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}}}
+
+
+copy(M::Mul{<:LazyStructuredLayouts, <:LazyStructuredLayouts}) = lazymaterialize(M)
+copy(M::Mul{<:LazyStructuredLayouts}) = lazymaterialize(M)
+copy(M::Mul{<:Any, <:LazyStructuredLayouts}) = lazymaterialize(M)
+copy(M::Mul{<:LazyStructuredLayouts, <:AbstractLazyLayout}) = lazymaterialize(M)
+copy(M::Mul{<:AbstractLazyLayout, <:LazyStructuredLayouts}) = lazymaterialize(M)
+copy(M::Mul{<:LazyStructuredLayouts, <:DiagonalLayout}) = lazymaterialize(M)
+copy(M::Mul{<:DiagonalLayout, <:LazyStructuredLayouts}) = lazymaterialize(M)
+copy(M::Mul{<:LazyStructuredLayouts, <:DiagonalLayout{<:OnesLayout}}) = copy(Rmul(M))
+copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:LazyStructuredLayouts}) = copy(Lmul(M))
 copy(M::Mul{<:ApplyLayouts{typeof(*)},<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, arguments(M.A)..., arguments(M.B)...)
-copy(M::Mul{<:ApplyLayouts{typeof(*)},<:LazyBandedLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:LazyBandedLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
+copy(M::Mul{<:ApplyLayouts{typeof(*)},<:LazyStructuredLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
+copy(M::Mul{<:LazyStructuredLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
 copy(M::Mul{<:ApplyLayouts{typeof(*)},<:BroadcastLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
 copy(M::Mul{<:BroadcastLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
 
 ## padded copy
-mulreduce(M::Mul{<:LazyBandedLayouts, <:PaddedLayout}) = MulAdd(M)
+mulreduce(M::Mul{<:LazyStructuredLayouts, <:PaddedLayout}) = MulAdd(M)
 # need to overload copy due to above
-copy(M::Mul{<:LazyBandedLayouts, <:PaddedLayout}) = copy(mulreduce(M))
+copy(M::Mul{<:LazyStructuredLayouts, <:PaddedLayout}) = copy(mulreduce(M))
+
+##
+# support Inf Block ranges
+broadcasted(::LazyArrayStyle{1}, ::Type{Block}, r::AbstractUnitRange) = Block(first(r)):Block(last(r))
+broadcasted(::LazyArrayStyle{1}, ::Type{Int}, block_range::BlockRange{1}) = first(block_range.indices)
+broadcasted(::LazyArrayStyle{0}, ::Type{Int}, block::Block{1}) = Int(block)
 
 
 end
