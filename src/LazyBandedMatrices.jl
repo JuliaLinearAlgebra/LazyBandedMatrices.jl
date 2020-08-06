@@ -176,7 +176,7 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 struct ApplyBandedLayout{F} <: AbstractBandedLayout end
 struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
 struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
-SparseApplyLayouts{F} = Union{ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
+StructuredApplyLayouts{F} = Union{ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
 ApplyLayouts{F} = Union{ApplyLayout{F},ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
 
 
@@ -221,11 +221,11 @@ prodsubblockbandwidths(A...) = broadcast(+, subblockbandwidths.(A)...)
 blockbandwidths(M::MulMatrix) = prodblockbandwidths(M.args...)
 subblockbandwidths(M::MulMatrix) = prodsubblockbandwidths(M.args...)
 
-mulreduce(M::Mul{<:SparseApplyLayouts{F},<:SparseApplyLayouts{G}}) where {F,G} = Mul{ApplyLayout{F},ApplyLayout{G}}(M.A, M.B)
-mulreduce(M::Mul{<:SparseApplyLayouts{F},D}) where {F,D} = Mul{ApplyLayout{F},D}(M.A, M.B)
-mulreduce(M::Mul{D,<:SparseApplyLayouts{F}}) where {F,D} = Mul{D,ApplyLayout{F}}(M.A, M.B)
-mulreduce(M::Mul{<:SparseApplyLayouts{F},<:DiagonalLayout}) where F = Rmul(M)
-mulreduce(M::Mul{<:DiagonalLayout,<:SparseApplyLayouts{F}}) where F = Lmul(M)
+mulreduce(M::Mul{<:StructuredApplyLayouts{F},<:StructuredApplyLayouts{G}}) where {F,G} = Mul{ApplyLayout{F},ApplyLayout{G}}(M.A, M.B)
+mulreduce(M::Mul{<:StructuredApplyLayouts{F},D}) where {F,D} = Mul{ApplyLayout{F},D}(M.A, M.B)
+mulreduce(M::Mul{D,<:StructuredApplyLayouts{F}}) where {F,D} = Mul{D,ApplyLayout{F}}(M.A, M.B)
+mulreduce(M::Mul{<:StructuredApplyLayouts{F},<:DiagonalLayout}) where F = Rmul(M)
+mulreduce(M::Mul{<:DiagonalLayout,<:StructuredApplyLayouts{F}}) where F = Lmul(M)
 
 
 ###
@@ -595,11 +595,16 @@ copy(M::Mul{<:LazyStructuredLayouts, <:DiagonalLayout}) = lazymaterialize(M)
 copy(M::Mul{<:DiagonalLayout, <:LazyStructuredLayouts}) = lazymaterialize(M)
 copy(M::Mul{<:LazyStructuredLayouts, <:DiagonalLayout{<:OnesLayout}}) = copy(Rmul(M))
 copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:LazyStructuredLayouts}) = copy(Lmul(M))
-copy(M::Mul{<:ApplyLayouts{typeof(*)},<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, arguments(M.A)..., arguments(M.B)...)
-copy(M::Mul{<:ApplyLayouts{typeof(*)},<:LazyStructuredLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:LazyStructuredLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
-copy(M::Mul{<:ApplyLayouts{typeof(*)},<:BroadcastLayouts}) = ApplyArray(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:BroadcastLayouts,<:ApplyLayouts{typeof(*)}}) = ApplyArray(*, M.A, arguments(M.B)...)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, arguments(M.A)..., arguments(M.B)...)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:LazyStructuredLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
+copy(M::Mul{<:LazyStructuredLayouts,<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
+copy(M::Mul{<:BroadcastLayouts,<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
+copy(M::Mul{ApplyLayout{typeof(*)},<:LazyStructuredLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
+copy(M::Mul{<:LazyStructuredLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
+copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
+copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
+
 
 ## padded copy
 mulreduce(M::Mul{<:LazyStructuredLayouts, <:PaddedLayout}) = MulAdd(M)
@@ -612,5 +617,8 @@ broadcasted(::LazyArrayStyle{1}, ::Type{Block}, r::AbstractUnitRange) = Block(fi
 broadcasted(::LazyArrayStyle{1}, ::Type{Int}, block_range::BlockRange{1}) = first(block_range.indices)
 broadcasted(::LazyArrayStyle{0}, ::Type{Int}, block::Block{1}) = Int(block)
 
+
+LazyArrays._applylayout_lmaterialize(::ApplyLayouts{typeof(*)}, A, B...) = LazyArrays._applylayout_lmaterialize(ApplyLayout{typeof(*)}(), A, B...)
+LazyArrays._applylayout_rmaterialize(::ApplyLayouts{typeof(*)}, Z::AbstractArray, Y...) = LazyArrays._applylayout_rmaterialize(ApplyLayout{typeof(*)}(), Z, Y...)
 
 end
