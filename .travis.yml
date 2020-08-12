@@ -4,7 +4,7 @@ os:
   - linux
   - osx
   - windows
-julia:  
+julia:
   - 1.5
   - nightly
 matrix:
