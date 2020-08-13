@@ -40,6 +40,7 @@ BandedMatrices.bandwidths(A::PseudoBandedMatrix) = (A.l , A.u)
 BandedMatrices.inbands_getindex(A::PseudoBandedMatrix, j::Int, k::Int) = A.data[j, k]
 BandedMatrices.inbands_setindex!(A::PseudoBandedMatrix, v, j::Int, k::Int) = setindex!(A.data, v, j, k)
 LinearAlgebra.fill!(A::PseudoBandedMatrix, v) = fill!(A.data,v)
+ArrayLayouts.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
 LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
 
 struct MyLazyArray{T,N} <: AbstractArray{T,N}
