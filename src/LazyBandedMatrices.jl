@@ -196,9 +196,10 @@ _mul_args_rowsupport(a, kr::Block) = blockrowsupport(a, kr)
 _mat_mul_arguments(args, (kr,jr)::Tuple{BlockSlice,BlockSlice}) = _mat_mul_arguments(args, (kr.block, jr.block))
 
 arguments(::ApplyBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
-sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
-sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+sublayout(::ApplyBlockBandedLayout{F}, A::Type{<:NTuple{2,Union{Int,AbstractVector{Int}}}}) where F = sublayout(ApplyLayout{F}(), A)
+sublayout(::ApplyBandedBlockBandedLayout{F}, A::Type{<:NTuple{2,Union{Int,AbstractVector{Int}}}}) where F = sublayout(ApplyLayout{F}(), A)
 
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
