@@ -23,7 +23,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle,
                         _mul_args_colsupport, _mul_args_rowsupport, _islazy
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
-                        prodbandwidths, BandedStyle, BandedColumns, BandedRows,
+                        prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
                         banded_qr_lmul!, banded_qr_rmul!, _banded_broadcast!
@@ -33,7 +33,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedStyle,
-                        blockcolsupport, BlockRange1, blockrowsupport
+                        blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout
 
 export DiagTrav, KronTrav, blockkron
@@ -198,8 +198,17 @@ _mat_mul_arguments(args, (kr,jr)::Tuple{BlockSlice,BlockSlice}) = _mat_mul_argum
 arguments(::ApplyBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 
-sublayout(::ApplyBlockBandedLayout{F}, A::Type{<:NTuple{2,Union{Int,AbstractVector{Int}}}}) where F = sublayout(ApplyLayout{F}(), A)
-sublayout(::ApplyBandedBlockBandedLayout{F}, A::Type{<:NTuple{2,Union{Int,AbstractVector{Int}}}}) where F = sublayout(ApplyLayout{F}(), A)
+sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{Block1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockIndexRange1},BlockSlice{BlockIndexRange1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockIndexRange1},BlockSlice{Block1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{BlockIndexRange1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{BlockRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{Block1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockIndexRange1}}}) where F = BandedBlockBandedLayout()
 
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
