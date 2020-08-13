@@ -1,10 +1,10 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulAddStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout
+import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
-import ArrayLayouts: StridedLayout
+import ArrayLayouts: StridedLayout, OnesLayout
 
 Random.seed!(0)
 
@@ -40,6 +40,7 @@ BandedMatrices.bandwidths(A::PseudoBandedMatrix) = (A.l , A.u)
 BandedMatrices.inbands_getindex(A::PseudoBandedMatrix, j::Int, k::Int) = A.data[j, k]
 BandedMatrices.inbands_setindex!(A::PseudoBandedMatrix, v, j::Int, k::Int) = setindex!(A.data, v, j, k)
 LinearAlgebra.fill!(A::PseudoBandedMatrix, v) = fill!(A.data,v)
+ArrayLayouts.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
 LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
 
 struct MyLazyArray{T,N} <: AbstractArray{T,N}
@@ -55,6 +56,9 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
 
 @testset "LazyBlock" begin
     @test Block(5) in BroadcastVector(Block, [1,3,5])
+    @test Base.broadcasted(LazyArrayStyle{1}(), Block, 1:5) ≡ Block.(1:5)
+    @test Base.broadcasted(LazyArrayStyle{1}(), Int, Block.(1:5)) ≡ 1:5
+    @test Base.broadcasted(LazyArrayStyle{0}(), Int, Block(1)) ≡ 1
 end
 
 
@@ -134,7 +138,7 @@ end
         A = brand(6,5,0,1)
         B = brand(5,5,1,0)
         C = brand(5,6,2,2)
-        M = Mul(A,B,C)
+        M = applied(*,A,B,C)
         @test @inferred(eltype(M)) == Float64
         @test bandwidths(M) == (3,3)
         @test M[1,1] ≈ (A*B*C)[1,1]
@@ -185,14 +189,14 @@ end
         C = PseudoBandedMatrix(zeros(5, 4), 3, 4)
         D = zeros(5, 4)
 
-        @test (C .= Mul(A, B)) ≈ (D .= Mul(A, B)) ≈ A*B
+        @test (C .= applied(*, A, B)) ≈ (D .= applied(*, A, B)) ≈ A*B
     end
     @testset "MulStyle" begin
         A = brand(5,5,0,1)
         B = brand(5,5,1,0)
         C = BroadcastMatrix(*, A, 2)
         M = ApplyArray(*,A,B)
-        @test M*M isa ApplyMatrix{Float64,typeof(*)}
+        @test M^2 isa ApplyMatrix{Float64,typeof(*)}
         @test M*C isa ApplyMatrix{Float64,typeof(*)}
         @test C*M isa ApplyMatrix{Float64,typeof(*)}
     end
@@ -328,7 +332,7 @@ end
     C = BandedMatrix{Float64}(undef, (1,2), (0,2)); C.data .= NaN;
     A = brand(1,1,0,1)
     B = brand(1,2,0,2)
-    C .= Mul(A,B)
+    C .= applied(*, A,B)
     @test C == A*B
 
     C.data .= NaN
@@ -338,7 +342,7 @@ end
 
 @testset "Applied" begin
     A = brand(5,5,1,2)
-    @test applied(*,Symmetric(A),A) isa Applied{MulAddStyle}
+    @test applied(*,Symmetric(A),A) isa Applied{MulStyle}
     B = apply(*,A,A,A)
     @test B isa BandedMatrix
     @test all(B .=== (A*A)*A)
@@ -613,8 +617,8 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test bandwidths(A) == (2,0)
         @test MemoryLayout(typeof(A)) isa ApplyBandedLayout{typeof(vcat)}
         @test BandedMatrix(A) == Array(A) == A
-        @test A*A isa BandedMatrix
-        @test A*A == BandedMatrix(A)*A == A*BandedMatrix(A)
+        @test A*A isa MulMatrix
+        @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
         @test A[1:5,1:5] isa BandedMatrix
     end
 
@@ -636,14 +640,27 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         A = _BandedMatrix(Ones{Int}(1,10),10,0,0)'
         B = _BandedMatrix((-2:-2:-20)', 10,-1,1)
         C = Diagonal( BroadcastVector(/, 2, (1:2:20)))
-        @test MemoryLayout(A) isa BandedRows{FillLayout}
+        C̃ = _BandedMatrix(BroadcastArray(/, 2, (1:2:20)'), 10, -1, 1)
+        D = MyLazyArray(randn(10,10))
+        M = ApplyArray(*,A,A)
+        M̃ = ApplyArray(*,randn(10,10),randn(10,10))
+        @test MemoryLayout(A) isa BandedRows{OnesLayout}
         @test MemoryLayout(B) isa BandedColumns{UnknownLayout}
         @test MemoryLayout(C) isa DiagonalLayout{LazyLayout}
+        @test MemoryLayout(C̃) isa BandedColumns{LazyLayout}
         BC = BroadcastArray(*, B, permutedims(MyLazyArray(Array(C.diag))))
         @test MemoryLayout(BC) isa LazyBandedLayout
         @test A*BC isa MulMatrix
         @test BC*B isa MulMatrix
         @test BC*BC isa MulMatrix
+        @test C*C̃ isa MulMatrix
+        @test C̃*C isa MulMatrix
+        @test C̃*D isa MulMatrix
+        @test D*C̃ isa MulMatrix
+        @test C̃*M isa MulMatrix
+        @test M*C̃ isa MulMatrix
+        @test C̃*M̃ isa MulMatrix
+        @test M̃*C̃ isa MulMatrix
     end
 
     @testset "banded-block-banded Kron" begin
@@ -658,7 +675,6 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test blockbandwidths(Δ) == (1,1)
         @test subblockbandwidths(Δ) == (1,1)
         @test Δ[Block.(1:4),Block.(2:4)] == Δ[:,5:end]
-
 
         @testset "irradic indexing" begin
             B = cache(Δ);
