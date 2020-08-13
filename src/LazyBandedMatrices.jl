@@ -43,10 +43,8 @@ BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
 BroadcastStyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 
-bandedcolumns(::LazyLayout) = BandedColumns{LazyLayout}()
-bandedcolumns(::DualLayout{LazyLayout}) = BandedColumns{LazyLayout}()
-bandedcolumns(::ApplyLayout) = BandedColumns{LazyLayout}()
-
+bandedcolumns(::AbstractLazyLayout) = BandedColumns{LazyLayout}()
+bandedcolumns(::DualLayout{<:AbstractLazyLayout}) = BandedColumns{LazyLayout}()
 
 struct LazyBandedLayout <: AbstractBandedLayout end
 

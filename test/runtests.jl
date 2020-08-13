@@ -1,6 +1,6 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
-import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout
+import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
@@ -56,6 +56,9 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
 
 @testset "LazyBlock" begin
     @test Block(5) in BroadcastVector(Block, [1,3,5])
+    @test Base.broadcasted(LazyArrayStyle{1}(), Block, 1:5) ≡ Block.(1:5)
+    @test Base.broadcasted(LazyArrayStyle{1}(), Int, Block.(1:5)) ≡ 1:5
+    @test Base.broadcasted(LazyArrayStyle{0}(), Int, Block(1)) ≡ 1
 end
 
 
@@ -637,14 +640,27 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         A = _BandedMatrix(Ones{Int}(1,10),10,0,0)'
         B = _BandedMatrix((-2:-2:-20)', 10,-1,1)
         C = Diagonal( BroadcastVector(/, 2, (1:2:20)))
+        C̃ = _BandedMatrix(BroadcastArray(/, 2, (1:2:20)'), 10, -1, 1)
+        D = MyLazyArray(randn(10,10))
+        M = ApplyArray(*,A,A)
+        M̃ = ApplyArray(*,randn(10,10),randn(10,10))
         @test MemoryLayout(A) isa BandedRows{OnesLayout}
         @test MemoryLayout(B) isa BandedColumns{UnknownLayout}
         @test MemoryLayout(C) isa DiagonalLayout{LazyLayout}
+        @test MemoryLayout(C̃) isa BandedColumns{LazyLayout}
         BC = BroadcastArray(*, B, permutedims(MyLazyArray(Array(C.diag))))
         @test MemoryLayout(BC) isa LazyBandedLayout
         @test A*BC isa MulMatrix
         @test BC*B isa MulMatrix
         @test BC*BC isa MulMatrix
+        @test C*C̃ isa MulMatrix
+        @test C̃*C isa MulMatrix
+        @test C̃*D isa MulMatrix
+        @test D*C̃ isa MulMatrix
+        @test C̃*M isa MulMatrix
+        @test M*C̃ isa MulMatrix
+        @test C̃*M̃ isa MulMatrix
+        @test M̃*C̃ isa MulMatrix
     end
 
     @testset "banded-block-banded Kron" begin
