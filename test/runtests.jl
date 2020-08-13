@@ -615,7 +615,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test MemoryLayout(typeof(A)) isa ApplyBandedLayout{typeof(vcat)}
         @test BandedMatrix(A) == Array(A) == A
         @test A*A isa MulMatrix
-        @test A*A == BandedMatrix(A)*A == A*BandedMatrix(A) == BandedMatrix(A*A)
+        @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
         @test A[1:5,1:5] isa BandedMatrix
     end
 
