@@ -23,7 +23,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle,
                         _mul_args_colsupport, _mul_args_rowsupport, _islazy
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
-                        prodbandwidths, BandedStyle, BandedColumns, BandedRows,
+                        prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
                         banded_qr_lmul!, banded_qr_rmul!, _banded_broadcast!
@@ -33,7 +33,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedStyle,
-                        blockcolsupport, BlockRange1, blockrowsupport
+                        blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout
 
 export DiagTrav, KronTrav, blockkron
@@ -46,7 +46,11 @@ BroadcastStyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 bandedcolumns(::AbstractLazyLayout) = BandedColumns{LazyLayout}()
 bandedcolumns(::DualLayout{<:AbstractLazyLayout}) = BandedColumns{LazyLayout}()
 
-struct LazyBandedLayout <: AbstractBandedLayout end
+abstract type AbstractLazyBandedLayout <: AbstractBandedLayout end
+abstract type AbstractLazyBlockBandedLayout <: AbstractBlockBandedLayout end
+abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
+
+struct LazyBandedLayout <: AbstractLazyBandedLayout end
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
@@ -171,9 +175,9 @@ isbanded(M::MulMatrix) = isbanded(Applied(M))
 # ApplyBanded
 ###
 
-struct ApplyBandedLayout{F} <: AbstractBandedLayout end
-struct ApplyBlockBandedLayout{F} <: AbstractBlockBandedLayout end
-struct ApplyBandedBlockBandedLayout{F} <: AbstractBlockBandedLayout end
+struct ApplyBandedLayout{F} <: AbstractLazyBandedLayout end
+struct ApplyBlockBandedLayout{F} <: AbstractLazyBlockBandedLayout end
+struct ApplyBandedBlockBandedLayout{F} <: AbstractLazyBandedBlockBandedLayout end
 StructuredApplyLayouts{F} = Union{ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
 ApplyLayouts{F} = Union{ApplyLayout{F},ApplyBandedLayout{F},ApplyBlockBandedLayout{F},ApplyBandedBlockBandedLayout{F}}
 
@@ -192,9 +196,19 @@ _mul_args_rowsupport(a, kr::Block) = blockrowsupport(a, kr)
 _mat_mul_arguments(args, (kr,jr)::Tuple{BlockSlice,BlockSlice}) = _mat_mul_arguments(args, (kr.block, jr.block))
 
 arguments(::ApplyBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
-sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
+
+sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{Block1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockIndexRange1},BlockSlice{BlockIndexRange1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockIndexRange1},BlockSlice{Block1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{BlockIndexRange1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{BlockRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{Block1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockIndexRange1}}}) where F = BandedBlockBandedLayout()
 
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
@@ -230,7 +244,7 @@ mulreduce(M::Mul{<:DiagonalLayout,<:StructuredApplyLayouts{F}}) where F = Lmul(M
 # BroadcastMatrix
 ###
 
-bandwidths(M::BroadcastMatrix) = bandwidths(Broadcasted(M))
+bandwidths(M::BroadcastMatrix) = bandwidths(broadcasted(M))
 # TODO: Generalize
 for op in (:+, :-)
     @eval begin
@@ -248,11 +262,11 @@ for func in (:blockbandwidths, :subblockbandwidths)
     end
 end
 
-isbanded(M::BroadcastMatrix) = isbanded(Broadcasted(M))
+isbanded(M::BroadcastMatrix) = isbanded(broadcasted(M))
 
-struct BroadcastBandedLayout{F} <: AbstractBandedLayout end
-struct BroadcastBlockBandedLayout{F} <: AbstractBlockBandedLayout end
-struct BroadcastBandedBlockBandedLayout{F} <: AbstractBandedBlockBandedLayout end
+struct BroadcastBandedLayout{F} <: AbstractLazyBandedLayout end
+struct BroadcastBlockBandedLayout{F} <: AbstractLazyBlockBandedLayout end
+struct BroadcastBandedBlockBandedLayout{F} <: AbstractLazyBandedBlockBandedLayout end
 
 BroadcastLayouts{F} = Union{BroadcastLayout{F},BroadcastBandedLayout{F},BroadcastBlockBandedLayout{F},BroadcastBandedBlockBandedLayout{F}}
 
@@ -339,7 +353,7 @@ _broadcast_BandedBlockBandedMatrix(a) = a
 
 for op in (:+, :-, :*)
     @eval begin
-        @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix) = broadcast($op, map(_broadcast_BandedMatrix,arguments(V))...)
+        @inline _BandedMatrix(::BroadcastBandedLayout{typeof($op)}, V::AbstractMatrix)::BandedMatrix = broadcast($op, map(_broadcast_BandedMatrix,arguments(V))...)
         _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
             broadcast!($op, dest, map(_broadcast_BandedMatrix, arguments(src))...)
         _copyto!(::AbstractBandedBlockBandedLayout, ::BroadcastBandedBlockBandedLayout{typeof($op)}, dest::AbstractMatrix, src::AbstractMatrix) =
@@ -581,7 +595,8 @@ StructuredLazyLayouts = Union{LazyBandedLayout, BandedColumns{LazyLayout}, Bande
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
                 BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
-                BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}}}
+                BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}},
+                AbstractLazyBandedLayout, AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
