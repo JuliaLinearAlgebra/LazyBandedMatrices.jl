@@ -52,6 +52,8 @@ abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLa
 
 struct LazyBandedLayout <: AbstractLazyBandedLayout end
 
+sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
+
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
 
@@ -297,10 +299,6 @@ for op in (:*, :\)
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
-broadcastlayout(::Type{typeof(*)}, ::AbstractBandedLayout, ::LazyLayout) = LazyBandedLayout()
-broadcastlayout(::Type{typeof(*)}, ::LazyLayout, ::AbstractBandedLayout) = LazyBandedLayout()
-broadcastlayout(::Type{typeof(/)}, ::AbstractBandedLayout, ::LazyLayout) = LazyBandedLayout()
-broadcastlayout(::Type{typeof(\)}, ::LazyLayout, ::AbstractBandedLayout) = LazyBandedLayout()
 
 
 sublayout(LAY::BroadcastBlockBandedLayout, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = LAY
@@ -320,6 +318,9 @@ _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
 
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
+
+_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractVector{T},AbstractMatrix{V}}, ::AbstractLazyLayout, ::AbstractBandedLayout) where {T,V} = 
+    broacast!(f, dest, Vector(A), BandedMatrix(B))
 
 
 function _cache(::AllBlockBandedLayout, A::AbstractMatrix{T}) where T
@@ -391,7 +392,7 @@ call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
 call(b::BroadcastBandedLayout, a::SubArray) = call(BroadcastLayout(b), a)
 
 sublayout(M::ApplyBandedLayout{typeof(*)}, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
-sublayout(M::BroadcastBandedLayout, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
+sublayout(M::BroadcastBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
 
 transposelayout(b::BroadcastBandedLayout) = b
 arguments(b::BroadcastBandedLayout, A::AdjOrTrans) where F = arguments(BroadcastLayout(b), A)
