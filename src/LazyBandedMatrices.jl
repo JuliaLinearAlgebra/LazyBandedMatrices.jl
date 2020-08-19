@@ -139,7 +139,6 @@ end
 # (vec .* mat) * B is typically faster as vec .* (mat * b)
 _broadcast_banded_padded_mul((A1,A2)::Tuple{<:AbstractVector,<:AbstractMatrix}, B) = A1 .* mul(A2, B)
 _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aargs...), B)))
-copy(M::Mul{BroadcastBandedLayout{typeof(*)}, <:PaddedLayout}) = _broadcast_banded_padded_mul(arguments(BroadcastBandedLayout{typeof(*)}(), M.A), M.B)
 
 const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
 
@@ -327,24 +326,12 @@ _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},Abstr
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractVector{T},AbstractMatrix{V}}, ::AbstractLazyLayout, ::AbstractBandedLayout) where {T,V} = 
     broacast!(f, dest, Vector(A), BandedMatrix(B))
 
+copy(M::Mul{BroadcastBandedLayout{typeof(*)}, <:PaddedLayout}) = _broadcast_banded_padded_mul(arguments(BroadcastBandedLayout{typeof(*)}(), M.A), M.B)
 
 function _cache(::AllBlockBandedLayout, A::AbstractMatrix{T}) where T
     kr,jr = axes(A)
     CachedArray(BlockBandedMatrix{T}(undef, (kr[Block.(1:0)], jr[Block.(1:0)]), blockbandwidths(A)), A)
 end
-
-###
-# sub materialize
-###
-
-@inline sub_materialize(::ApplyBandedLayout{typeof(*)}, V, _) = BandedMatrix(V)
-@inline sub_materialize(::BroadcastBandedLayout, V, _) = BandedMatrix(V)
-@inline sub_materialize(::BandedColumns{LazyLayout}, V, _) = V
-@inline sub_materialize(::BandedColumns{LazyLayout}, V, ::Tuple{<:OneTo,<:OneTo}) = BandedMatrix(V)
-
-@inline sub_materialize(::ApplyBlockBandedLayout{typeof(*)}, V, _) = BlockBandedMatrix(V)
-@inline sub_materialize(::ApplyBandedBlockBandedLayout{typeof(*)}, V, _) = BandedBlockBandedMatrix(V)
-
 ###
 # copyto!
 ###
@@ -396,7 +383,7 @@ arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_argu
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
 call(b::BroadcastBandedLayout, a::SubArray) = call(BroadcastLayout(b), a)
 
-sublayout(M::ApplyBandedLayout{typeof(*)}, ::Type{<:Tuple{Vararg{AbstractUnitRange}}}) = M
+sublayout(M::ApplyBandedLayout{typeof(*)}, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
 sublayout(M::BroadcastBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
 
 transposelayout(b::BroadcastBandedLayout) = b
@@ -596,13 +583,16 @@ bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
 # leave lazy banded matrices lazy when multiplying.
 # overload copy as overloading `mulreduce` requires `copyto!` overloads
 # Should probably be redesigned in a trait-based way, but hard to see how to do this
-StructuredLazyLayouts = Union{LazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
+
+BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
-                TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
+                TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT}}
+
+StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
                 BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}},
-                AbstractLazyBandedLayout, AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
+                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
