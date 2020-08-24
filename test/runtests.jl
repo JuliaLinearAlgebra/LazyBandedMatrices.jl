@@ -706,6 +706,13 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test paddeddata(b) == [zeros(9); 5]
     end
 
+    @testset "Padded columns" begin
+        B = brand(8,8,1,2)
+        v = view(B,:,4)
+        MemoryLayout(v)
+        paddeddata(v)
+    end
+
     @testset "Banded rot" begin
         A = brand(5,5,1,2)
         R = ApplyArray(rot180, A)

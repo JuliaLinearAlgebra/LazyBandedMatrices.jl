@@ -17,7 +17,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector,
-                        _mat_mul_arguments, paddeddata, sub_materialize, lazymaterialize,
+                        _mat_mul_arguments, paddeddata, sub_paddeddata, sub_materialize, lazymaterialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle,
@@ -54,6 +54,7 @@ struct LazyBandedLayout <: AbstractLazyBandedLayout end
 
 sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 
+
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
 
@@ -85,8 +86,22 @@ for T1 in OtherBandedMatrixTypes, T2 in BandedMatrixTypes
     @eval kron(A::$T1, B::$T2) = BandedMatrix(Kron(A,B))
 end
 
+###
+# Columns as padded
+###
 
+sublayout(::AbstractBandedLayout, ::Type{<:Tuple{KR,Integer}}) where {KR<:AbstractUnitRange{Int}} = 
+    sublayout(PaddedLayout{UnknownLayout}(), Tuple{KR})
+sublayout(::AbstractBandedLayout, ::Type{<:Tuple{Integer,JR}}) where {JR<:AbstractUnitRange{Int}} = 
+    sublayout(PaddedLayout{UnknownLayout}(), Tuple{JR})
 
+function sub_paddeddata(::BandedColumns, S::SubArray{T,1,<:AbstractMatrix}) where T
+    P = parent(S)
+    (kr,j) = parentindices(S)
+    data = bandeddata(P)
+    l,u = bandwidths(P)
+    Vcat(Zeros{T}(max(0,j-u-1)), view(data, (kr .- j .+ (u+1)) ∩ axes(data,1), j))
+end
 ###
 # Specialised multiplication for arrays padded for zeros
 # needed for ∞-dimensional banded linear algebra
