@@ -106,6 +106,12 @@ end
         @test A*b ≈ Matrix(A)b
         @test B*b ≈ Matrix(B)b
     end
+
+    @testset "Apply * Banded" begin
+        B = brand(5,5,2,1)
+        A = ApplyArray(*, B, B)
+        @test A * Vcat([1,2], Zeros(3)) ≈ B*B*[1,2,0,0,0]
+    end
 end
 
 @testset "MulMatrix" begin
