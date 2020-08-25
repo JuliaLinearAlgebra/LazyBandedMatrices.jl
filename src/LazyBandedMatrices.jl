@@ -88,20 +88,23 @@ end
 
 ###
 # Columns as padded
+# This is ommitted as it changes the behaviour of slicing B[:,4]
 ###
 
-sublayout(::AbstractBandedLayout, ::Type{<:Tuple{KR,Integer}}) where {KR<:AbstractUnitRange{Int}} = 
-    sublayout(PaddedLayout{UnknownLayout}(), Tuple{KR})
-sublayout(::AbstractBandedLayout, ::Type{<:Tuple{Integer,JR}}) where {JR<:AbstractUnitRange{Int}} = 
-    sublayout(PaddedLayout{UnknownLayout}(), Tuple{JR})
+# sublayout(::AbstractBandedLayout, ::Type{<:Tuple{KR,Integer}}) where {KR<:AbstractUnitRange{Int}} = 
+#     sublayout(PaddedLayout{UnknownLayout}(), Tuple{KR})
+# sublayout(::AbstractBandedLayout, ::Type{<:Tuple{Integer,JR}}) where {JR<:AbstractUnitRange{Int}} = 
+#     sublayout(PaddedLayout{UnknownLayout}(), Tuple{JR})
 
-function sub_paddeddata(::BandedColumns, S::SubArray{T,1,<:AbstractMatrix}) where T
-    P = parent(S)
-    (kr,j) = parentindices(S)
-    data = bandeddata(P)
-    l,u = bandwidths(P)
-    Vcat(Zeros{T}(max(0,j-u-1)), view(data, (kr .- j .+ (u+1)) ∩ axes(data,1), j))
-end
+# function sub_paddeddata(::BandedColumns, S::SubArray{T,1,<:AbstractMatrix,<:Tuple{AbstractUnitRange{Int},Integer}}) where T
+#     P = parent(S)
+#     (kr,j) = parentindices(S)
+#     data = bandeddata(P)
+#     l,u = bandwidths(P)
+#     Vcat(Zeros{T}(max(0,j-u-1)), view(data, (kr .- j .+ (u+1)) ∩ axes(data,1), j))
+# end
+
+
 ###
 # Specialised multiplication for arrays padded for zeros
 # needed for ∞-dimensional banded linear algebra
@@ -337,9 +340,6 @@ _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
 
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
-
-_banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractVector{T},AbstractMatrix{V}}, ::AbstractLazyLayout, ::AbstractBandedLayout) where {T,V} = 
-    broacast!(f, dest, Vector(A), BandedMatrix(B))
 
 copy(M::Mul{BroadcastBandedLayout{typeof(*)}, <:PaddedLayout}) = _broadcast_banded_padded_mul(arguments(BroadcastBandedLayout{typeof(*)}(), M.A), M.B)
 
