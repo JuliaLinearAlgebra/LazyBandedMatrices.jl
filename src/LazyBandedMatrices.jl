@@ -416,7 +416,8 @@ sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{
 _cumsum(a) = a
 _cumsum(a, b...) = tuple(a, (a .+ _cumsum(b...))...)
 
-function bandwidths(M::Vcat)
+
+function bandwidths(M::Vcat{<:Any,2})
     cs = tuple(0, _cumsum(size.(M.args[1:end-1],1)...)...) # cumsum of sizes
     (maximum(cs .+ bandwidth.(M.args,1)), maximum(bandwidth.(M.args,2) .- cs))
 end
@@ -634,6 +635,7 @@ copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A
 
 ## padded copy
 mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
+mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
 
