@@ -98,6 +98,20 @@ end
         @test MemoryLayout(b[Block.(2:3)]) isa PaddedLayout
         @test b[Block.(2:3)] == b[2:6]
     end
+
+    @testset "BroadcastBanded * Padded" begin
+        A = BroadcastArray(*, randn(5), brand(5,5,1,2))
+        B = BroadcastArray(*, randn(5,5), brand(5,5,1,2))
+        b = Vcat(randn(2), Zeros(3))
+        @test A*b ≈ Matrix(A)b
+        @test B*b ≈ Matrix(B)b
+    end
+
+    @testset "Apply * Banded" begin
+        B = brand(5,5,2,1)
+        A = ApplyArray(*, B, B)
+        @test A * Vcat([1,2], Zeros(3)) ≈ B*B*[1,2,0,0,0]
+    end
 end
 
 @testset "MulMatrix" begin
@@ -649,7 +663,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test MemoryLayout(C) isa DiagonalLayout{LazyLayout}
         @test MemoryLayout(C̃) isa BandedColumns{LazyLayout}
         BC = BroadcastArray(*, B, permutedims(MyLazyArray(Array(C.diag))))
-        @test MemoryLayout(BC) isa LazyBandedLayout
+        @test MemoryLayout(BC) isa BroadcastBandedLayout
         @test A*BC isa MulMatrix
         @test BC*B isa MulMatrix
         @test BC*BC isa MulMatrix
@@ -705,6 +719,16 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test paddeddata(b) isa PseudoBlockVector
         @test paddeddata(b) == [zeros(9); 5]
     end
+
+    # @testset "Padded columns" begin
+    #     B = brand(8,8,1,2)
+    #     v = view(B,:,4)
+    #     w = view(B,3,:)
+    #     @test MemoryLayout(v) isa PaddedLayout
+    #     @test_broken MemoryLayout(w) isa PaddedLayout
+    #     @test paddeddata(v) isa Vcat
+    #     paddeddata(v) == B[:,4]
+    # end
 
     @testset "Banded rot" begin
         A = brand(5,5,1,2)
