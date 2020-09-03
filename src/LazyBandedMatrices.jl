@@ -19,8 +19,8 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector,
                         _mat_mul_arguments, paddeddata, sub_paddeddata, sub_materialize, lazymaterialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
-                        resizedata!, applybroadcaststyle,
-                        LazyMatrix, LazyVector, LazyArray, MulAddStyle,
+                        resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
+                        LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
                         _mul_args_colsupport, _mul_args_rowsupport, _islazy
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
@@ -292,7 +292,8 @@ struct BroadcastBandedLayout{F} <: AbstractLazyBandedLayout end
 struct BroadcastBlockBandedLayout{F} <: AbstractLazyBlockBandedLayout end
 struct BroadcastBandedBlockBandedLayout{F} <: AbstractLazyBandedBlockBandedLayout end
 
-BroadcastLayouts{F} = Union{BroadcastLayout{F},BroadcastBandedLayout{F},BroadcastBlockBandedLayout{F},BroadcastBandedBlockBandedLayout{F}}
+StructuredBroadcastLayouts{F} = Union{BroadcastBandedLayout{F},BroadcastBlockBandedLayout{F},BroadcastBandedBlockBandedLayout{F}}
+BroadcastLayouts{F} = Union{BroadcastLayout{F},StructuredBroadcastLayouts{F}}
 
 
 BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
@@ -330,13 +331,14 @@ sublayout(LAY::BroadcastBandedBlockBandedLayout, ::Type{<:Tuple{BlockSlice{Block
 @inline colsupport(::BroadcastBandedLayout, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::BroadcastBandedLayout, A, j) = banded_rowsupport(A, j)
 
-_broadcasted(bc) = Base.broadcasted(call(bc), arguments(bc)...)
+_broadcastarray2broadcasted(::StructuredBroadcastLayouts{F}, A) where F = _broadcastarray2broadcasted(BroadcastLayout{F}(), A)
+_broadcastarray2broadcasted(::StructuredBroadcastLayouts{F}, A::BroadcastArray) where F = _broadcastarray2broadcasted(BroadcastLayout{F}(), A)
 
 _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
-    copyto!(dest, _broadcasted(bc))
+    copyto!(dest, _broadcastarray2broadcasted(bc))
 
 _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
-    copyto!(dest, _broadcasted(bc))
+    copyto!(dest, _broadcastarray2broadcasted(bc))
 
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
@@ -388,10 +390,7 @@ _copyto!(::AbstractBandedBlockBandedLayout, ::ApplyBandedBlockBandedLayout{typeo
     _mulbanded_copyto!(dest, map(_mulbanded_BandedBlockBandedMatrix,arguments(src))...)
 
 
-_broadcast_sub_arguments(::BroadcastBandedLayout{F}, A, V) where F = arguments(BroadcastLayout{F}(), V)
-_broadcast_sub_arguments(::BroadcastBandedBlockBandedLayout{F}, A, V) where F = arguments(BroadcastLayout{F}(), V)
-_broadcast_sub_arguments(A, V) = _broadcast_sub_arguments(MemoryLayout(A), A, V)
-arguments(::BroadcastBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
+arguments(::BroadcastBandedLayout{F}, V::SubArray) where F = _broadcast_sub_arguments(parent(V), V)
 arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
 
 
