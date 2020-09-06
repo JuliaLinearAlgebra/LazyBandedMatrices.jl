@@ -101,6 +101,7 @@ end
 
     @testset "BroadcastBanded * Padded" begin
         A = BroadcastArray(*, randn(5), brand(5,5,1,2))
+        @test axes(A) == (Base.OneTo(5), Base.OneTo(5))
         B = BroadcastArray(*, randn(5,5), brand(5,5,1,2))
         b = Vcat(randn(2), Zeros(3))
         @test A*b ≈ Matrix(A)b

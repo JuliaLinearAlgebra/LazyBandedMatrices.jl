@@ -181,6 +181,7 @@ MemoryLayout(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} = krontrav
 
 sublayout(::KronTravBandedBlockBandedLayout, ::Type{NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
 
+call(b::BroadcastLayout{typeof(*)}, a::KronTrav) = *
 call(b::BroadcastBandedLayout{typeof(*)}, a::SubArray) = *
 
 function _broadcast_sub_arguments(::KronTravBandedBlockBandedLayout, A, V)
