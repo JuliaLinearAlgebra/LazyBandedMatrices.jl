@@ -16,7 +16,7 @@ import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
-                        LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector,
+                        LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector, AbstractInvLayout,
                         _mat_mul_arguments, paddeddata, sub_paddeddata, sub_materialize, lazymaterialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
@@ -60,6 +60,21 @@ BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
 
 
 bandwidths(M::Applied{<:Any,typeof(*)}) = min.(_bnds(M), prodbandwidths(M.args...))
+
+function bandwidths(L::ApplyMatrix{<:Any,typeof(\)})
+    A,B = arguments(L)
+    l,u = bandwidths(A)
+    if l == u == 0
+        bandwidths(B)
+    elseif l == 0
+        (bandwidth(B,1), size(L,2)-1)
+    elseif u == 0
+        (size(L,1)-1,bandwidth(B,2))
+    else
+        (size(L,1)-1 , size(L,2)-1)
+    end
+end
+
 
 isbanded(K::Kron{<:Any,2}) = all(isbanded, K.args)
 function bandwidths(K::Kron{<:Any,2})
@@ -630,7 +645,7 @@ copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = lazymaterialize(*
 copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
 copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
 copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
-
+copy(M::Mul{<:AbstractInvLayout,<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
 
 ## padded copy
 mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
