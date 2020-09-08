@@ -762,6 +762,21 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test bandwidths(R) == (4,-2)
         @test R == rot180(A*B)
     end
+
+    @testset "invlayout * structured banded (#21)" begin
+        A = randn(5,5)
+        B = BroadcastArray(*, brand(5,5,1,1), 2)
+        @test A * B ≈ A * Matrix(B)
+        @test A \ B ≈ A \ Matrix(B)
+    end
+
+    @testset "Triangular bandwidths" begin
+        B = brand(5,5,1,2)
+        @test bandwidths(ApplyArray(\, Diagonal(randn(5)), B)) == (1,2)
+        @test bandwidths(ApplyArray(\, UpperTriangular(randn(5,5)), B)) == (1,4)
+        @test bandwidths(ApplyArray(\, LowerTriangular(randn(5,5)), B)) == (4,2)
+        @test bandwidths(ApplyArray(\, randn(5,5), B)) == (4,4)
+    end
 end
 
 @testset "QR" begin
