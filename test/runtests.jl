@@ -320,14 +320,21 @@ end
         @test MemoryLayout(F) == BroadcastBlockBandedLayout{typeof(*)}()
     end
     @testset "BroadcastBandedBlockBanded" begin
-        D = BroadcastMatrix(*, 2, BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1)))
+        A = BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1))
+
+        D = BroadcastMatrix(*, 2, A)
         @test blockbandwidths(D) == (1,1)
         @test subblockbandwidths(D) == (1,1)
         @test MemoryLayout(D) == BroadcastBandedBlockBandedLayout{typeof(*)}()
         @test BandedBlockBandedMatrix(D) == D == copyto!(BandedBlockBandedMatrix(D), D) == 2*D.args[2]
 
-        E = BroadcastMatrix(*, BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1)), 2)
+        E = BroadcastMatrix(*, A, 2)
         @test MemoryLayout(E) == BroadcastBandedBlockBandedLayout{typeof(*)}()
+
+        F = BroadcastMatrix(*, Ones(axes(A,1)), A)
+        @test blockbandwidths(F) == (1,1)
+        @test subblockbandwidths(F) == (1,1)
+        @test F == A
     end
 end
 
