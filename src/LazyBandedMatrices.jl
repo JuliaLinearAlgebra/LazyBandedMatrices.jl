@@ -297,7 +297,7 @@ end
 for func in (:blockbandwidths, :subblockbandwidths)
     @eval begin
         $func(M::BroadcastMatrix{<:Any,typeof(*),<:Tuple{<:Number,<:AbstractMatrix}}) = $func(M.args[2])
-        $func(M::BroadcastMatrix{<:Any,typeof(*),<:Tuple{<:AbstractMatrix,<:Number,}}) = $func(M.args[1])
+        $func(M::BroadcastMatrix{<:Any,typeof(*),<:Tuple{<:AbstractMatrix,<:Number}}) = $func(M.args[1])
     end
 end
 
@@ -310,6 +310,9 @@ struct BroadcastBandedBlockBandedLayout{F} <: AbstractLazyBandedBlockBandedLayou
 StructuredBroadcastLayouts{F} = Union{BroadcastBandedLayout{F},BroadcastBlockBandedLayout{F},BroadcastBandedBlockBandedLayout{F}}
 BroadcastLayouts{F} = Union{BroadcastLayout{F},StructuredBroadcastLayouts{F}}
 
+
+blockbandwidths(B::BroadcastMatrix) = blockbandwidths(broadcasted(B))
+subblockbandwidths(B::BroadcastMatrix) = subblockbandwidths(broadcasted(B))
 
 BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
