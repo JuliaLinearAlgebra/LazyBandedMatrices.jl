@@ -133,6 +133,7 @@ function paddeddata(P::PseudoBlockVector)
     n = last(ax[N])
     if n ≠ length(data)
         resizedata!(C,n)
+        data = paddeddata(C)
     end
     PseudoBlockVector(data, (ax[Block(1):N],))
 end
