@@ -664,4 +664,22 @@ broadcasted(::LazyArrayStyle{1}, ::Type{Block}, r::AbstractUnitRange) = Block(fi
 broadcasted(::LazyArrayStyle{1}, ::Type{Int}, block_range::BlockRange{1}) = first(block_range.indices)
 broadcasted(::LazyArrayStyle{0}, ::Type{Int}, block::Block{1}) = Int(block)
 
+
+####
+# Band getindex
+####
+
+function getindex(bc::BroadcastArray{<:Any,2,<:Any,<:NTuple{2,AbstractMatrix}}, b::Band)
+    A,B = bc.args
+    bc.f.(A[b],B[b])
+end
+function getindex(bc::BroadcastArray{<:Any,2,<:Any,<:Tuple{Number,AbstractMatrix}}, b::Band)
+    a,B = bc.args
+    bc.f.(a,B[b])
+end
+function getindex(bc::BroadcastArray{<:Any,2,<:Any,<:Tuple{AbstractMatrix,Number}}, b::Band)
+    A,c = bc.args
+    bc.f.(A[b],c)
+end
+
 end
