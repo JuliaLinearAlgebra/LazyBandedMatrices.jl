@@ -305,6 +305,13 @@ end
         @test MemoryLayout(D) == BroadcastBandedLayout{typeof(*)}()
         @test isbanded(D) == true
         @test BandedMatrix(D) == D == copyto!(BandedMatrix(D), D) == 2*D.args[2]
+
+        @testset "band" begin
+            @test A[band(0)] == Matrix(A)[band(0)]
+            @test B[band(0)] == Matrix(B)[band(0)]
+            @test C[band(0)] == Matrix(C)[band(0)]
+            @test D[band(0)] == Matrix(D)[band(0)]
+        end
     end
     @testset "BroadcastBlockBanded" begin
         A = BlockBandedMatrix(randn(6,6),1:3,1:3,(1,1))
