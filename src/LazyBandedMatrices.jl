@@ -32,7 +32,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
-                        AbstractBandedBlockBandedLayout, BandedBlockBandedStyle,
+                        AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout
 
