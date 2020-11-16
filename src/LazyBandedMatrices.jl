@@ -125,6 +125,9 @@ end
 # needed for ∞-dimensional banded linear algebra
 ###
 
+_makevec(data::AbstractVector) = data
+_makevec(data::Number) = [data]
+
 function paddeddata(P::PseudoBlockVector)
     C = P.blocks
     data = paddeddata(C)
@@ -135,7 +138,7 @@ function paddeddata(P::PseudoBlockVector)
         resizedata!(C,n)
         data = paddeddata(C)
     end
-    PseudoBlockVector(data, (ax[Block(1):N],))
+    PseudoBlockVector(_makevec(data), (ax[Block(1):N],))
 end
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T

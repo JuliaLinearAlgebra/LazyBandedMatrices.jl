@@ -113,6 +113,11 @@ end
         A = ApplyArray(*, B, B)
         @test A * Vcat([1,2], Zeros(3)) ≈ B*B*[1,2,0,0,0]
     end
+
+    @testset "block padded" begin
+        c = PseudoBlockVector(Vcat(1, Zeros(5)), 1:3)
+        @test paddeddata(c) == [1]
+        @test  paddeddata(c) isa PseudoBlockVector
 end
 
 @testset "MulMatrix" begin
