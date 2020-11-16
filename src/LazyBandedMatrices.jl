@@ -128,17 +128,24 @@ end
 _makevec(data::AbstractVector) = data
 _makevec(data::Number) = [data]
 
-function paddeddata(P::PseudoBlockVector)
-    C = P.blocks
-    data = paddeddata(C)
-    ax = axes(P,1)
-    N = findblock(ax,length(data))
-    n = last(ax[N])
+# make sure data is big enough for blocksize
+function _block_paddeddata(C::CachedVector, data, n)
     if n ≠ length(data)
         resizedata!(C,n)
         data = paddeddata(C)
     end
-    PseudoBlockVector(_makevec(data), (ax[Block(1):N],))
+    _makevec(data)
+end
+
+_block_paddeddata(C, data, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
+
+function paddeddata(P::PseudoBlockVector)
+    C = P.blocks
+    ax = axes(P,1)
+    data = paddeddata(C)
+    N = findblock(ax,length(data))
+    n = last(ax[N])
+    PseudoBlockVector(_block_paddeddata(C, data, n), (ax[Block(1):N],))
 end
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
@@ -540,6 +547,8 @@ end
 resizedata!(laydat::BlockBandedColumns{<:AbstractColumnMajor}, layarr, B::AbstractMatrix, n::Integer, m::Integer) =
     resizedata!(laydat, layarr, B, findblock.(axes(B), (n,m))...)
 
+resizedata!(lay1, lay2, B::AbstractMatrix, N::Block{2}) = resizedata!(lay1, lay2, B, Block.(N.n)...)
+
 function resizedata!(::BlockBandedColumns{<:AbstractColumnMajor}, _, B::AbstractMatrix{T}, N::Block{1}, M::Block{1}) where T<:Number
     (Int(N) ≤ 0 || Int(M) ≤ 0) && return B
     @boundscheck (N in blockaxes(B,1) && M in blockaxes(B,2)) || throw(ArgumentError("Cannot resize to ($N,$M) which is beyond size $(blocksize(B))"))
@@ -583,6 +592,23 @@ function resizedata!(::BlockBandedColumns{<:AbstractColumnMajor}, _, B::Abstract
 
     B
 end
+
+# Use memory laout for sub-blocks
+@inline function Base.getindex(A::CachedMatrix, K::Block{1}, J::Block{1})
+    @boundscheck checkbounds(A, K, J)
+    resizedata!(A, K, J)
+    A.data[K, J]
+end
+@inline Base.getindex(A::CachedMatrix, kr::Colon, jr::Block{1}) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::CachedMatrix, kr::Block{1}, jr::Colon) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::CachedMatrix, kr::Block{1}, jr::AbstractVector) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::CachedArray{T,N}, kr::Block{1}, jrs...) where {T,N} = ArrayLayouts.layout_getindex(A, kr, jrs...)
+@inline function Base.getindex(A::CachedArray{T,N}, block::Block{N}) where {T,N}
+    @boundscheck checkbounds(A, block)
+    resizedata!(A, block)
+    A.data[block]
+end
+@inline Base.getindex(A::CachedMatrix, kr::AbstractVector, jr::Block) = ArrayLayouts.layout_getindex(A, kr, jr)
 
 include("bandedql.jl")
 include("blockkron.jl")
