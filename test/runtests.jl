@@ -117,7 +117,8 @@ end
     @testset "block padded" begin
         c = PseudoBlockVector(Vcat(1, Zeros(5)), 1:3)
         @test paddeddata(c) == [1]
-        @test  paddeddata(c) isa PseudoBlockVector
+        @test paddeddata(c) isa PseudoBlockVector
+    end
 end
 
 @testset "MulMatrix" begin
