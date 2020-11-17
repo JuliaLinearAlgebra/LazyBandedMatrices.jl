@@ -34,9 +34,9 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
-import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout
+import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout, block, blockindex, BlockKron
 
-export DiagTrav, KronTrav, blockkron
+export DiagTrav, KronTrav, blockkron, BlockKron, BlockInterlace
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -611,6 +611,7 @@ end
 @inline Base.getindex(A::CachedMatrix, kr::AbstractVector, jr::Block) = ArrayLayouts.layout_getindex(A, kr, jr)
 
 include("bandedql.jl")
+include("blockconcat.jl")
 include("blockkron.jl")
 
 ###

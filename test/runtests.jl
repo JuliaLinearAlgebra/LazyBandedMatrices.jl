@@ -588,14 +588,14 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         h = 1/n
         D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
 
-        @time D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
-        @time D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
-        @test D_xx == kron(D², Eye(n))
+        @time D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
+        @time D_yy = BandedBlockBandedMatrix(BlockKron(Eye(n),D²))
+        @test D_xx == blockkron(D², Eye(n))
         @time Δ = D_xx + D_yy
 
         @test Δ isa BandedBlockBandedMatrix
         @test blockbandwidths(Δ) == subblockbandwidths(Δ) == (1,1)
-        @test Δ == kron(Matrix(D²), Matrix(I,n,n)) + kron(Matrix(I,n,n), Matrix(D²))
+        @test Δ == blockkron(Matrix(D²), Matrix(I,n,n)) + blockkron(Matrix(I,n,n), Matrix(D²))
 
         n = 10
         D² = FiniteDifference(n)
@@ -608,7 +608,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         @test BandedBlockBandedMatrix(D̃_xx) ≈ D_xx
 
-        D̃_yy = Kron(Eye(n), D²)
+        D̃_yy = BlockKron(Eye(n), D²)
         @test blockbandwidths(D̃_yy) == (0,0)
         @test subblockbandwidths(D̃_yy) == (1,1)
 
@@ -622,7 +622,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         n = 10
         h = 1/n
         D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
-        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
+        D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
 
         D = Diagonal(randn(n^2))
         @test D_xx + D isa BandedBlockBandedMatrix
@@ -703,8 +703,8 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         h = 1/n
         D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
 
-        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
-        D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
+        D_yy = BandedBlockBandedMatrix(BlockKron(Eye(n),D²))
         Δ = BroadcastArray(+, D_xx, D_yy)
         @test MemoryLayout(Δ) isa BroadcastBandedBlockBandedLayout
         @test blockbandwidths(Δ) == (1,1)
