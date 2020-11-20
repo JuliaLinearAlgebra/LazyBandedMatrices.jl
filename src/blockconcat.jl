@@ -1,3 +1,21 @@
+struct BlockVcat{T, N, Arrays} <: AbstractBlockArray{T,N}
+    arrays::Arrays
+    function BlockVcat{T,N,Arrays}(arrays::Arrays) where {T,N,Arrays}
+        blockisequal(axes.(arrays,2)...) || throw(ArgumentError("Blocks must match"))
+        new{T,N,Arrays}(arrays)
+    end
+end
+
+BlockVcat{T,N}(arrays::AbstractArray...) where {T,N} = 
+    BlockVcat{T,N,typeof(arrays)}(arrays)    
+BlockVcat{T}(arrays::AbstractArray{<:Any,N}...) where {T,N} = 
+    BlockVcat{T,N}(arrays...)
+BlockVcat(arrays::AbstractArray...) = 
+    BlockVcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
+
+axes(b::BlockVcat{<:Any,1}) = (blockedrange(SVector(length.(b.arrays,1)...)),)
+
+
 struct BlockInterlace{T, N, Arrays} <: AbstractBlockArray{T, N}
     nbc::Int # Number of block rows
     arrays::Arrays
