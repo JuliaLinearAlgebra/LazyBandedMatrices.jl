@@ -31,7 +31,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths,
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
                         BandedBlockBandedColumns, BlockBandedColumns,
-                        subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix,
+                        subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout, block, blockindex, BlockKron
@@ -143,10 +143,11 @@ function paddeddata(P::PseudoBlockVector)
     C = P.blocks
     ax = axes(P,1)
     data = paddeddata(C)
-    N = findblock(ax,length(data))
+    N = findblock(ax,max(length(data),1))
     n = last(ax[N])
     PseudoBlockVector(_block_paddeddata(C, data, n), (ax[Block(1):N],))
 end
+
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
@@ -193,7 +194,9 @@ function similar(Ml::MulAdd{<:AllBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _
     N = findblock(ax2,length(xf))
     M = last(blockcolsupport(A,N))
     m = last(ax1[M]) # number of non-zero entries
-    PseudoBlockVector(Vcat(Vector{T}(undef, m), Zeros{T}(length(ax1)-m)), (ax1,))
+    c = cache(Zeros{T}(length(ax1)))
+    resizedata!(c, m)
+    PseudoBlockVector(c, (ax1,))
 end
 
 function materialize!(M::MatMulVecAdd{<:AllBlockBandedLayout,<:PaddedLayout,<:PaddedLayout})
@@ -252,13 +255,13 @@ sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), 
 sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{Block1}}}) where F = BandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockIndexRange1},BlockSlice{BlockIndexRange1}}}) where F = BandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockIndexRange1},BlockSlice{Block1}}}) where F = BandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{BlockIndexRange1}}}) where F = BandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) where F = BandedBlockBandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{BlockRange1}}}) where F = BandedBlockBandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{Block1}}}) where F = BandedBlockBandedLayout()
-sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockIndexRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{Block1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{<:BlockRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{Block1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedBlockBandedLayout()
 
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
@@ -353,8 +356,8 @@ for op in (:*, :\)
 end
 
 
-sublayout(LAY::BroadcastBlockBandedLayout, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = LAY
-sublayout(LAY::BroadcastBandedBlockBandedLayout, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = LAY
+sublayout(LAY::BroadcastBlockBandedLayout, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) = LAY
+sublayout(LAY::BroadcastBandedBlockBandedLayout, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) = LAY
 
 
 @inline colsupport(::BroadcastBandedLayout, A, j) = banded_colsupport(A, j)
@@ -432,8 +435,8 @@ sublayout(M::BroadcastBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
 transposelayout(b::BroadcastBandedLayout) = b
 arguments(b::BroadcastBandedLayout, A::AdjOrTrans) where F = arguments(BroadcastLayout(b), A)
 
-sublayout(M::ApplyBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = M
-sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{BlockRange1},BlockSlice{BlockRange1}}}) = M
+sublayout(M::ApplyBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) = M
+sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) = M
 
 
 ######

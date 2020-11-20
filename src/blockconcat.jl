@@ -39,5 +39,12 @@ function getindex(A::BlockInterlace{<:Any,2}, k::Int, j::Int)
     A.arrays[(blockindex(K)-1)*A.nbc + blockindex(J)][Int(block(K)), Int(block(J))]
 end
 
+BlockArrays.getblock(A::BlockInterlace{<:Any,1}, k::Int) = Vcat(getindex.(A.arrays, k)...)
+BlockArrays.getblock(A::BlockInterlace{<:Any,2}, k::Int, j::Int) = hvcat(A.nbc, getindex.(A.arrays, k, j)...)
+
 blockbandwidths(A::BlockInterlace{<:Any,2}) = max.(map(bandwidths,A.arrays)...)
 subblockbandwidths(A::BlockInterlace{<:Any,2}) = length(axes(A,1)[Block(1)]),length(axes(A,2)[Block(2)])
+
+blockinterlacelayout(_...) = UnknownLayout()
+blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
+MemoryLayout(::Type{<:BlockInterlace{<:Any,2,Arrays}}) where Arrays = blockinterlacelayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
