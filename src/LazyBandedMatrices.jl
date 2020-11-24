@@ -1,6 +1,6 @@
 module LazyBandedMatrices
 using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays,
-        ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base
+        ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base, StaticArrays
 
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!,
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
@@ -34,9 +34,9 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
-import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout, block, blockindex, BlockKron
+import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout, block, blockindex, BlockKron, getblock
 
-export DiagTrav, KronTrav, blockkron, BlockKron, BlockInterlace
+export DiagTrav, KronTrav, blockkron, BlockKron, BlockInterlace, BlockVcat, BlockHcat
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
