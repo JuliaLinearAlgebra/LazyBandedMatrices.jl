@@ -1,4 +1,4 @@
-using LazyBandedMatrices, BlockArrays, StaticArrays, FillArrays, Test
+using LazyBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, Test
 import LazyBandedMatrices: BlockInterlace
 
 @testset "BlockVcat" begin
@@ -62,14 +62,16 @@ end
     @test A == [a b]
 
     @testset "triangle recurrence" begin
-        N = 10_000
+        N = 1_000
         a = b = c = 0.0
-        n = mortar(Fill.(Base.OneTo(N),Base.OneTo(N)))
-        k = mortar(Base.OneTo.(Base.OneTo(N)))
-        dat = BlockHcat(
-            ((k .+ (c-1)) .* ( k .- n .- 1 ) ./ (2k .+ (b+c-1))),
-            (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))
-            )
+        n = mortar(BroadcastArray(Fill,Base.OneTo(N),Base.OneTo(N)))
+        k = mortar(BroadcastArray(Base.OneTo,Base.OneTo(N)))
+        A = BlockHcat(
+            BroadcastArray((n,k,a,b,c) -> (k + c - 1)*(k-n-1) / (2k+b+c-1), n, k, a, b, c),
+            BroadcastArray((n,k,a,b,c) -> k*(k-n-a) / (2k+b+c-1), n, k, a, b, c))
+        dest = PseudoBlockArray{Float64}(undef, axes(A))
+        @test copyto!(dest, A) == A;
+        @test @allocated(copyto!(dest, A)) ≤ 1500
     end
 end
 

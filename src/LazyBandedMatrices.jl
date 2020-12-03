@@ -34,7 +34,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
-import BlockArrays: blockbroadcaststyle, BlockSlice1, BlockLayout, block, blockindex, BlockKron, getblock
+import BlockArrays: BlockSlice1, BlockLayout, block, blockindex, BlockKron, getblock
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockInterlace, BlockVcat, BlockHcat
 

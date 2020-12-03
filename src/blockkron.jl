@@ -9,8 +9,6 @@ Base.in(K::Block, B::BroadcastVector{<:Block,Type{Block}}) = Int(K) in B.args[1]
 # BlockBanded
 ###
 
-blockbroadcaststyle(::LazyArrayStyle{N}) where N = LazyArrayStyle{N}()
-
 bandedblockbandedbroadcaststyle(::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
