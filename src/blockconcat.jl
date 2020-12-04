@@ -98,56 +98,74 @@ function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:T
 end
 
 #############
-# BlockInterlace
+# BlockApplyArray
 #############
 
-struct BlockInterlace{T, N, Arrays} <: AbstractBlockArray{T, N}
-    nbc::Int # Number of block rows
-    arrays::Arrays
+"""
+   BlockBroadcastArray(f, A, B, C...)
+
+is a block array corresponding to `f.(blocks(A), blocks(B), ...)`,
+except if `A` is scalar. 
+"""
+
+struct BlockBroadcastArray{T, N, FF, Args} <: AbstractBlockArray{T, N}
+    f::FF
+    args::Args
 end
 
-BlockInterlace{T,1,Arrays}(arrays::AbstractVector...) where {T,N,Arrays} =
-    BlockInterlace{T,1,Arrays}(1, arrays)
-BlockInterlace{T}(arrays::AbstractVector...) where T =
-    BlockInterlace{T,1,typeof(arrays)}(arrays...)
-BlockInterlace(arrays::AbstractVector...) =
-    BlockInterlace{mapreduce(eltype, promote_type, arrays)}(arrays...)
+const BlockBroadcastVector{T, FF, Args} = BlockBroadcastArray{T, 1, FF, Args}
+const BlockBroadcastMatrix{T, FF, Args} = BlockBroadcastArray{T, 2, FF, Args}
 
-BlockInterlace{T}(nbc::Int, arrays::AbstractMatrix...) where T =
-    BlockInterlace{T,2,typeof(arrays)}(nbc, arrays)
-BlockInterlace(nbc::Int, arrays::AbstractMatrix...) =
-    BlockInterlace{mapreduce(eltype, promote_type, arrays)}(nbc, arrays...)
+_blocks(A::AbstractArray) = blocks(A)
+_blocks(A::Number) = A
 
 
-function _block_interlace_axes(::Int, ax::Tuple{OneTo{Int}}...)
-    n = max(length.(first.(ax))...)
-    (blockedrange(Fill(length(ax), n)),)
-end
+BlockBroadcastArray{T,N}(f, args...) where {T,N} =
+    BlockBroadcastArray{T,N,typeof(f),typeof(args)}(f, args)
+BlockBroadcastArray{T}(bc::Broadcasted{<:Union{Nothing,BroadcastStyle},<:Tuple{Vararg{Any,N}},<:Any,<:Tuple}) where {T,N} = 
+    BlockBroadcastArray{T,N}(bc.f, bc.args...)
+BlockBroadcastArray(bc::Broadcasted) = 
+    BlockBroadcastArray{eltype(Base.Broadcast.combine_eltypes(bc.f, bc.args))}(bc)
+BlockBroadcastArray(f, args...) = BlockBroadcastArray(instantiate(broadcasted(f, args...)))
+
+
+
+_block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
+
+_block_interlace_axes(::Int, ax::Tuple{OneTo{Int}}...) = _block_vcat_axes(ax...)
 
 function _block_interlace_axes(nbc::Int, ax::NTuple{2,OneTo{Int}}...)
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
 
-axes(A::BlockInterlace) = _block_interlace_axes(A.nbc, map(axes, A.arrays)...)
-size(A::BlockInterlace) = map(length, axes(A))
+axes(A::BlockBroadcastVector{<:Any,typeof(vcat)}) = (_block_vcat_axes(axes.(A.args,1)...),)
+axes(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}) = (axes(A.args[1],1), _block_vcat_axes(axes.(A.args,2)...))
 
-function getindex(A::BlockInterlace{<:Any,1}, k::Int)
+axes(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = _block_interlace_axes(A.args[1], map(axes,A.args[2:end])...)
+# size(A::BlockBroadcastArray) = map(length, axes(A))
+
+function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
     K = findblockindex(axes(A,1), k)
-    A.arrays[blockindex(K)][Int(block(K))]
+    A.args[blockindex(K)][Int(block(K))]
 end
 
-function getindex(A::BlockInterlace{<:Any,2}, k::Int, j::Int)
+function getindex(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int)
+    J = findblockindex(axes(A,2), j)
+    A.args[blockindex(J)][k,Int(block(J))]
+end
+
+function getindex(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int)
     K,J = findblockindex.(axes(A), (k,j))
-    A.arrays[(blockindex(K)-1)*A.nbc + blockindex(J)][Int(block(K)), Int(block(J))]
+    A.args[(blockindex(K)-1)*A.args[1] + blockindex(J)+1][Int(block(K)), Int(block(J))]
 end
 
-BlockArrays.getblock(A::BlockInterlace{<:Any,1}, k::Int) = Vcat(getindex.(A.arrays, k)...)
-BlockArrays.getblock(A::BlockInterlace{<:Any,2}, k::Int, j::Int) = hvcat(A.nbc, getindex.(A.arrays, k, j)...)
+BlockArrays.getblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int) = Vcat(getindex.(A.args, k)...)
+BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int) = Hcat(getindex.(A.args, k, j)...)
+BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int) = hvcat(A.args[1], getindex.(A.args[2:end], k, j)...)
+# blockbandwidths(A::BlockBroadcastArray{<:Any,2}) = max.(map(bandwidths,A.args)...)
+# subblockbandwidths(A::BlockBroadcastArray{<:Any,2}) = length(axes(A,1)[Block(1)]),length(axes(A,2)[Block(2)])
 
-blockbandwidths(A::BlockInterlace{<:Any,2}) = max.(map(bandwidths,A.arrays)...)
-subblockbandwidths(A::BlockInterlace{<:Any,2}) = length(axes(A,1)[Block(1)]),length(axes(A,2)[Block(2)])
-
-blockinterlacelayout(_...) = UnknownLayout()
-blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
-MemoryLayout(::Type{<:BlockInterlace{<:Any,2,Arrays}}) where Arrays = blockinterlacelayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
+# blockinterlacelayout(_...) = UnknownLayout()
+# blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
+# MemoryLayout(::Type{<:BlockBroadcastArray{<:Any,2,Arrays}}) where Arrays = blockinterlacelayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)

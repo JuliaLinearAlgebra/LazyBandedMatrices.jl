@@ -1,5 +1,5 @@
 using LazyBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, Test
-import LazyBandedMatrices: BlockInterlace
+import LazyBandedMatrices: BlockBroadcastArray
 
 @testset "BlockVcat" begin
     a = BlockVcat(1:5, 10:12, 14:15)
@@ -76,16 +76,30 @@ end
 end
 
 
-@testset "BlockInterlace" begin
-    @testset "vector" begin
+@testset "Interlace" begin
+    @testset "vcat" begin
         N = 1000
         a = 1:N
         b = 11:10+N
-        A = BlockInterlace(a, b)
+        a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
+        A = BlockBroadcastArray(vcat, a, b)
+        @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
+        @test @allocated(axes(A)) ≤ 50
         @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [1,11]
         @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
     end
-    @testset  "matrix" begin
+    @testset "hcat" begin
+        N = 1000
+        a = 1:N
+        b = 11:10+N
+        a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
+        A = BlockBroadcastArray(hcat, a', b')
+        @test axes(A,2) isa BlockedUnitRange{StepRange{Int,Int}}
+        @test @allocated(axes(A)) ≤ 50
+        @test A[Block(1,1)] == PseudoBlockArray(A)[Block(1,1)] == [1 11]
+        @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]
+    end
+    @testset  "hvcat" begin
         a = randn(2,3)
         b = randn(2,3)
         c = randn(2,3)
@@ -93,7 +107,7 @@ end
         e = randn(2,3)
         f = randn(2,3)
 
-        A = BlockInterlace(2, a, b, c, d, e, f)
+        A = BlockBroadcastArray(hvcat, 2, a, b, c, d, e, f)
         @test blocksize(A) == (2,3)
         @test A[Block(1,1)] == [a[1] b[1]; c[1] d[1]; e[1] f[1]]
     end

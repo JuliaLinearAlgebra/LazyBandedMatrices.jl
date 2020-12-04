@@ -6,7 +6,7 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
 
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex
-import Base.Broadcast: Broadcasted, broadcasted
+import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle
 
