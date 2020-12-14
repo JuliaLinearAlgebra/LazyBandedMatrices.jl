@@ -97,6 +97,13 @@ function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:T
     arguments(lay, parent(V))[Int.(jr.block)]
 end
 
+for adj in (:adjoint, :transpose)
+    @eval begin
+        $adj(A::BlockHcat{T}) where T = BlockVcat{T}(map($adj,A.arrays)...)
+        $adj(A::BlockVcat{T,2}) where T = BlockHcat{T}(map($adj,A.arrays)...)
+    end
+end
+
 #############
 # BlockApplyArray
 #############

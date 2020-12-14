@@ -36,7 +36,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: BlockSlice1, BlockLayout, block, blockindex, BlockKron, getblock
 
-export DiagTrav, KronTrav, blockkron, BlockKron, BlockInterlace, BlockVcat, BlockHcat
+export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
