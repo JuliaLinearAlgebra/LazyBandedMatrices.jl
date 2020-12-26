@@ -139,9 +139,9 @@ BlockBroadcastArray(f, args...) = BlockBroadcastArray(instantiate(broadcasted(f,
 
 _block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
 
-_block_interlace_axes(::Int, ax::Tuple{OneTo{Int}}...) = _block_vcat_axes(ax...)
+_block_interlace_axes(::Int, ax::Tuple{BlockedUnitRange{OneTo{Int}}}...) = _block_vcat_axes(ax...)
 
-function _block_interlace_axes(nbc::Int, ax::NTuple{2,OneTo{Int}}...)
+function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedUnitRange{OneTo{Int}}}...)
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
@@ -170,9 +170,14 @@ end
 BlockArrays.getblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int) = Vcat(getindex.(A.args, k)...)
 BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int) = Hcat(getindex.(A.args, k, j)...)
 BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int) = hvcat(A.args[1], getindex.(A.args[2:end], k, j)...)
-# blockbandwidths(A::BlockBroadcastArray{<:Any,2}) = max.(map(bandwidths,A.args)...)
-# subblockbandwidths(A::BlockBroadcastArray{<:Any,2}) = length(axes(A,1)[Block(1)]),length(axes(A,2)[Block(2)])
+blockbandwidths(A::BlockBroadcastArray{<:Any,2,typeof(hvcat)}) = max.(map(blockbandwidths,Base.tail(A.args))...)
+subblockbandwidths(A::BlockBroadcastArray{<:Any,2}) = max.(map(subblockbandwidths,Base.tail(A.args))...)
 
 # blockinterlacelayout(_...) = UnknownLayout()
 # blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
 # MemoryLayout(::Type{<:BlockBroadcastArray{<:Any,2,Arrays}}) where Arrays = blockinterlacelayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
+
+##
+# special for unitblocks
+blockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = bandwidths(A.blocks)
+subblockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = (0,0)

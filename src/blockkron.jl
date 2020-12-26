@@ -143,7 +143,7 @@ krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedB
 MemoryLayout(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} = krontravlayout(MemoryLayout(AA), MemoryLayout(BB))
 
 
-sublayout(::KronTravBandedBlockBandedLayout, ::Type{NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
+sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
 
 call(b::BroadcastLayout{typeof(*)}, a::KronTrav) = *
 call(b::BroadcastBandedLayout{typeof(*)}, a::SubArray) = *

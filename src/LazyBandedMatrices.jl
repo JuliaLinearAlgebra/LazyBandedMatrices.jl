@@ -422,8 +422,8 @@ _copyto!(::AbstractBandedBlockBandedLayout, ::ApplyBandedBlockBandedLayout{typeo
     _mulbanded_copyto!(dest, map(_mulbanded_BandedBlockBandedMatrix,arguments(src))...)
 
 
-arguments(::BroadcastBandedLayout{F}, V::SubArray) where F = _broadcast_sub_arguments(parent(V), V)
-arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_arguments(parent(V), V)
+arguments(::BroadcastBandedLayout{F}, V::SubArray) where F = _broadcast_sub_arguments(V)
+arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_arguments(V)
 
 
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
