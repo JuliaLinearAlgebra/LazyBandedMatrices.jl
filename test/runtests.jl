@@ -82,7 +82,7 @@ end
         @test BandedMatrix(A) == Array(A) == A
 
         A = Hcat(Zeros(5,2), brand(5,5,1,1))
-        @test bandwidths(A) == (0,3)
+        @test bandwidths(A) == (-1,3)
         @test BandedMatrix(A) == Array(A) == A
     end
     @testset "BlockBanded and padded" begin
