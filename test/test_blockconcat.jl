@@ -1,4 +1,4 @@
-using LazyBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, Test
+using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, Test
 import LazyBandedMatrices: BlockBroadcastArray
 
 @testset "BlockVcat" begin
@@ -67,11 +67,34 @@ end
         n = mortar(BroadcastArray(Fill,Base.OneTo(N),Base.OneTo(N)))
         k = mortar(BroadcastArray(Base.OneTo,Base.OneTo(N)))
         A = BlockHcat(
-            BroadcastArray((n,k,a,b,c) -> (k + c - 1)*(k-n-1) / (2k+b+c-1), n, k, a, b, c),
-            BroadcastArray((n,k,a,b,c) -> k*(k-n-a) / (2k+b+c-1), n, k, a, b, c))
+            BroadcastVector((n,k,bc1,abc) -> (n + k +  bc1) / (2n + abc), n, k, b+c-1, a+b+c),
+            BroadcastVector((n,k,abc) -> (n + k +  abc) / (2n + abc), n, k, a+b+c)
+            )
         dest = PseudoBlockArray{Float64}(undef, axes(A))
         @test copyto!(dest, A) == A;
-        @test @allocated(copyto!(dest, A)) ≤ 1500
+        @test @allocated(copyto!(dest, A)) ≤ 2800
+        # dest = BlockArray{Float64}(undef, axes(A))
+        # @time copyto!(dest, A);
+
+        dest = PseudoBlockArray{Float64}(undef, axes(A'))
+        @test copyto!(dest, A') == A'
+        @test @allocated(copyto!(dest, A')) ≤ 2200
+        
+
+        Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
+        dest = BandedBlockBandedMatrix{Float64}(undef, axes(Rx), (0,1), (0,0))
+        @test copyto!(dest, Rx) == BandedBlockBandedMatrix(Rx)
+
+        Vx = view(Rx, Block.(1:N), Block.(1:N))
+        @test MemoryLayout(Vx) isa BlockBandedMatrices.BandedBlockBandedColumns
+        @time BandedBlockBandedMatrix(Vx)
+        bc = LazyArrays._broadcastarray2broadcasted(LazyArrays.arguments(BlockBandedMatrices.bandedblockbandeddata(Vx))[1])
+        Base.BroadcastStyle(typeof(bc.args[1]))
+        dat = PseudoBlockArray(bc.args[1])
+        @ent copyto!(dat, bc.args[1])
+        @test MemoryLayout(bc.args[1]) isa BlockArrays.BlockLayout
+        view(bc.args[1],:,Block(2)) |> MemoryLayout
+        parent(bc.args[1]) |> MemoryLayout
     end
 end
 

@@ -71,6 +71,7 @@ BlockHcat(arrays::AbstractArray...) =
     BlockHcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
 
 axes(b::BlockHcat{<:Any}) = (axes(b.arrays[1],1),blockedrange(SVector(size.(b.arrays,2)...)))
+axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
 
 _hcat_viewifblocked(::OneTo, a::AbstractMatrix, k) = a
 _hcat_viewifblocked(::OneTo, a::AbstractVector, k) = a
@@ -127,14 +128,14 @@ _blocks(A::AbstractArray) = blocks(A)
 _blocks(A::Number) = A
 
 
-BlockBroadcastArray{T,N}(f, args...) where {T,N} =
-    BlockBroadcastArray{T,N,typeof(f),typeof(args)}(f, args)
-BlockBroadcastArray{T}(bc::Broadcasted{<:Union{Nothing,BroadcastStyle},<:Tuple{Vararg{Any,N}},<:Any,<:Tuple}) where {T,N} = 
-    BlockBroadcastArray{T,N}(bc.f, bc.args...)
-BlockBroadcastArray(bc::Broadcasted) = 
-    BlockBroadcastArray{eltype(Base.Broadcast.combine_eltypes(bc.f, bc.args))}(bc)
+BlockBroadcastArray{T,N}(f, args...) where {T,N} = BlockBroadcastArray{T,N,typeof(f),typeof(args)}(f, args)
+BlockBroadcastArray{T}(bc::Broadcasted) where T = BlockBroadcastArray{T}(bc.f, bc.args...)
+BlockBroadcastArray(bc::Broadcasted) = BlockBroadcastArray{eltype(Base.Broadcast.combine_eltypes(bc.f, bc.args))}(bc)
 BlockBroadcastArray(f, args...) = BlockBroadcastArray(instantiate(broadcasted(f, args...)))
 
+BlockBroadcastArray{T}(::typeof(hcat), args...) where T = BlockBroadcastMatrix{T}(hcat, args...)
+BlockBroadcastArray{T}(::typeof(vcat), args::AbstractVector...) where T = BlockBroadcastVector{T}(vcat, args...)
+BlockBroadcastArray{T}(::typeof(vcat), args...) where T = BlockBroadcastMatrix{T}(vcat, args...)
 
 
 _block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
