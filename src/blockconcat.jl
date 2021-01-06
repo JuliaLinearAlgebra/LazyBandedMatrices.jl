@@ -136,6 +136,7 @@ BlockBroadcastArray(f, args...) = BlockBroadcastArray(instantiate(broadcasted(f,
 BlockBroadcastArray{T}(::typeof(hcat), args...) where T = BlockBroadcastMatrix{T}(hcat, args...)
 BlockBroadcastArray{T}(::typeof(vcat), args::AbstractVector...) where T = BlockBroadcastVector{T}(vcat, args...)
 BlockBroadcastArray{T}(::typeof(vcat), args...) where T = BlockBroadcastMatrix{T}(vcat, args...)
+BlockBroadcastArray{T}(::typeof(hvcat), args...) where T = BlockBroadcastMatrix{T}(hvcat, args...)
 
 
 _block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
@@ -171,12 +172,28 @@ end
 BlockArrays.getblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int) = Vcat(getindex.(A.args, k)...)
 BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int) = Hcat(getindex.(A.args, k, j)...)
 BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int) = hvcat(A.args[1], getindex.(A.args[2:end], k, j)...)
-blockbandwidths(A::BlockBroadcastArray{<:Any,2,typeof(hvcat)}) = max.(map(blockbandwidths,Base.tail(A.args))...)
-subblockbandwidths(A::BlockBroadcastArray{<:Any,2}) = max.(map(subblockbandwidths,Base.tail(A.args))...)
+blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = max.(map(blockbandwidths,Base.tail(A.args))...)
 
-# blockinterlacelayout(_...) = UnknownLayout()
-# blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
-# MemoryLayout(::Type{<:BlockBroadcastArray{<:Any,2,Arrays}}) where Arrays = blockinterlacelayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
+function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
+    p = B.args[1]
+    ret = p .* subblockbandwidths(B.args[2]) # initialise with first
+    shft = 0
+    rw = 0
+    for a in Base.tail(Base.tail(B.args))
+        shft += 1
+        if shft == p
+            # next row
+            rw += 1
+            shft = -rw
+        end
+        ret = max.(ret, p .* subblockbandwidths(a) .+ (-shft,shft))
+    end
+    ret
+end
+
+blockinterlacelayout(_...) = UnknownLayout()
+blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
+MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
 ##
 # special for unitblocks
