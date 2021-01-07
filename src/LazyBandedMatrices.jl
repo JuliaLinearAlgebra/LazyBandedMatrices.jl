@@ -34,9 +34,9 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
-import BlockArrays: BlockSlice1, BlockLayout, block, blockindex, BlockKron, getblock
+import BlockArrays: BlockSlice1, BlockLayout, block, blockindex, BlockKron, viewblock
 
-export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat
+export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, unitblocks
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -714,5 +714,8 @@ function getindex(bc::BroadcastArray{<:Any,2,<:Any,<:Tuple{AbstractMatrix,Number
     A,c = bc.args
     bc.f.(A[b],c)
 end
+
+# useful for turning Array into block array
+unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
 
 end

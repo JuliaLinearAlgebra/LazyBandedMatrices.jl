@@ -1,9 +1,9 @@
-using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, Test
+using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, Test
 import LazyBandedMatrices: BlockBroadcastArray
 
 @testset "BlockVcat" begin
     a = BlockVcat(1:5, 10:12, 14:15)
-    @test axes(a,1) ≡ blockedrange(SVector(5,3))
+    @test axes(a,1) ≡ blockedrange(SVector(5,3,2))
     @test a[Block(1)] ≡ 1:5
     @test a == [1:5; 10:12; 14:15]
     @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
@@ -26,7 +26,7 @@ import LazyBandedMatrices: BlockBroadcastArray
     @test A == [a'; b']
 
     @testset "triangle recurrence" begin
-        N = 10_000
+        N = 1000
         a = b = c = 0.0
         n = mortar(Fill.(Base.OneTo(N),Base.OneTo(N)))
         k = mortar(Base.OneTo.(Base.OneTo(N)))
@@ -40,12 +40,11 @@ end
 
 @testset "BlockHcat" begin
     a = BlockHcat(1:5, 10:14)
-    @test axes(a,2) ≡ blockedrange(SVector(1,1))
+    @test axes(a,2) ≡ blockedrange(Ones{Int}(2))
     @test a[Block(1,1)] ≡ 1:5
     @test a == [1:5 10:14]
-    # @test a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
-    # @test a[:] == a[1:size(a,1)] == a
-    @test a[1:5,1:2] isa Vcat
+    @tes_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
+    @test a[:] == a[1:length(a)] == vec(a)
 
     A = BlockHcat(randn(3,2), randn(3,3))
     @test axes(A,1) ≡ Base.OneTo(3)
@@ -55,7 +54,7 @@ end
     a = PseudoBlockArray(1:5, SVector(1,3))
     b = PseudoBlockArray(2:6, SVector(1,3))
     A = BlockHcat(a, b)
-    @test axes(A,2) ≡ blockedrange(SVector(1,1))
+    @test axes(A,2) ≡ blockedrange(Ones{Int}(2))
     @test axes(A,1) ≡ axes(a,1)
     @test A[Block(1,1)] == a[Block(1)]
     @test A[Block(2,2)] == b[Block(2)]
@@ -87,14 +86,7 @@ end
 
         Vx = view(Rx, Block.(1:N), Block.(1:N))
         @test MemoryLayout(Vx) isa BlockBandedMatrices.BandedBlockBandedColumns
-        @time BandedBlockBandedMatrix(Vx)
-        bc = LazyArrays._broadcastarray2broadcasted(LazyArrays.arguments(BlockBandedMatrices.bandedblockbandeddata(Vx))[1])
-        Base.BroadcastStyle(typeof(bc.args[1]))
-        dat = PseudoBlockArray(bc.args[1])
-        @ent copyto!(dat, bc.args[1])
-        @test MemoryLayout(bc.args[1]) isa BlockArrays.BlockLayout
-        view(bc.args[1],:,Block(2)) |> MemoryLayout
-        parent(bc.args[1]) |> MemoryLayout
+        # TODO: Fast materialization
     end
 end
 
@@ -123,14 +115,15 @@ end
         @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]
     end
     @testset  "hvcat" begin
-        a = randn(2,3)
-        b = randn(2,3)
-        c = randn(2,3)
-        d = randn(2,3)
-        e = randn(2,3)
-        f = randn(2,3)
+        a = unitblocks(randn(2,3))
+        b = unitblocks(randn(2,3))
+        c = unitblocks(randn(2,3))
+        d = unitblocks(randn(2,3))
+        e = unitblocks(randn(2,3))
+        f = unitblocks(randn(2,3))
 
         A = BlockBroadcastArray(hvcat, 2, a, b, c, d, e, f)
+        @test MemoryLayout(A) isa UnknownLayout
         @test blocksize(A) == (2,3)
         @test A[Block(1,1)] == [a[1] b[1]; c[1] d[1]; e[1] f[1]]
     end

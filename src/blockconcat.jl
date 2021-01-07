@@ -20,15 +20,18 @@ BlockVcat(arrays::AbstractArray...) =
 axes(b::BlockVcat{<:Any,1}) = (blockedrange(SVector(length.(b.arrays)...)),)
 axes(b::BlockVcat{<:Any,2}) = (blockedrange(SVector(size.(b.arrays,1)...)),axes(b.arrays[1],2))
 
-getblock(b::BlockVcat{<:Any,1}, k::Integer) = b.arrays[k]
-getindex(b::BlockVcat{<:Any,1}, Kk::BlockIndex{1}) = getblock(b,Int(block(Kk)))[blockindex(Kk)]
+viewblock(b::BlockVcat{<:Any,1}, k::Block{1}) = b.arrays[Int(k)]
+getindex(b::BlockVcat{<:Any,1}, Kk::BlockIndex{1}) = view(b,block(Kk))[blockindex(Kk)]
 getindex(b::BlockVcat{<:Any,1}, k::Integer) = b[findblockindex(axes(b,1), k)]
 
 _viewifblocked(::OneTo, a, j) = a
 _viewifblocked(_, a, j) = view(a, Block(1,j))
 _viewifblocked(a, j) = _viewifblocked(axes(a,2), a, j)
-getblock(b::BlockVcat{<:Any,2}, k::Integer, j::Integer) = _viewifblocked(b.arrays[k], j)
-getindex(b::BlockVcat{<:Any,2}, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = getblock(b,Int(block(Kk)), Int(block(Jj)))[blockindex(Kk), blockindex(Jj)]
+function viewblock(b::BlockVcat{<:Any,2}, kj::Block{2})
+    k,j = kj.n
+    _viewifblocked(b.arrays[k], j)
+end
+getindex(b::BlockVcat{<:Any,2}, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
 getindex(b::BlockVcat{<:Any,2}, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
 MemoryLayout(::Type{<:BlockVcat}) = ApplyLayout{typeof(vcat)}()
@@ -78,8 +81,11 @@ _hcat_viewifblocked(::OneTo, a::AbstractVector, k) = a
 _hcat_viewifblocked(_, a::AbstractMatrix, k) = view(a, Block(k,1))
 _hcat_viewifblocked(_, a::AbstractVector, k) = view(a, Block(k))
 _hcat_viewifblocked(a, k) = _hcat_viewifblocked(axes(a,1), a, k)
-getblock(b::BlockHcat{<:Any}, k::Integer, j::Integer) = _hcat_viewifblocked(b.arrays[j], k)
-getindex(b::BlockHcat{<:Any}, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = getblock(b,Int(block(Kk)), Int(block(Jj)))[blockindex(Kk), blockindex(Jj)]
+function viewblock(b::BlockHcat{<:Any}, kj::Block{2})
+    k,j = kj.n
+    _hcat_viewifblocked(b.arrays[j], k)
+end
+getindex(b::BlockHcat{<:Any}, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
 getindex(b::BlockHcat{<:Any}, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
 MemoryLayout(::Type{<:BlockHcat}) = ApplyLayout{typeof(hcat)}()
@@ -169,9 +175,9 @@ function getindex(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int)
     A.args[(blockindex(K)-1)*A.args[1] + blockindex(J)+1][Int(block(K)), Int(block(J))]
 end
 
-BlockArrays.getblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int) = Vcat(getindex.(A.args, k)...)
-BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int) = Hcat(getindex.(A.args, k, j)...)
-BlockArrays.getblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int) = hvcat(A.args[1], getindex.(A.args[2:end], k, j)...)
+viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Int(k))...)
+viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(getindex.(A.args, kj.n...)...)
+viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = hvcat(A.args[1], getindex.(A.args[2:end], kj.n...)...)
 blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = max.(map(blockbandwidths,Base.tail(A.args))...)
 
 function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})

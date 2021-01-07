@@ -807,3 +807,4 @@ end
 end
 
 include("test_blockkron.jl")
+include("test_blockconcat.jl")
