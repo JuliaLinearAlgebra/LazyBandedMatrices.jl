@@ -43,7 +43,7 @@ end
     @test axes(a,2) ≡ blockedrange(Ones{Int}(2))
     @test a[Block(1,1)] ≡ 1:5
     @test a == [1:5 10:14]
-    @tes_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
+    @test_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
     @test a[:] == a[1:length(a)] == vec(a)
 
     A = BlockHcat(randn(3,2), randn(3,3))
