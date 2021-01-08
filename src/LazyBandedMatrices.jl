@@ -51,6 +51,8 @@ abstract type AbstractLazyBlockBandedLayout <: AbstractBlockBandedLayout end
 abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 
 struct LazyBandedLayout <: AbstractLazyBandedLayout end
+struct LazyBlockBandedLayout <: AbstractLazyBlockBandedLayout end
+struct LazyBandedBlockBandedLayout <: AbstractLazyBandedBlockBandedLayout end
 
 sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 
