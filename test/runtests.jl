@@ -203,6 +203,15 @@ end
         @test MemoryLayout(V) isa ApplyLayout{typeof(*)}
         @test arguments(V) == (A[1:3,1:3], B[1:3,1:3])
         @test M[1:3, 1:3] ≈ (A*B)[1:3,1:3]
+
+        @test M[Block(2)[1:2],Block(2)[1:2]] isa BandedMatrix
+        @test M[Block(2)[1:2],Block(2)] isa BandedMatrix
+        @test M[Block(2),Block(2)[1:2]] isa BandedMatrix
+        @test M[Block.(1:2), Block.(2:3)] isa BandedBlockBandedMatrix
+        @test M[Block(2),Block.(2:3)] isa PseudoBlockArray
+        @test M[Block.(2:3),Block(2)] isa PseudoBlockArray
+        @test M[Block.(2:3),Block(2)[1:2]] isa PseudoBlockArray
+        @test M[Block(2)[1:2],Block.(2:3)] isa PseudoBlockArray
     end
     @testset "Psuedo Mul" begin
         A = PseudoBandedMatrix(rand(5, 4), 1, 2)
@@ -725,12 +734,18 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
             B = cache(Δ);
             @test B[Block(1,1)] == B[Block(1),Block(1)] == Δ[Block(1,1)]
             @test B[Block.(1:3),Block.(1:2)] == Δ[Block.(1:3),Block.(1:2)]
+            @test B[:, Block(1)] == Δ[:, Block(1)]
+            @test B[Block(1), :] == Δ[Block(1), :]
+            @test B[Block(1), [1,2,3]] == Δ[Block(1), [1,2,3]]
+            @test B[[1,2,3], Block(1)] == Δ[[1,2,3], Block(1)]
         end
     
-        B = cache(Δ);
-        resizedata!(B,5,5);
-        @test B.data[1:5,1:5] == Δ[1:5,1:5]
-        @test B == Δ
+        @testset "resizedata!" begin
+            B = cache(Δ);
+            resizedata!(B,5,5);
+            @test B.data[1:5,1:5] == Δ[1:5,1:5]
+            @test B == Δ
+        end
     end
 
     @testset "Padded Block" begin

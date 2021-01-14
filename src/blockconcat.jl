@@ -40,12 +40,8 @@ arguments(::ApplyLayout{typeof(vcat)}, b::BlockVcat) = b.arrays
 sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) =
     BlockVcat(arguments(lay, V)...)
 
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) =
-    BlockVcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) =
-    BlockVcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) =
-    BlockVcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockVcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = BlockVcat(arguments(lay, V)...)
 
 LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSlice{<:BlockRange{1}}) =
     arguments(lay, A)[Int.(kr.block)]
@@ -91,12 +87,8 @@ getindex(b::BlockHcat{<:Any}, k::Integer, j::Integer) = b[findblockindex(axes(b,
 MemoryLayout(::Type{<:BlockHcat}) = ApplyLayout{typeof(hcat)}()
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) =
-    BlockHcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) =
-    BlockHcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) =
-    BlockHcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockHcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = BlockHcat(arguments(lay, V)...)
 
 function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
     kr, jr = parentindices(V)

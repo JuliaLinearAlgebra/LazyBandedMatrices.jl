@@ -8,7 +8,7 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
-                        lmul!, rmul!, checksquare, StructuredMatrixStyle
+                        lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
@@ -264,6 +264,7 @@ sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRa
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{<:BlockRange1}}}) where F = BandedBlockBandedLayout()
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{Block1}}}) where F = BandedBlockBandedLayout()
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedBlockBandedLayout()
+sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{<:BlockRange1}}}) where F = BandedBlockBandedLayout()
 
 applylayout(::Type{typeof(*)}, ::AbstractBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()

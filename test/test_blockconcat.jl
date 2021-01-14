@@ -1,4 +1,4 @@
-using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, Test
+using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
 import LazyBandedMatrices: BlockBroadcastArray
 
 @testset "BlockVcat" begin
@@ -9,12 +9,19 @@ import LazyBandedMatrices: BlockBroadcastArray
     @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
     @test a[:] == a[1:size(a,1)] == a
     @test a[1:10] isa Vcat
+    @test a[Block(1)[1:2]] ≡ 1:2
+    @test a[3] ≡ 3
 
     A = BlockVcat(randn(2,3), randn(3,3))
     @test axes(A,2) ≡ Base.OneTo(3)
     @test A[Block(1,1)] == A.arrays[1]
     @test A[Block.(1:2),Block(1)] == A
     @test A[Block.(1:2),Block(1)] isa typeof(A)
+
+    @test A[Block.(1:2), Block.(1:1)] == A
+    @test A[Block.(1:2), Block.(1:1)] isa BlockVcat
+    @test A[Block.(1:2), 1:2] == A[:,1:2]
+    @test A[Block.(1:2), 1:2] isa BlockVcat
 
     a = PseudoBlockArray(1:5, SVector(1,3))
     b = PseudoBlockArray(2:6, SVector(1,3))
@@ -50,6 +57,8 @@ end
     @test axes(A,1) ≡ Base.OneTo(3)
     @test A[Block(1,1)] == A.arrays[1]
     @test A[Block(1),Block.(1:2)] == A
+    @test A[Block(1),Block.(1:2)] isa BlockHcat
+
 
     a = PseudoBlockArray(1:5, SVector(1,3))
     b = PseudoBlockArray(2:6, SVector(1,3))
@@ -77,7 +86,7 @@ end
 
         dest = PseudoBlockArray{Float64}(undef, axes(A'))
         @test copyto!(dest, A') == A'
-        @test @allocated(copyto!(dest, A')) ≤ 2200
+        @test @allocated(copyto!(dest, A')) ≤ 2400
         
 
         Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
@@ -87,6 +96,20 @@ end
         Vx = view(Rx, Block.(1:N), Block.(1:N))
         @test MemoryLayout(Vx) isa BlockBandedMatrices.BandedBlockBandedColumns
         # TODO: Fast materialization
+    end
+
+    # @testset "Block-mat hcat" begin
+    #     A = BlockHcat(PseudoBlockArray(randn(6,4), [4,2], [2,2]), PseudoBlockArray(randn(6,3), [4,2], [2,1]))
+    #     A[:,Block.(1:2)]
+    # end
+
+    @testset "adjtrans" begin
+        A = BlockHcat(randn(3,2), randn(3,3))
+        @test A' == transpose(A) == BlockArray(A)'
+        @test A' isa BlockVcat
+        @test transpose(A) isa BlockVcat
+        @test A'' == A
+        @test A'' isa BlockHcat
     end
 end
 
@@ -100,7 +123,7 @@ end
         A = BlockBroadcastArray(vcat, a, b)
         @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
         @test @allocated(axes(A)) ≤ 50
-        @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [1,11]
+        @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
         @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
     end
     @testset "hcat" begin
@@ -126,5 +149,17 @@ end
         @test MemoryLayout(A) isa UnknownLayout
         @test blocksize(A) == (2,3)
         @test A[Block(1,1)] == [a[1] b[1]; c[1] d[1]; e[1] f[1]]
+        @test A[1,1] == a[1,1]
+
+        @testset "Banded" begin
+            a = unitblocks(brand(5,4,1,2))
+            z = Zeros(axes(a))
+            @test blockbandwidths(a) == (1,2)
+            @test subblockbandwidths(a) == (0,0)
+            A = BlockBroadcastArray(hvcat, 2, a, z, z, a)
+            @test blockbandwidths(A) == (1,2)
+            @test subblockbandwidths(A) == (0,0)
+            @test A[Block.(1:2),Block.(1:2)] isa BlockSkylineMatrix
+        end
     end
 end

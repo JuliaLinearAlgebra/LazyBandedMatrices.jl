@@ -19,6 +19,16 @@ import BandedMatrices: BandedColumns
     @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
 end
 
+@testset "BlockKron" begin
+    n = 4
+    Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+    A = BlockKron(Δ, Eye(n))
+    @test isblockbanded(A)
+    @test isbandedblockbanded(A)
+    @test blockbandwidths(A) == (1,1)
+    @test BandedBlockBandedMatrix(A) == A
+end
+
 @testset "KronTrav" begin
     @testset "vector" begin
         a = [1,2,3]
