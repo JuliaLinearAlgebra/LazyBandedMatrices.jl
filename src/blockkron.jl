@@ -9,52 +9,16 @@ Base.in(K::Block, B::BroadcastVector{<:Block,Type{Block}}) = Int(K) in B.args[1]
 # BlockBanded
 ###
 
-blockbroadcaststyle(::LazyArrayStyle{N}) where N = LazyArrayStyle{N}()
-
 bandedblockbandedbroadcaststyle(::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
-struct BlockKron{T,A,B} <: AbstractBandedMatrix{T}
-    args::Tuple{A,B}
-end
-
-BlockKron{T}(A::AA, B::BB) where {T,AA,BB} = BlockKron{T,AA,BB}((A,B))
-BlockKron(A, B) = BlockKron{promote_type(eltype(A),eltype(B))}(A, B)
-BlockKron(K::Kron{T,2}) where T = BlockKron{T}(K.args...)
-
-Kron(B::BlockKron) = Kron(B.args...)
-
-size(B::BlockKron) = size(Kron(B))
-getindex(B::BlockKron, k::Int, j::Int) = Kron(B)[k,j]
 
 isblockbanded(K::BlockKron) = isbanded(first(K.args))
 isbandedblockbanded(K::BlockKron) = all(isbanded, K.args)
 blockbandwidths(K::BlockKron) = bandwidths(first(K.args))
 subblockbandwidths(K::BlockKron) = bandwidths(last(K.args))
-function axes(K::BlockKron)
-    A,B = K.args
-    blockedrange.((Fill(size(B,1), size(A,1)), Fill(size(B,2), size(A,2))))
-end
-
-const SubKron{T,M1,M2,R1,R2} = SubArray{T,2,<:BlockKron{T,M1,M2},<:Tuple{<:BlockSlice{R1},<:BlockSlice{R2}}}
-
-
-BroadcastStyle(::Type{<:SubKron{<:Any,<:Any,B,Block1,Block1}}) where B =
-    BroadcastStyle(B)
-
-BandedBlockBandedMatrix(K::Kron) = BandedBlockBandedMatrix(BlockKron(K))
-BlockBandedMatrix(K::Kron) = BlockBandedMatrix(BlockKron(K))
-
-
-
-"""
-    blockvec(A::AbstractMatrix)
-
-is like `vec(A)` but includes block structure to represent the columns.
-"""
-blockvec(A::AbstractMatrix) = PseudoBlockVector(vec(A), Fill(size(A,1), size(A,2)))
 
 
 """
@@ -179,7 +143,7 @@ krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedB
 MemoryLayout(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} = krontravlayout(MemoryLayout(AA), MemoryLayout(BB))
 
 
-sublayout(::KronTravBandedBlockBandedLayout, ::Type{NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
+sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
 
 call(b::BroadcastLayout{typeof(*)}, a::KronTrav) = *
 call(b::BroadcastBandedLayout{typeof(*)}, a::SubArray) = *

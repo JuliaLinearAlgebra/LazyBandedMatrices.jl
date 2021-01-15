@@ -82,7 +82,7 @@ end
         @test BandedMatrix(A) == Array(A) == A
 
         A = Hcat(Zeros(5,2), brand(5,5,1,1))
-        @test bandwidths(A) == (0,3)
+        @test bandwidths(A) == (-1,3)
         @test BandedMatrix(A) == Array(A) == A
     end
     @testset "BlockBanded and padded" begin
@@ -112,6 +112,12 @@ end
         B = brand(5,5,2,1)
         A = ApplyArray(*, B, B)
         @test A * Vcat([1,2], Zeros(3)) ≈ B*B*[1,2,0,0,0]
+    end
+
+    @testset "block padded" begin
+        c = PseudoBlockVector(Vcat(1, Zeros(5)), 1:3)
+        @test paddeddata(c) == [1]
+        @test paddeddata(c) isa PseudoBlockVector
     end
 end
 
@@ -197,6 +203,15 @@ end
         @test MemoryLayout(V) isa ApplyLayout{typeof(*)}
         @test arguments(V) == (A[1:3,1:3], B[1:3,1:3])
         @test M[1:3, 1:3] ≈ (A*B)[1:3,1:3]
+
+        @test M[Block(2)[1:2],Block(2)[1:2]] isa BandedMatrix
+        @test M[Block(2)[1:2],Block(2)] isa BandedMatrix
+        @test M[Block(2),Block(2)[1:2]] isa BandedMatrix
+        @test M[Block.(1:2), Block.(2:3)] isa BandedBlockBandedMatrix
+        @test M[Block(2),Block.(2:3)] isa PseudoBlockArray
+        @test M[Block.(2:3),Block(2)] isa PseudoBlockArray
+        @test M[Block.(2:3),Block(2)[1:2]] isa PseudoBlockArray
+        @test M[Block(2)[1:2],Block.(2:3)] isa PseudoBlockArray
     end
     @testset "Psuedo Mul" begin
         A = PseudoBandedMatrix(rand(5, 4), 1, 2)
@@ -582,14 +597,14 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         h = 1/n
         D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
 
-        @time D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
-        @time D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
-        @test D_xx == kron(D², Eye(n))
+        @time D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
+        @time D_yy = BandedBlockBandedMatrix(BlockKron(Eye(n),D²))
+        @test D_xx == blockkron(D², Eye(n))
         @time Δ = D_xx + D_yy
 
         @test Δ isa BandedBlockBandedMatrix
         @test blockbandwidths(Δ) == subblockbandwidths(Δ) == (1,1)
-        @test Δ == kron(Matrix(D²), Matrix(I,n,n)) + kron(Matrix(I,n,n), Matrix(D²))
+        @test Δ == blockkron(Matrix(D²), Matrix(I,n,n)) + blockkron(Matrix(I,n,n), Matrix(D²))
 
         n = 10
         D² = FiniteDifference(n)
@@ -602,7 +617,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
 
         @test BandedBlockBandedMatrix(D̃_xx) ≈ D_xx
 
-        D̃_yy = Kron(Eye(n), D²)
+        D̃_yy = BlockKron(Eye(n), D²)
         @test blockbandwidths(D̃_yy) == (0,0)
         @test subblockbandwidths(D̃_yy) == (1,1)
 
@@ -616,7 +631,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         n = 10
         h = 1/n
         D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
-        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
+        D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
 
         D = Diagonal(randn(n^2))
         @test D_xx + D isa BandedBlockBandedMatrix
@@ -697,8 +712,8 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         h = 1/n
         D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
 
-        D_xx = BandedBlockBandedMatrix(Kron(D², Eye(n)))
-        D_yy = BandedBlockBandedMatrix(Kron(Eye(n),D²))
+        D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
+        D_yy = BandedBlockBandedMatrix(BlockKron(Eye(n),D²))
         Δ = BroadcastArray(+, D_xx, D_yy)
         @test MemoryLayout(Δ) isa BroadcastBandedBlockBandedLayout
         @test blockbandwidths(Δ) == (1,1)
@@ -719,12 +734,18 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
             B = cache(Δ);
             @test B[Block(1,1)] == B[Block(1),Block(1)] == Δ[Block(1,1)]
             @test B[Block.(1:3),Block.(1:2)] == Δ[Block.(1:3),Block.(1:2)]
+            @test B[:, Block(1)] == Δ[:, Block(1)]
+            @test B[Block(1), :] == Δ[Block(1), :]
+            @test B[Block(1), [1,2,3]] == Δ[Block(1), [1,2,3]]
+            @test B[[1,2,3], Block(1)] == Δ[[1,2,3], Block(1)]
         end
     
-        B = cache(Δ);
-        resizedata!(B,5,5);
-        @test B.data[1:5,1:5] == Δ[1:5,1:5]
-        @test B == Δ
+        @testset "resizedata!" begin
+            B = cache(Δ);
+            resizedata!(B,5,5);
+            @test B.data[1:5,1:5] == Δ[1:5,1:5]
+            @test B == Δ
+        end
     end
 
     @testset "Padded Block" begin
@@ -801,3 +822,4 @@ end
 end
 
 include("test_blockkron.jl")
+include("test_blockconcat.jl")
