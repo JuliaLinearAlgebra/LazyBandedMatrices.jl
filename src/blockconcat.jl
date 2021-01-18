@@ -214,5 +214,5 @@ subblockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{
 # work around bug in dat
 ###
 
-LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::UnitRange) = dat.blocks[kr]
-LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = dat.blocks[kr]
+LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::UnitRange) = view(dat.blocks,kr)
+LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = view(dat.blocks,kr)

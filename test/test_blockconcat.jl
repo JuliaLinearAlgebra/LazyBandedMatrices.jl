@@ -49,6 +49,9 @@ import LazyBandedMatrices: BlockBroadcastArray
         a = PseudoBlockArray(Vcat(randn(3), 1:3), [3,3])
         @test MemoryLayout(a) isa LazyArrays.ApplyLayout{typeof(vcat)}
         @test LazyArrays.arguments(a) == LazyArrays.arguments(a.blocks)
+
+        b = PseudoBlockArray(Vcat(randn(3), Zeros(3)), [3,3])
+        @test LazyArrays.paddeddata(view(b, 1:4)) == LazyArrays.paddeddata(view(b, Base.OneTo(4))) == b[1:3]
     end
 end
 
