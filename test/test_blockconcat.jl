@@ -2,35 +2,37 @@ using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillAr
 import LazyBandedMatrices: BlockBroadcastArray
 
 @testset "BlockVcat" begin
-    a = BlockVcat(1:5, 10:12, 14:15)
-    @test axes(a,1) ≡ blockedrange(SVector(5,3,2))
-    @test a[Block(1)] ≡ 1:5
-    @test a == [1:5; 10:12; 14:15]
-    @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
-    @test a[:] == a[1:size(a,1)] == a
-    @test a[1:10] isa Vcat
-    @test a[Block(1)[1:2]] ≡ 1:2
-    @test a[3] ≡ 3
+    @testset "basics" begin
+        a = BlockVcat(1:5, 10:12, 14:15)
+        @test axes(a,1) ≡ blockedrange(SVector(5,3,2))
+        @test a[Block(1)] ≡ 1:5
+        @test a == [1:5; 10:12; 14:15]
+        @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
+        @test a[:] == a[1:size(a,1)] == a
+        @test a[1:10] isa Vcat
+        @test a[Block(1)[1:2]] ≡ 1:2
+        @test a[3] ≡ 3
 
-    A = BlockVcat(randn(2,3), randn(3,3))
-    @test axes(A,2) ≡ Base.OneTo(3)
-    @test A[Block(1,1)] == A.arrays[1]
-    @test A[Block.(1:2),Block(1)] == A
-    @test A[Block.(1:2),Block(1)] isa typeof(A)
+        A = BlockVcat(randn(2,3), randn(3,3))
+        @test axes(A,2) ≡ Base.OneTo(3)
+        @test A[Block(1,1)] == A.arrays[1]
+        @test A[Block.(1:2),Block(1)] == A
+        @test A[Block.(1:2),Block(1)] isa typeof(A)
 
-    @test A[Block.(1:2), Block.(1:1)] == A
-    @test A[Block.(1:2), Block.(1:1)] isa BlockVcat
-    @test A[Block.(1:2), 1:2] == A[:,1:2]
-    @test A[Block.(1:2), 1:2] isa BlockVcat
+        @test A[Block.(1:2), Block.(1:1)] == A
+        @test A[Block.(1:2), Block.(1:1)] isa BlockVcat
+        @test A[Block.(1:2), 1:2] == A[:,1:2]
+        @test A[Block.(1:2), 1:2] isa BlockVcat
 
-    a = PseudoBlockArray(1:5, SVector(1,3))
-    b = PseudoBlockArray(2:6, SVector(1,3))
-    A = BlockVcat(a', b')
-    @test axes(A,1) ≡ blockedrange(SVector(1,1))
-    @test axes(A,2) ≡ axes(a,1)
-    @test A[Block(1,1)] == a[Block(1)]'
-    @test A[Block(2,2)] == b[Block(2)]'
-    @test A == [a'; b']
+        a = PseudoBlockArray(1:5, SVector(1,3))
+        b = PseudoBlockArray(2:6, SVector(1,3))
+        A = BlockVcat(a', b')
+        @test axes(A,1) ≡ blockedrange(SVector(1,1))
+        @test axes(A,2) ≡ axes(a,1)
+        @test A[Block(1,1)] == a[Block(1)]'
+        @test A[Block(2,2)] == b[Block(2)]'
+        @test A == [a'; b']
+    end
 
     @testset "triangle recurrence" begin
         N = 1000
@@ -41,6 +43,12 @@ import LazyBandedMatrices: BlockBroadcastArray
             ((k .+ (c-1)) .* ( k .- n .- 1 ) ./ (2k .+ (b+c-1)))',
             (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))'
             )
+    end
+
+    @testset "PseudoBlockArray" begin
+        a = PseudoBlockArray(Vcat(randn(3), 1:3), [3,3])
+        @test MemoryLayout(a) isa LazyArrays.ApplyLayout{typeof(vcat)}
+        @test LazyArrays.arguments(a) == LazyArrays.arguments(a.blocks)
     end
 end
 
