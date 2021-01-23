@@ -22,7 +22,9 @@ subblockbandwidths(K::BlockKron) = bandwidths(last(K.args))
 
 
 """
-    diagtrav(A::AbstractMatrix)
+    DiagTrav(A::AbstractMatrix)
+
+converts a matrix to a block vector by traversing the anti-diagonals.
 """
 struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
     array::AA

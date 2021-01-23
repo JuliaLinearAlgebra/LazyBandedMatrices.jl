@@ -678,6 +678,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test MemoryLayout(A) isa BandedColumns{LazyLayout}
         x = Vcat([1,2], Zeros(3))
         @test A*x isa Vcat
+        @test A*A*x isa Vcat
     end
 
     @testset "Lazy banded" begin
