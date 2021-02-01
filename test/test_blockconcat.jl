@@ -26,6 +26,12 @@ import LazyBandedMatrices: BlockBroadcastArray
 
         a = PseudoBlockArray(1:5, SVector(1,3))
         b = PseudoBlockArray(2:6, SVector(1,3))
+
+        c = BlockVcat(a,b)
+        @test c == [a; b]
+        @test c[Block(2)] == a[Block(2)]
+        @test c[Block(3)] == b[Block(1)]
+
         A = BlockVcat(a', b')
         @test axes(A,1) ≡ blockedrange(SVector(1,1))
         @test axes(A,2) ≡ axes(a,1)
@@ -122,6 +128,16 @@ end
         @test A'' == A
         @test A'' isa BlockHcat
     end
+end
+
+@testset "BlockHvcat" begin
+    A = randn(2,2)
+    B = randn(2,3)
+    C = randn(3,2)
+    D = randn(3,3)
+
+    H = BlockHvcat(2, A, B, C, D)
+    @test H == [A B; C D]
 end
 
 

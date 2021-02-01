@@ -27,7 +27,14 @@ _vcat_axes(ax...) = blockedrange(vcat(map(blocklengths,ax)...))
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
 axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
 
-viewblock(b::BlockVcat{<:Any,1}, k::Block{1}) = b.arrays[Int(k)]
+
+_findvcatblock(k) = throw(BoundsError())
+function _findvcatblock(k, a, b...)
+    n = blocklength(a)
+    k ≤ n && return view(a, Block(k))
+    _findvcatblock(k - n, b...)
+end
+viewblock(b::BlockVcat{<:Any,1}, k::Block{1}) = _findvcatblock(Int(k), b.arrays...)
 getindex(b::BlockVcat{<:Any,1}, Kk::BlockIndex{1}) = view(b,block(Kk))[blockindex(Kk)]
 getindex(b::BlockVcat{<:Any,1}, k::Integer) = b[findblockindex(axes(b,1), k)]
 
@@ -133,12 +140,14 @@ axes(b::BlockHvcat) = (_vcat_axes(axes.(b.args[1:b.n:end],1)...),_vcat_axes(axes
 # _hvcat_viewifblocked(_, a::AbstractMatrix, k) = view(a, Block(k,1))
 # _hvcat_viewifblocked(_, a::AbstractVector, k) = view(a, Block(k))
 # _hvcat_viewifblocked(a, k) = _hvcat_viewifblocked(axes(a,1), a, k)
-# function viewblock(b::BlockHvcat, kj::Block{2})
-#     k,j = kj.n
-#     _hvcat_viewifblocked(b.args[j], k)
-# end
-# getindex(b::BlockHvcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
-# getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
+
+
+function viewblock(b::BlockHvcat, kj::Block{2})
+    k,j = kj.n
+    b.args[b.n*(k-1) + j] # TODO: blocked
+end
+getindex(b::BlockHvcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
+getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
 # MemoryLayout(::Type{<:BlockHvcat}) = ApplyLayout{typeof(hvcat)}()
 # arguments(::ApplyLayout{typeof(hvcat)}, b::BlockHvcat) = b.args
