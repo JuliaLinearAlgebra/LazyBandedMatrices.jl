@@ -2,17 +2,18 @@ using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillAr
 import LazyBandedMatrices: BlockBroadcastArray
 
 @testset "BlockVcat" begin
-    @testset "basics" begin
+    @testset "vec vcat" begin
         a = BlockVcat(1:5, 10:12, 14:15)
-        @test axes(a,1) ≡ blockedrange(SVector(5,3,2))
-        @test a[Block(1)] ≡ 1:5
+        @test @inferred(axes(a)) ≡ (blockedrange(SVector(5,3,2)),)
+        @test @inferred(a[Block(1)]) ≡ 1:5
         @test a == [1:5; 10:12; 14:15]
         @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
         @test a[:] == a[1:size(a,1)] == a
         @test a[1:10] isa Vcat
         @test a[Block(1)[1:2]] ≡ 1:2
         @test a[3] ≡ 3
-
+    end
+    @testset "mat vcat" begin
         A = BlockVcat(randn(2,3), randn(3,3))
         @test axes(A,2) ≡ Base.OneTo(3)
         @test A[Block(1,1)] == A.arrays[1]
@@ -24,14 +25,30 @@ import LazyBandedMatrices: BlockBroadcastArray
         @test A[Block.(1:2), 1:2] == A[:,1:2]
         @test A[Block.(1:2), 1:2] isa BlockVcat
 
+    end
+    @testset "block vec vcat" begin
         a = PseudoBlockArray(1:5, SVector(1,3))
         b = PseudoBlockArray(2:6, SVector(1,3))
+
+        c = BlockVcat(a,b)
+        @test c == [a; b]
+        @test c[Block(2)] == a[Block(2)]
+        @test c[Block(3)] == b[Block(1)]
+
         A = BlockVcat(a', b')
         @test axes(A,1) ≡ blockedrange(SVector(1,1))
         @test axes(A,2) ≡ axes(a,1)
         @test A[Block(1,1)] == a[Block(1)]'
         @test A[Block(2,2)] == b[Block(2)]'
         @test A == [a'; b']
+    end
+
+    @testset "block mat vcat" begin
+        A = PseudoBlockArray(randn(3,2), [1,2], [1,1])
+        B = PseudoBlockArray(randn(4,2), [3,1], [1,1])
+        V = BlockVcat(A, B)
+        @test V == [A; B]
+        @test V[Block(3,1)] == B[Block(1,1)]
     end
 
     @testset "triangle recurrence" begin
@@ -57,28 +74,41 @@ end
 
 
 @testset "BlockHcat" begin
-    a = BlockHcat(1:5, 10:14)
-    @test axes(a,2) ≡ blockedrange(Ones{Int}(2))
-    @test a[Block(1,1)] ≡ 1:5
-    @test a == [1:5 10:14]
-    @test_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
-    @test a[:] == a[1:length(a)] == vec(a)
+    @testset "vec hcat" begin
+        a = BlockHcat(1:5, 10:14)
+        @test axes(a,2) ≡ blockedrange(Ones{Int}(2))
+        @test a[Block(1,1)] ≡ 1:5
+        @test a == [1:5 10:14]
+        @test_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
+        @test a[:] == a[1:length(a)] == vec(a)
+    end
 
-    A = BlockHcat(randn(3,2), randn(3,3))
-    @test axes(A,1) ≡ Base.OneTo(3)
-    @test A[Block(1,1)] == A.arrays[1]
-    @test A[Block(1),Block.(1:2)] == A
-    @test A[Block(1),Block.(1:2)] isa BlockHcat
+    @testset "mat hcat" begin
+        A = BlockHcat(randn(3,2), randn(3,3))
+        @test axes(A,1) ≡ Base.OneTo(3)
+        @test A[Block(1,1)] == A.arrays[1]
+        @test A[Block(1),Block.(1:2)] == A
+        @test A[Block(1),Block.(1:2)] isa BlockHcat
+    end
 
+    @testset "block vec hcat" begin
+        a = PseudoBlockArray(1:5, SVector(1,3))
+        b = PseudoBlockArray(2:6, SVector(1,3))
+        A = BlockHcat(a, b)
+        @test axes(A,2) ≡ blockedrange(Ones{Int}(2))
+        @test axes(A,1) ≡ axes(a,1)
+        @test A[Block(1,1)] == a[Block(1)]
+        @test A[Block(2,2)] == b[Block(2)]
+        @test A == [a b]
+    end
 
-    a = PseudoBlockArray(1:5, SVector(1,3))
-    b = PseudoBlockArray(2:6, SVector(1,3))
-    A = BlockHcat(a, b)
-    @test axes(A,2) ≡ blockedrange(Ones{Int}(2))
-    @test axes(A,1) ≡ axes(a,1)
-    @test A[Block(1,1)] == a[Block(1)]
-    @test A[Block(2,2)] == b[Block(2)]
-    @test A == [a b]
+    @testset "block mat hcat" begin
+        A = PseudoBlockArray(randn(3,2), [1,2], [1,1])
+        B = PseudoBlockArray(randn(3,3), [1,2], [2,1])
+        H = BlockHcat(A, B)
+        @test H == [A B]
+        @test H[Block(1,3)] == B[Block(1,1)]
+    end
 
     @testset "triangle recurrence" begin
         N = 1_000
@@ -96,6 +126,7 @@ end
         # @time copyto!(dest, A);
 
         dest = PseudoBlockArray{Float64}(undef, axes(A'))
+        @test (A')[Block(2,3)] == A[Block(3,2)]'
         @test copyto!(dest, A') == A'
         @test @allocated(copyto!(dest, A')) ≤ 2400
         
@@ -122,6 +153,16 @@ end
         @test A'' == A
         @test A'' isa BlockHcat
     end
+end
+
+@testset "BlockHvcat" begin
+    A = randn(2,2)
+    B = randn(2,3)
+    C = randn(3,2)
+    D = randn(3,3)
+
+    H = BlockHvcat(2, A, B, C, D)
+    @test H == [A B; C D]
 end
 
 

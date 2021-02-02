@@ -17,28 +17,47 @@ struct BlockVcat{T, N, Arrays} <: AbstractBlockArray{T,N}
     end
 end
 
-BlockVcat{T,N}(arrays::AbstractArray...) where {T,N} =
-    BlockVcat{T,N,typeof(arrays)}(arrays)
-BlockVcat{T}(arrays::AbstractArray{<:Any,N}...) where {T,N} =
-    BlockVcat{T,N}(arrays...)
-BlockVcat(arrays::AbstractArray...) =
-    BlockVcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
+BlockVcat{T,N}(arrays::AbstractArray...) where {T,N} = BlockVcat{T,N,typeof(arrays)}(arrays)
+BlockVcat{T}(arrays::AbstractArray{<:Any,N}...) where {T,N} = BlockVcat{T,N}(arrays...)
+BlockVcat(arrays::AbstractArray...) = BlockVcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
 
-axes(b::BlockVcat{<:Any,1}) = (blockedrange(SVector(length.(b.arrays)...)),)
-axes(b::BlockVcat{<:Any,2}) = (blockedrange(SVector(size.(b.arrays,1)...)),axes(b.arrays[1],2))
+# all 
+_vcat_axes(ax::OneTo{Int}...) = blockedrange(SVector(map(length,ax)...))
+_vcat_axes(ax...) = blockedrange(vcat(map(blocklengths,ax)...))
+axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
+axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
 
-viewblock(b::BlockVcat{<:Any,1}, k::Block{1}) = b.arrays[Int(k)]
-getindex(b::BlockVcat{<:Any,1}, Kk::BlockIndex{1}) = view(b,block(Kk))[blockindex(Kk)]
-getindex(b::BlockVcat{<:Any,1}, k::Integer) = b[findblockindex(axes(b,1), k)]
-
-_viewifblocked(::OneTo, a, j) = a
-_viewifblocked(_, a, j) = view(a, Block(1,j))
-_viewifblocked(a, j) = _viewifblocked(axes(a,2), a, j)
-function viewblock(b::BlockVcat{<:Any,2}, kj::Block{2})
+# avoid making naive view
+_viewifblocked(::Tuple{Vararg{OneTo}}, a, kj::Block{1}) = a
+_viewifblocked(::Tuple{Vararg{OneTo}}, a, kj::Block{2}) = a
+_viewifblocked(::Tuple{OneTo}, a::AbstractVector, kj::Block{2}) = a
+_viewifblocked(_, a, kj::Block) = view(a, kj)
+function _viewifblocked(_, a::AbstractVector, kj::Block{2})
     k,j = kj.n
-    _viewifblocked(b.arrays[k], j)
+    @assert j == 1
+    view(a, Block(k))
 end
-getindex(b::BlockVcat{<:Any,2}, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
+_viewifblocked(a, kj) = _viewifblocked(axes(a), a, kj)
+
+_findvcatblock(k) = throw(BoundsError())
+
+function _findvcatblock(k::Block{1}, a, b...)
+    n = Block(blocklength(a))
+    k ≤ n && return _viewifblocked(a, k)
+    _findvcatblock(k - n, b...)
+end
+
+function _findvcatblock(kj::Block{2}, a, b...)
+    k,j= kj.n
+    n = blocksize(a,1)
+    k ≤ n && return _viewifblocked(a, kj)
+    _findvcatblock(Block(k-n, j), b...)
+end
+
+viewblock(b::BlockVcat, k::Block) = _findvcatblock(k, b.arrays...)
+getindex(b::BlockVcat, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
+getindex(b::BlockVcat, Kk::BlockIndex{2}) = view(b,block(Kk))[Kk.α...]
+getindex(b::BlockVcat{<:Any,1}, k::Integer) = b[findblockindex(axes(b,1), k)]
 getindex(b::BlockVcat{<:Any,2}, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
 MemoryLayout(::Type{<:BlockVcat}) = ApplyLayout{typeof(vcat)}()
@@ -72,25 +91,23 @@ struct BlockHcat{T, Arrays} <: AbstractBlockMatrix{T}
     end
 end
 
-BlockHcat{T}(arrays::AbstractArray...) where T =
-    BlockHcat{T,typeof(arrays)}(arrays)
-BlockHcat(arrays::AbstractArray...) =
-    BlockHcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
+BlockHcat{T}(arrays::AbstractArray...) where T = BlockHcat{T,typeof(arrays)}(arrays)
+BlockHcat(arrays::AbstractArray...) = BlockHcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
 
-axes(b::BlockHcat{<:Any}) = (axes(b.arrays[1],1),blockedrange(SVector(size.(b.arrays,2)...)))
+axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes(axes.(b.arrays,2)...))
 axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
 
-_hcat_viewifblocked(::OneTo, a::AbstractMatrix, k) = a
-_hcat_viewifblocked(::OneTo, a::AbstractVector, k) = a
-_hcat_viewifblocked(_, a::AbstractMatrix, k) = view(a, Block(k,1))
-_hcat_viewifblocked(_, a::AbstractVector, k) = view(a, Block(k))
-_hcat_viewifblocked(a, k) = _hcat_viewifblocked(axes(a,1), a, k)
-function viewblock(b::BlockHcat{<:Any}, kj::Block{2})
+
+function _findhcatblock(kj::Block{2}, a, b...)
     k,j = kj.n
-    _hcat_viewifblocked(b.arrays[j], k)
+    n = blocksize(a,2)
+    j ≤ n && return _viewifblocked(a, kj)
+    _findhcatblock(Block(k, j-n), b...)
 end
-getindex(b::BlockHcat{<:Any}, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
-getindex(b::BlockHcat{<:Any}, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
+
+viewblock(b::BlockHcat, kj::Block{2}) = _findhcatblock(kj, b.arrays...)
+getindex(b::BlockHcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
+getindex(b::BlockHcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
 MemoryLayout(::Type{<:BlockHcat}) = ApplyLayout{typeof(hcat)}()
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
@@ -110,6 +127,52 @@ for adj in (:adjoint, :transpose)
         $adj(A::BlockVcat{T,2}) where T = BlockHcat{T}(map($adj,A.arrays)...)
     end
 end
+
+
+##########
+# BlockHvcat
+##########
+
+struct BlockHvcat{T, Args} <: AbstractBlockMatrix{T}
+    n::Int
+    args::Args
+    function BlockHvcat{T,Args}(n::Int, args::Args) where {T,Args}
+        new{T,Args}(n, args)
+    end
+end
+
+BlockHvcat{T}(n::Int, args...) where T = BlockHvcat{T,typeof(args)}(n, args)
+BlockHvcat(n::Int, args...) = BlockHvcat{mapreduce(eltype, promote_type, args)}(n, args...)
+
+axes(b::BlockHvcat) = (_vcat_axes(axes.(b.args[1:b.n:end],1)...),_vcat_axes(axes.(b.args[1:b.n],2)...))
+
+
+# _hvcat_viewifblocked(::OneTo, a::AbstractMatrix, k) = a
+# _hvcat_viewifblocked(::OneTo, a::AbstractVector, k) = a
+# _hvcat_viewifblocked(_, a::AbstractMatrix, k) = view(a, Block(k,1))
+# _hvcat_viewifblocked(_, a::AbstractVector, k) = view(a, Block(k))
+# _hvcat_viewifblocked(a, k) = _hvcat_viewifblocked(axes(a,1), a, k)
+
+
+function viewblock(b::BlockHvcat, kj::Block{2})
+    k,j = kj.n
+    b.args[b.n*(k-1) + j] # TODO: blocked
+end
+getindex(b::BlockHvcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
+getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
+
+# MemoryLayout(::Type{<:BlockHvcat}) = ApplyLayout{typeof(hvcat)}()
+# arguments(::ApplyLayout{typeof(hvcat)}, b::BlockHvcat) = b.args
+
+# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
+# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
+
+# function arguments(lay::ApplyLayout{typeof(hvcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
+#     kr, jr = parentindices(V)
+#     @assert kr.block ≡ Block(1)
+#     arguments(lay, parent(V))[Int.(jr.block)]
+# end
+
 
 #############
 # BlockApplyArray
