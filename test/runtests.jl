@@ -521,56 +521,7 @@ end
     end
 end
 
-@testset "kron" begin
-    A = brand(5,5,2,2)
-    B = brand(2,2,1,0)
-    K = kron(A,B)
-    @test K isa BandedMatrix
-    @test bandwidths(K) == (5,4)
-    @test Matrix(K) == kron(Matrix(A), Matrix(B))
 
-    A = brand(3,4,1,1)
-    B = brand(3,2,1,0)
-    K = kron(A,B)
-    @test K isa BandedMatrix
-    @test bandwidths(K) == (7,2)
-    @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
-    K = kron(B,A)
-    @test Matrix(K) ≈ kron(Matrix(B), Matrix(A))
-
-    K = kron(A, B')
-    K isa BandedMatrix
-    @test Matrix(K) ≈ kron(Matrix(A), Matrix(B'))
-    K = kron(A', B)
-    K isa BandedMatrix
-    @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B))
-    K = kron(A', B')
-    K isa BandedMatrix
-    @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B'))
-
-    A = brand(5,6,2,2)
-    B = brand(3,2,1,0)
-    K = kron(A,B)
-    @test K isa BandedMatrix
-    @test bandwidths(K) == (12,4)
-    @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
-
-    n = 10; h = 1/n
-    D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
-    D_xx = kron(D², Eye(n))
-    @test D_xx isa BandedMatrix
-    @test bandwidths(D_xx) == (10,10)
-    D_yy = kron(Eye(n), D²)
-    @test D_yy isa BandedMatrix
-    @test bandwidths(D_yy) == (1,1)
-    Δ = D_xx + D_yy
-    @test Δ isa BandedMatrix
-    @test bandwidths(Δ) == (10,10)
-
-    @testset "#87" begin
-        @test kron(Diagonal([1,2,3]), Eye(3)) isa Diagonal{Float64,Vector{Float64}}
-    end
-end
 
 
 struct FiniteDifference{T} <: AbstractBandedMatrix{T}
@@ -812,6 +763,14 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test bandwidths(ApplyArray(\, UpperTriangular(randn(5,5)), B)) == (1,4)
         @test bandwidths(ApplyArray(\, LowerTriangular(randn(5,5)), B)) == (4,2)
         @test bandwidths(ApplyArray(\, randn(5,5), B)) == (4,4)
+    end
+
+    @testset "Lazy block" begin
+        b = PseudoBlockVector(randn(5),[2,3])
+        c = BroadcastVector(exp,1:5)
+        @test c .* b isa BroadcastVector
+        @test b .* c isa BroadcastVector
+        @test (c .* b)[Block(1)] == c[1:2] .* b[Block(1)]
     end
 end
 
