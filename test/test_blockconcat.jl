@@ -1,5 +1,5 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray
+import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
 
 @testset "BlockVcat" begin
     @testset "vec vcat" begin
@@ -137,6 +137,11 @@ end
 
         Vx = view(Rx, Block.(1:N), Block.(1:N))
         @test MemoryLayout(Vx) isa BlockBandedMatrices.BandedBlockBandedColumns
+
+        V = view(A, Block.(1:5),:)
+        @test MemoryLayout(V) isa ApplyLayout{typeof(hcat)}
+        HV = A[Block.(1:5),:]
+        @test HV == V
         # TODO: Fast materialization
     end
 
