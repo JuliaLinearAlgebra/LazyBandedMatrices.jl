@@ -97,10 +97,12 @@ BlockHcat(arrays::AbstractArray...) = BlockHcat{mapreduce(eltype, promote_type, 
 axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes(axes.(b.arrays,2)...))
 axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
 
+_blocksize2(a::AbstractVector) = 1
+_blocksize2(a) = blocksize(a,2)
 
 function _findhcatblock(kj::Block{2}, a, b...)
     k,j = kj.n
-    n = blocksize(a,2)
+    n = _blocksize2(a)
     j ≤ n && return _viewifblocked(a, kj)
     _findhcatblock(Block(k, j-n), b...)
 end
