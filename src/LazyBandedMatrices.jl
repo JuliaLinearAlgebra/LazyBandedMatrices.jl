@@ -12,7 +12,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
-                    OnesLayout, DualLayout, mulreduce
+                    OnesLayout, DualLayout, mulreduce, _inv
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -78,6 +78,34 @@ function bandwidths(L::ApplyMatrix{<:Any,typeof(\)})
     else
         (size(L,1)-1 , size(L,2)-1)
     end
+end
+
+function bandwidths(L::ApplyMatrix{<:Any,typeof(inv)})
+    A, = arguments(L)
+    l,u = bandwidths(A)
+    l == u == 0 && return (0,0)
+    m,n = size(A)
+    l == 0 && return (0,n-1)
+    u == 0 && return (m-1,0)
+    (m-1 , n-1)
+end
+
+function colsupport(::AbstractInvLayout{<:AbstractBandedLayout}, A, j)
+    l,u = bandwidths(A)
+    l == 0 && u == 0 && return minimum(j):maximum(j)
+    m,_ = size(A)
+    l == 0 && return 1:maximum(j)
+    u == 0 && return minimum(j):m
+    1:m
+end
+
+function rowsupport(::AbstractInvLayout{<:AbstractBandedLayout}, A, k)
+    l,u = bandwidths(A)
+    l == 0 && u == 0 && return minimum(k):maximum(k)
+    _,n = size(A)
+    l == 0 && return minimum(k):n
+    u == 0 && return 1:maximum(k)
+    1:n
 end
 
 
@@ -667,7 +695,8 @@ StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
                 BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}},
-                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
+                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout,
+                AbstractInvLayout{<:BandedLazyLayouts}}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
@@ -698,6 +727,10 @@ mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mu
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
+
+
+copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))
+_inv(::StructuredLazyLayouts, _, A) = ApplyArray(inv, A)
 
 ##
 # support Inf Block ranges
