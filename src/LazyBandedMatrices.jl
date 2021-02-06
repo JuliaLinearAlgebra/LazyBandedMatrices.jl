@@ -92,19 +92,19 @@ end
 
 function colsupport(::AbstractInvLayout{<:AbstractBandedLayout}, A, j)
     l,u = bandwidths(A)
-    l == 0 && u == 0 && return minimum(j):maximum(j)
+    l == 0 && u == 0 && return first(j):last(j)
     m,_ = size(A)
-    l == 0 && return 1:maximum(j)
-    u == 0 && return minimum(j):m
+    l == 0 && return 1:last(j)
+    u == 0 && return first(j):m
     1:m
 end
 
 function rowsupport(::AbstractInvLayout{<:AbstractBandedLayout}, A, k)
     l,u = bandwidths(A)
-    l == 0 && u == 0 && return minimum(k):maximum(k)
+    l == 0 && u == 0 && return first(k):last(k)
     _,n = size(A)
-    l == 0 && return minimum(k):n
-    u == 0 && return 1:maximum(k)
+    l == 0 && return first(k):n
+    u == 0 && return 1:last(k)
     1:n
 end
 
@@ -210,7 +210,7 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
         end
     end
 
-    materialize!(MulAdd(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ))
+    muladd!(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ)
     y
 end
 
@@ -720,6 +720,20 @@ copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*
 copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
 copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
 copy(M::Mul{<:AbstractInvLayout,<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+
+# TODO: this is type piracy
+function colsupport(lay::ApplyLayout{typeof(\)}, L, j)
+    A,B = arguments(lay, L)
+    l,u = bandwidths(A)
+    cs = colsupport(B,j)
+    m,_ = size(L)
+    l == 0 && return 1:last(cs)
+    u == 0 && return first(cs):m
+    1:m
+end
+
+copy(M::Mul{ApplyLayout{typeof(\)}, <:StructuredLazyLayouts}) = lazymaterialize(*, M.A, M.B)
+copy(M::Mul{BroadcastLayout{typeof(*)}, <:StructuredLazyLayouts}) = lazymaterialize(*, M.A, M.B)
 
 ## padded copy
 mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
