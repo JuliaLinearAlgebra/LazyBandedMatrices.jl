@@ -727,8 +727,20 @@ function colsupport(lay::ApplyLayout{typeof(\)}, L, j)
     l,u = bandwidths(A)
     cs = colsupport(B,j)
     m,_ = size(L)
+    l == u == 0 && return cs
     l == 0 && return 1:last(cs)
     u == 0 && return first(cs):m
+    1:m
+end
+
+function rowsupport(lay::ApplyLayout{typeof(\)}, L, k)
+    A,B = arguments(lay, L)
+    l,u = bandwidths(A)
+    cs = rowsupport(B,k)
+    m,_ = size(L)
+    l == u == 0 && return cs
+    l == 0 && return first(cs):m
+    u == 0 && return 1:last(cs)
     1:m
 end
 
