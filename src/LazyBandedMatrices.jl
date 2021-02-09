@@ -12,7 +12,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
-                    OnesLayout, DualLayout, mulreduce
+                    OnesLayout, DualLayout, mulreduce, _inv
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -78,6 +78,34 @@ function bandwidths(L::ApplyMatrix{<:Any,typeof(\)})
     else
         (size(L,1)-1 , size(L,2)-1)
     end
+end
+
+function bandwidths(L::ApplyMatrix{<:Any,typeof(inv)})
+    A, = arguments(L)
+    l,u = bandwidths(A)
+    l == u == 0 && return (0,0)
+    m,n = size(A)
+    l == 0 && return (0,n-1)
+    u == 0 && return (m-1,0)
+    (m-1 , n-1)
+end
+
+function colsupport(::AbstractInvLayout{<:AbstractBandedLayout}, A, j)
+    l,u = bandwidths(A)
+    l == 0 && u == 0 && return first(j):last(j)
+    m,_ = size(A)
+    l == 0 && return 1:last(j)
+    u == 0 && return first(j):m
+    1:m
+end
+
+function rowsupport(::AbstractInvLayout{<:AbstractBandedLayout}, A, k)
+    l,u = bandwidths(A)
+    l == 0 && u == 0 && return first(k):last(k)
+    _,n = size(A)
+    l == 0 && return first(k):n
+    u == 0 && return 1:last(k)
+    1:n
 end
 
 
@@ -182,7 +210,7 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
         end
     end
 
-    materialize!(MulAdd(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ))
+    muladd!(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ)
     y
 end
 
@@ -667,7 +695,8 @@ StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
                 BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}},
-                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
+                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout,
+                AbstractInvLayout{<:BandedLazyLayouts}}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
@@ -679,8 +708,8 @@ copy(M::Mul{<:StructuredLazyLayouts, <:AbstractLazyLayout}) = lazymaterialize(M)
 copy(M::Mul{<:AbstractLazyLayout, <:StructuredLazyLayouts}) = lazymaterialize(M)
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout}) = lazymaterialize(M)
 copy(M::Mul{<:DiagonalLayout, <:StructuredLazyLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = copy(Rmul(M))
-copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = copy(Lmul(M))
+copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = LinearAlgebra.copy_oftype(M.A, eltype(M))
+copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = LinearAlgebra.copy_oftype(M.B, eltype(M))
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, arguments(M.A)..., arguments(M.B)...)
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredLazyLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
 copy(M::Mul{<:StructuredLazyLayouts,<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
@@ -692,12 +721,42 @@ copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arg
 copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
 copy(M::Mul{<:AbstractInvLayout,<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
 
+# TODO: this is type piracy
+function colsupport(lay::ApplyLayout{typeof(\)}, L, j)
+    A,B = arguments(lay, L)
+    l,u = bandwidths(A)
+    cs = colsupport(B,j)
+    m,_ = size(L)
+    l == u == 0 && return cs
+    l == 0 && return 1:last(cs)
+    u == 0 && return first(cs):m
+    1:m
+end
+
+function rowsupport(lay::ApplyLayout{typeof(\)}, L, k)
+    A,B = arguments(lay, L)
+    l,u = bandwidths(A)
+    cs = rowsupport(B,k)
+    m,_ = size(L)
+    l == u == 0 && return cs
+    l == 0 && return first(cs):m
+    u == 0 && return 1:last(cs)
+    1:m
+end
+
+copy(M::Mul{ApplyLayout{typeof(\)}, <:StructuredLazyLayouts}) = lazymaterialize(*, M.A, M.B)
+copy(M::Mul{BroadcastLayout{typeof(*)}, <:StructuredLazyLayouts}) = lazymaterialize(*, M.A, M.B)
+
 ## padded copy
 mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
 mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
+
+
+copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))
+_inv(::StructuredLazyLayouts, _, A) = ApplyArray(inv, A)
 
 ##
 # support Inf Block ranges

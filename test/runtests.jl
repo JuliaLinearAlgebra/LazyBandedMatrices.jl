@@ -172,6 +172,14 @@ end
         M = ApplyArray(*, A, Zeros(5))
         @test colsupport(M,1) == colsupport(Applied(M),1)
         @test_skip colsupport(M,1) == 1:0
+
+        @testset "inv" begin
+            A = brand(6,5,0,1)
+            B = brand(5,5,1,0)
+            C = randn(6,2)
+            M = ApplyArray(*,A,B)
+            @test M \ C ≈ Matrix(M) \ C
+        end
     end
     @testset "MulBlockBanded" begin
         A = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0)); A.data .= randn.();
@@ -230,6 +238,43 @@ end
         @test M*C isa ApplyMatrix{Float64,typeof(*)}
         @test C*M isa ApplyMatrix{Float64,typeof(*)}
     end
+end
+
+@testset "InvMatrix" begin
+    D = brand(5,5,0,0)
+    L = brand(5,5,2,0)
+    U = brand(5,5,0,2)
+    B = brand(5,5,1,2)
+
+    @test bandwidths(ApplyMatrix(inv,D)) == (0,0)
+    @test bandwidths(ApplyMatrix(inv,L)) == (4,0)
+    @test bandwidths(ApplyMatrix(inv,U)) == (0,4)
+    @test bandwidths(ApplyMatrix(inv,B)) == (4,4)
+
+    @test colsupport(ApplyMatrix(inv,D) ,3) == 3:3
+    @test colsupport(ApplyMatrix(inv,L), 3) == 3:5
+    @test colsupport(ApplyMatrix(inv,U), 3) == 1:3
+    @test colsupport(ApplyMatrix(inv,B), 3) == 1:5
+
+    @test rowsupport(ApplyMatrix(inv,D) ,3) == 3:3
+    @test rowsupport(ApplyMatrix(inv,L), 3) == 1:3
+    @test rowsupport(ApplyMatrix(inv,U), 3) == 3:5
+    @test rowsupport(ApplyMatrix(inv,B), 3) == 1:5
+
+    @test bandwidths(ApplyMatrix(\,D,B)) == (1,2)
+    @test bandwidths(ApplyMatrix(\,L,B)) == (4,2)
+    @test bandwidths(ApplyMatrix(\,U,B)) == (1,4)
+    @test bandwidths(ApplyMatrix(\,B,B)) == (4,4)
+
+    @test colsupport(ApplyMatrix(\,D,B), 3) == 1:4
+    @test colsupport(ApplyMatrix(\,L,B), 4) == 2:5
+    @test colsupport(ApplyMatrix(\,U,B), 3) == 1:4
+    @test colsupport(ApplyMatrix(\,B,B), 3) == 1:5
+
+    @test rowsupport(ApplyMatrix(\,D,B), 3) == 2:5
+    @test rowsupport(ApplyMatrix(\,L,B), 2) == 1:4
+    @test rowsupport(ApplyMatrix(\,U,B), 3) == 2:5
+    @test rowsupport(ApplyMatrix(\,B,B), 3) == 1:5
 end
 
 @testset "Cat" begin
