@@ -27,6 +27,9 @@ _vcat_axes(ax...) = blockedrange(vcat(map(blocklengths,ax)...))
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
 axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
 
+copy(b::BlockVcat{T,N}) where {T,N} = BlockVcat{T,N}(map(copy, b.arrays)...)
+copy(b::AdjOrTrans{<:Any,<:BlockVcat}) = copy(parent(b))'
+
 # avoid making naive view
 _viewifblocked(::Tuple{Vararg{OneTo}}, a, kj::Block{1}) = a
 _viewifblocked(::Tuple{Vararg{OneTo}}, a, kj::Block{2}) = a
@@ -97,6 +100,9 @@ BlockHcat(arrays::AbstractArray...) = BlockHcat{mapreduce(eltype, promote_type, 
 axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes(axes.(b.arrays,2)...))
 axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
 
+copy(b::BlockHcat{T}) where T = BlockHcat{T}(map(copy, b.arrays)...)
+copy(b::AdjOrTrans{<:Any,<:BlockHcat}) = copy(parent(b))'
+
 _blocksize2(a::AbstractVector) = 1
 _blocksize2(a) = blocksize(a,2)
 
@@ -148,6 +154,8 @@ BlockHvcat(n::Int, args...) = BlockHvcat{mapreduce(eltype, promote_type, args)}(
 
 axes(b::BlockHvcat) = (_vcat_axes(axes.(b.args[1:b.n:end],1)...),_vcat_axes(axes.(b.args[1:b.n],2)...))
 
+copy(b::BlockHvcat{T}) where T = BlockHvcat{T}(b.n, map(copy, b.args)...)
+copy(b::AdjOrTrans{<:Any,<:BlockHvcat}) = copy(parent(b))'
 
 # _hvcat_viewifblocked(::OneTo, a::AbstractMatrix, k) = a
 # _hvcat_viewifblocked(::OneTo, a::AbstractVector, k) = a
@@ -224,6 +232,9 @@ axes(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}) = (axes(A.args[1],1), _block_v
 
 axes(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = _block_interlace_axes(A.args[1], map(axes,A.args[2:end])...)
 # size(A::BlockBroadcastArray) = map(length, axes(A))
+
+copy(b::BlockBroadcastArray{T,N}) where {T,N} = BlockBroadcastArray{T,N}(b.f, map(copy, b.args)...)
+copy(b::AdjOrTrans{<:Any,<:BlockBroadcastArray}) = copy(parent(b))'
 
 function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
     K = findblockindex(axes(A,1), k)
