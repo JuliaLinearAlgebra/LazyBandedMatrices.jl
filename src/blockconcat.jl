@@ -29,6 +29,13 @@ axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1]
 
 copy(b::BlockVcat{T,N}) where {T,N} = BlockVcat{T,N}(map(copy, b.arrays)...)
 copy(b::AdjOrTrans{<:Any,<:BlockVcat}) = copy(parent(b))'
+AbstractArray{T}(B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(map(AbstractArray{T}, B.arrays)...)
+AbstractArray{T,N}(B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(map(AbstractArray{T}, B.arrays)...)
+convert(::Type{AbstractArray{T}}, B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(convert.(AbstractArray{T}, B.arrays)...)
+convert(::Type{AbstractArray{T,N}}, B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(convert.(AbstractArray{T}, B.arrays)...)
+convert(::Type{AbstractArray{T}}, B::BlockVcat{T,N}) where {T,N} = B
+convert(::Type{AbstractArray{T,N}}, B::BlockVcat{T,N}) where {T,N} = B
+
 
 # avoid making naive view
 _viewifblocked(::Tuple{Vararg{OneTo}}, a, kj::Block{1}) = a
@@ -102,6 +109,12 @@ axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1
 
 copy(b::BlockHcat{T}) where T = BlockHcat{T}(map(copy, b.arrays)...)
 copy(b::AdjOrTrans{<:Any,<:BlockHcat}) = copy(parent(b))'
+AbstractArray{T}(B::BlockHcat) where T = BlockHcat{T}(map(AbstractArray{T}, B.arrays)...)
+AbstractMatrix{T}(B::BlockHcat) where T = BlockHcat{T}(map(AbstractArray{T}, B.arrays)...)
+convert(::Type{AbstractArray{T}}, B::BlockHcat) where T = BlockHcat{T}(convert.(AbstractArray{T}, B.arrays)...)
+convert(::Type{AbstractMatrix{T}}, B::BlockHcat) where T = BlockHcat{T}(convert.(AbstractArray{T}, B.arrays)...)
+convert(::Type{AbstractArray{T}}, B::BlockHcat{T}) where T = B
+convert(::Type{AbstractMatrix{T}}, B::BlockHcat{T}) where T = B
 
 _blocksize2(a::AbstractVector) = 1
 _blocksize2(a) = blocksize(a,2)
@@ -235,6 +248,21 @@ axes(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = _block_interlace_axes(A.arg
 
 copy(b::BlockBroadcastArray{T,N}) where {T,N} = BlockBroadcastArray{T,N}(b.f, map(copy, b.args)...)
 copy(b::AdjOrTrans{<:Any,<:BlockBroadcastArray}) = copy(parent(b))'
+
+AbstractArray{T}(B::BlockBroadcastArray{<:Any,N}) where {T,N} = BlockBroadcastArray{T,N}(B.f, map(AbstractArray{T}, B.args)...)
+AbstractArray{T,N}(B::BlockBroadcastArray{<:Any,N}) where {T,N} = BlockBroadcastArray{T,N}(B.f, map(AbstractArray{T}, B.args)...)
+convert(::Type{AbstractArray{T}}, B::BlockBroadcastArray{<:Any,N}) where {T,N} = BlockBroadcastArray{T,N}(B.f, convert.(AbstractArray{T}, B.args)...)
+convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{<:Any,N}) where {T,N} = BlockBroadcastArray{T,N}(B.f, convert.(AbstractArray{T}, B.args)...)
+convert(::Type{AbstractArray{T}}, B::BlockBroadcastArray{T,N}) where {T,N} = B
+convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{T,N}) where {T,N} = B
+
+AbstractArray{T}(B::BlockBroadcastArray{<:Any,N,typeof(hvcat)}) where {T,N} = BlockBroadcastArray{T,N}(B.f, first(B.args), map(AbstractArray{T}, tail(B.args))...)
+AbstractArray{T,N}(B::BlockBroadcastArray{<:Any,N,typeof(hvcat)}) where {T,N} = BlockBroadcastArray{T,N}(B.f, first(B.args), map(AbstractArray{T}, tail(B.args))...)
+convert(::Type{AbstractArray{T}}, B::BlockBroadcastArray{<:Any,N,typeof(hvcat)}) where {T,N} = BlockBroadcastArray{T,N}(B.f, first(B.args), convert.(AbstractArray{T}, tail(B.args))...)
+convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{<:Any,N,typeof(hvcat)}) where {T,N} = BlockBroadcastArray{T,N}(B.f, first(B.args), convert.(AbstractArray{T}, tail(B.args))...)
+convert(::Type{AbstractArray{T}}, B::BlockBroadcastArray{T,N,typeof(hvcat)}) where {T,N} = B
+convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{T,N,typeof(hvcat)}) where {T,N} = B
+
 
 function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
     K = findblockindex(axes(A,1), k)

@@ -5,7 +5,7 @@ using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays,
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!,
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
 
-import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex
+import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose
