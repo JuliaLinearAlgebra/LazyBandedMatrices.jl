@@ -12,6 +12,10 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
         @test a[1:10] isa Vcat
         @test a[Block(1)[1:2]] ≡ 1:2
         @test a[3] ≡ 3
+
+        @test copy(a) ≡ convert(AbstractArray{Int},a) ≡ convert(AbstractVector{Int},a) ≡ a
+        @test AbstractArray{Float64}(a) == AbstractVector{Float64}(a) == convert(AbstractArray{Float64},a) == convert(AbstractVector{Float64},a) == a
+        @test copy(a') ≡ a'
     end
     @testset "mat vcat" begin
         A = BlockVcat(randn(2,3), randn(3,3))
@@ -25,6 +29,9 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
         @test A[Block.(1:2), 1:2] == A[:,1:2]
         @test A[Block.(1:2), 1:2] isa BlockVcat
 
+        @test convert(AbstractArray{Float64},A) == convert(AbstractMatrix{Float64},A) == A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test copy(A') == A'
     end
     @testset "block vec vcat" begin
         a = PseudoBlockArray(1:5, SVector(1,3))
@@ -34,6 +41,9 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
         @test c == [a; b]
         @test c[Block(2)] == a[Block(2)]
         @test c[Block(3)] == b[Block(1)]
+        @test copy(c) ≡ convert(AbstractArray{Int},c) ≡ convert(AbstractVector{Int},c) ≡ c
+        @test AbstractArray{Float64}(c) == AbstractVector{Float64}(c) == c
+        @test copy(c') ≡ c'
 
         A = BlockVcat(a', b')
         @test axes(A,1) ≡ blockedrange(SVector(1,1))
@@ -41,6 +51,9 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
         @test A[Block(1,1)] == a[Block(1)]'
         @test A[Block(2,2)] == b[Block(2)]'
         @test A == [a'; b']
+        @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test copy(A') == A'
     end
 
     @testset "block mat vcat" begin
@@ -49,6 +62,9 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
         V = BlockVcat(A, B)
         @test V == [A; B]
         @test V[Block(3,1)] == B[Block(1,1)]
+        @test convert(AbstractArray{Float64},V) ≡ convert(AbstractMatrix{Float64},V) ≡ V
+        @test copy(V) == AbstractArray{Float64}(V) == AbstractMatrix{Float64}(V) == V
+        @test copy(A') == A'
     end
 
     @testset "triangle recurrence" begin
@@ -60,6 +76,7 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
             ((k .+ (c-1)) .* ( k .- n .- 1 ) ./ (2k .+ (b+c-1)))',
             (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))'
             )
+        @test dat[:,Block.(1:3)] isa BlockVcat
     end
 
     @testset "PseudoBlockArray" begin
@@ -81,6 +98,9 @@ end
         @test a == [1:5 10:14]
         @test_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
         @test a[:] == a[1:length(a)] == vec(a)
+        @test copy(a) ≡ convert(AbstractArray{Int},a) ≡ convert(AbstractMatrix{Int},a) ≡ a
+        @test AbstractArray{Float64}(a) == AbstractMatrix{Float64}(a) == convert(AbstractArray{Float64},a) == convert(AbstractMatrix{Float64},a) == a
+        @test copy(a') == a'
     end
 
     @testset "mat hcat" begin
@@ -89,6 +109,9 @@ end
         @test A[Block(1,1)] == A.arrays[1]
         @test A[Block(1),Block.(1:2)] == A
         @test A[Block(1),Block.(1:2)] isa BlockHcat
+        @test convert(AbstractArray{Float64},A) ≡ convert(AbstractMatrix{Float64},A) ≡ A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test copy(A') == copy(Adjoint(A)) == A'
     end
 
     @testset "block vec hcat" begin
@@ -100,6 +123,9 @@ end
         @test A[Block(1,1)] == a[Block(1)]
         @test A[Block(2,2)] == b[Block(2)]
         @test A == [a b]
+        @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test copy(A') == A'
     end
 
     @testset "block mat hcat" begin
@@ -108,6 +134,9 @@ end
         H = BlockHcat(A, B)
         @test H == [A B]
         @test H[Block(1,3)] == B[Block(1,1)]
+        @test convert(AbstractArray{Float64},H) ≡ convert(AbstractMatrix{Float64},H) ≡ H
+        @test copy(H) == AbstractArray{Float64}(H) == AbstractMatrix{Float64}(H) == H
+        @test copy(H') == H'
     end
 
     @testset "triangle recurrence" begin
@@ -129,7 +158,7 @@ end
         @test (A')[Block(2,3)] == A[Block(3,2)]'
         @test copyto!(dest, A') == A'
         @test @allocated(copyto!(dest, A')) ≤ 2400
-        
+
 
         Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
         dest = BandedBlockBandedMatrix{Float64}(undef, axes(Rx), (0,1), (0,0))
@@ -168,6 +197,10 @@ end
 
     H = BlockHvcat(2, A, B, C, D)
     @test H == [A B; C D]
+
+    @test convert(AbstractArray{Float64},H) ≡ convert(AbstractMatrix{Float64},H) ≡ H
+    @test copy(H) == AbstractArray{Float64}(H) == AbstractMatrix{Float64}(H) == H
+    @test copy(H') == H'
 end
 
 
@@ -182,6 +215,9 @@ end
         @test @allocated(axes(A)) ≤ 50
         @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
         @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
+        @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
+        @test copy(A') == A'
     end
     @testset "hcat" begin
         N = 1000
@@ -193,6 +229,9 @@ end
         @test @allocated(axes(A)) ≤ 50
         @test A[Block(1,1)] == PseudoBlockArray(A)[Block(1,1)] == [1 11]
         @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]
+        @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test copy(A') == A'
     end
     @testset  "hvcat" begin
         a = unitblocks(randn(2,3))
@@ -207,6 +246,11 @@ end
         @test blocksize(A) == (2,3)
         @test A[Block(1,1)] == [a[1] b[1]; c[1] d[1]; e[1] f[1]]
         @test A[1,1] == a[1,1]
+
+        @test convert(AbstractArray{Float64},A) ≡ convert(AbstractMatrix{Float64},A) ≡ A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test convert(AbstractArray{BigFloat}, A) == convert(AbstractMatrix{BigFloat}, A) == A
+        @test copy(A') == A'
 
         @testset "Banded" begin
             a = unitblocks(brand(5,4,1,2))
