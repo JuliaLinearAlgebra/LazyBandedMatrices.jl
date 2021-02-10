@@ -249,6 +249,7 @@ end
 
         @test convert(AbstractArray{Float64},A) ≡ convert(AbstractMatrix{Float64},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
+        @test convert(AbstractArray{BigFloat}, A) == convert(AbstractMatrix{BigFloat}, A) == A
         @test copy(A') == A'
 
         @testset "Banded" begin
