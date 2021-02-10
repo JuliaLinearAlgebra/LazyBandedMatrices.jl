@@ -14,7 +14,7 @@ import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
         @test a[3] ≡ 3
 
         @test copy(a) ≡ convert(AbstractArray{Int},a) ≡ convert(AbstractVector{Int},a) ≡ a
-        @test AbstractArray{Float64}(a) == AbstractVector{Float64}(a) == a
+        @test AbstractArray{Float64}(a) == AbstractVector{Float64}(a) == convert(AbstractArray{Float64},a) == convert(AbstractVector{Float64},a) == a
         @test copy(a') ≡ a'
     end
     @testset "mat vcat" begin
@@ -99,7 +99,7 @@ end
         @test_broken a[:,Block.(1:2)] ≡ BlockHcat(1:5, 10:14)
         @test a[:] == a[1:length(a)] == vec(a)
         @test copy(a) ≡ convert(AbstractArray{Int},a) ≡ convert(AbstractMatrix{Int},a) ≡ a
-        @test AbstractArray{Float64}(a) == AbstractMatrix{Float64}(a) == a
+        @test AbstractArray{Float64}(a) == AbstractMatrix{Float64}(a) == convert(AbstractArray{Float64},a) == convert(AbstractMatrix{Float64},a) == a
         @test copy(a') == a'
     end
 
@@ -111,7 +111,7 @@ end
         @test A[Block(1),Block.(1:2)] isa BlockHcat
         @test convert(AbstractArray{Float64},A) ≡ convert(AbstractMatrix{Float64},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
-        @test copy(A') == A'
+        @test copy(A') == copy(Adjoint(A)) == A'
     end
 
     @testset "block vec hcat" begin
@@ -216,7 +216,7 @@ end
         @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
         @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
-        @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == A
+        @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
         @test copy(A') == A'
     end
     @testset "hcat" begin
