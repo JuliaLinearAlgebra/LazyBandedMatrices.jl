@@ -39,6 +39,11 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock
 
+# for bidiag/tridiag
+import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy, diag, 
+            iszero, isone, getindex, setindex!, copyto!
+import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet
+
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
 
 include("tridiag.jl")
