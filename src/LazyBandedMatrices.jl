@@ -15,7 +15,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
-                    OnesLayout, DualLayout, mulreduce, _inv
+                    OnesLayout, DualLayout, mulreduce, _inv, symtridiagonallayout, tridiagonallayout, bidiagonallayout
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -40,14 +40,17 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
 import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock
 
 # for bidiag/tridiag
-import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy, diag, 
-            iszero, isone, getindex, setindex!, copyto!
-import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet
+import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
+            iszero, isone, getindex, setindex!, copyto!, fill, fill!
+import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
+                        symmetric, symmetric_type, diag, issymmetric, UniformScaling,
+                        LowerTriangular, UpperTriangular, UnitLowerTriangular, UnitUpperTriangular, char_uplo
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
 
 include("tridiag.jl")
 include("bidiag.jl")
+include("special.jl")
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()

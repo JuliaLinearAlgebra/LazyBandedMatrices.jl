@@ -3,7 +3,7 @@
 #### Specialized matrix types ####
 
 ## (complex) symmetric tridiagonal matrices
-struct SymTridiagonal{T, DV<:AbstractVector{T}, EV<:AbstractVector{T}} <: AbstractMatrix{T}
+struct SymTridiagonal{T, DV<:AbstractVector{T}, EV<:AbstractVector{T}} <: AbstractBandedMatrix{T}
     dv::DV                        # diagonal
     ev::EV                        # superdiagonal
     function SymTridiagonal{T, DV, EV}(dv, ev) where {T, DV<:AbstractVector{T}, EV<:AbstractVector{T}}
@@ -322,11 +322,11 @@ function setindex!(A::SymTridiagonal, x, i::Integer, j::Integer)
 end
 
 ## Tridiagonal matrices ##
-struct Tridiagonal{T,DL<:AbstractVector{T},D<:AbstractVector{T},DU<:AbstractVector{T}} <: AbstractMatrix{T}
+struct Tridiagonal{T,DL<:AbstractVector{T},D<:AbstractVector{T},DU<:AbstractVector{T}} <: AbstractBandedMatrix{T}
     dl::DL    # sub-diagonal
     d::D     # diagonal
     du::DU   # sup-diagonal
-    function Tridiagonal{T,V}(dl, d, du) where {T,V<:AbstractVector{T}}
+    function Tridiagonal{T,DL,D,DU}(dl, d, du) where {T,DL<:AbstractVector{T},D<:AbstractVector{T},DU<:AbstractVector{T}}
         require_one_based_indexing(dl, d, du)
         n = length(d)
         if (length(dl) != n-1 || length(du) != n-1) && !(length(d) == 0 && length(dl) == 0 && length(du) == 0)
@@ -566,6 +566,7 @@ end
 # Generic methods #
 ###################
 
+-(A::Tridiagonal) = Tridiagonal(-A.dl, -A.d, -A.du)
 +(A::Tridiagonal, B::Tridiagonal) = Tridiagonal(A.dl+B.dl, A.d+B.d, A.du+B.du)
 -(A::Tridiagonal, B::Tridiagonal) = Tridiagonal(A.dl-B.dl, A.d-B.d, A.du-B.du)
 *(A::Tridiagonal, B::Number) = Tridiagonal(A.dl*B, A.d*B, A.du*B)
@@ -677,3 +678,14 @@ function dot(x::AbstractVector, A::Tridiagonal, y::AbstractVector)
     r += dot(adjoint(du[nx-1])*x₀ + adjoint(d[nx])*x₊, y[nx])
     return r
 end
+
+
+MemoryLayout(::Type{<:SymTridiagonal{<:Any,DV,EV}}) where {DV,EV} = symtridiagonallayout(MemoryLayout(DV), MemoryLayout(EV))
+MemoryLayout(::Type{<:Tridiagonal{<:Any,DL,D,DU}}) where {DL,D,DU} = tridiagonallayout(MemoryLayout(DL), MemoryLayout(D), MemoryLayout(DU))
+bandwidths(::SymTridiagonal) = (1,1)
+bandwidths(::Tridiagonal) = (1,1)
+
+
+Base.BroadcastStyle(::Type{SymTridiagonal{T,DV,EV}}) where {T,DV,EV} = StructuredMatrixStyle{LinearAlgebra.SymTridiagonal{T,DV}}()
+Base.BroadcastStyle(::Type{Tridiagonal{T,DL,D,DU}}) where {T,DL,D,DU} = StructuredMatrixStyle{LinearAlgebra.Tridiagonal{T,D}}()
+

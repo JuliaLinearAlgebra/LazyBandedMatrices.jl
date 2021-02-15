@@ -61,13 +61,14 @@ julia> Bl = Bidiagonal(dv, ev, :L) # ev is on the first subdiagonal
  ⋅  ⋅  9  4
 ```
 """
-function Bidiagonal(dv::DV, ev::EV, uplo::Symbol) where {T,DV<:AbstractVector{T},EV<:AbstractVector{T}}
+Bidiagonal(dv::DV, ev::EV, uplo::Symbol) where {T,DV<:AbstractVector{T},EV<:AbstractVector{T}} =
     Bidiagonal{T,DV,EV}(dv, ev, char_uplo(uplo))
-end
-function Bidiagonal(dv::DV, ev::EV, uplo::AbstractChar) where {T,DV<:AbstractVector{T},EV<:AbstractVector{T}}
+Bidiagonal(dv::DV, ev::EV, uplo::AbstractChar) where {T,DV<:AbstractVector{T},EV<:AbstractVector{T}} =
     Bidiagonal{T,DV,EV}(dv, ev, uplo)
+function Bidiagonal(dv::AbstractVector{T}, ev::AbstractVector{V}, ulo) where {T,V}
+    TV = promote_type(T,V)
+    Bidiagonal(convert(AbstractVector{TV}, dv), convert(AbstractVector{TV}, ev), ulo)
 end
-
 
 """
     Bidiagonal(A, uplo::Symbol)
@@ -135,15 +136,6 @@ function setindex!(A::Bidiagonal, x, i::Integer, j::Integer)
             "$(istriu(A) ? "upper" : "lower") bidiagonal band to a nonzero value ($x)")))
     end
     return x
-end
-
-## structured matrix methods ##
-function Base.replace_in_print_matrix(A::Bidiagonal,i::Integer,j::Integer,s::AbstractString)
-    if A.uplo == 'U'
-        i==j || i==j-1 ? s : Base.replace_with_centered_mark(s)
-    else
-        i==j || i==j+1 ? s : Base.replace_with_centered_mark(s)
-    end
 end
 
 #Converting from Bidiagonal to dense Matrix
@@ -437,3 +429,8 @@ function Base._sum(A::Bidiagonal, dims::Integer)
     end
     res
 end
+
+
+MemoryLayout(::Type{<:Bidiagonal{<:Any,DV,EV}}) where {DV,EV} = bidiagonallayout(MemoryLayout(DV), MemoryLayout(EV))
+bandwidths(A::Bidiagonal) = A.uplo == 'U' ? (0,1) : (1,0)
+ArrayLayouts.bidiagonaluplo(A::Bidiagonal) = A.uplo
