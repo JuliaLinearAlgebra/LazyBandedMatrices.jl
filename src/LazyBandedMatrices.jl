@@ -1,6 +1,8 @@
 module LazyBandedMatrices
 using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays,
-        ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base, StaticArrays
+        ArrayLayouts, MatrixFactorizations, Base, StaticArrays
+
+import LinearAlgebra
 
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!,
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
@@ -8,7 +10,8 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail, convert
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
-                        lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose
+                        lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
+                        Symmetric, Hermitian, Adjoint, Transpose, Diagonal
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
@@ -37,6 +40,9 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
 import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
+
+include("tridiag.jl")
+include("bidiag.jl")
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -120,7 +126,7 @@ const BandedMatrixTypes = (:AbstractBandedMatrix, :(AdjOrTrans{<:Any,<:AbstractB
                                     :(AbstractTriangular{<:Any, <:AbstractBandedMatrix}),
                                     :(Symmetric{<:Any, <:AbstractBandedMatrix}))
 
-const OtherBandedMatrixTypes = (:Zeros, :Eye, :Diagonal, :SymTridiagonal)
+const OtherBandedMatrixTypes = (:Zeros, :Eye, :Diagonal, :(LinearAlgebra.SymTridiagonal))
 
 for T1 in BandedMatrixTypes, T2 in BandedMatrixTypes
     @eval kron(A::$T1, B::$T2) = BandedMatrix(Kron(A,B))
@@ -784,5 +790,6 @@ end
 
 # useful for turning Array into block array
 unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
+
 
 end
