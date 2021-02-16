@@ -41,7 +41,7 @@ import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockin
 
 # for bidiag/tridiag
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
-            iszero, isone, getindex, setindex!, copyto!, fill, fill!
+            iszero, isone, getindex, setindex!, copyto!, fill, fill!, promote_rule, show
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling,
                         LowerTriangular, UpperTriangular, UnitLowerTriangular, UnitUpperTriangular, char_uplo

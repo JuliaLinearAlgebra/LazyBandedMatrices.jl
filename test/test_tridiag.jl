@@ -195,12 +195,12 @@ import LazyBandedMatrices: SymTridiagonal, Tridiagonal
                 @test_throws ArgumentError A[1, 3]   = 1 # test assignment off the main/sub/super diagonal
                 if mat_type == Tridiagonal
                     @test (A[3, 3] = A[3, 3]; A == fA) # test assignment on the main diagonal
-                    @test (A[3, 2] = A[3, 2]; A == fA) # test assignment on the subdiagonal
+                    @test (A[3, 2] = A[3, 2]; A == fA) # test assignment on the subdiagonaldataonal
                     @test (A[2, 3] = A[2, 3]; A == fA) # test assignment on the superdiagonal
                     @test ((A[1, 3] = 0) == 0; A == fA) # test zero assignment off the main/sub/super diagonal
                 else # mat_type is SymTridiagonal
                     @test ((A[3, 3] = A[3, 3]) == A[3, 3]; A == fA) # test assignment on the main diagonal
-                    @test_throws ArgumentError A[3, 2] = 1 # test assignment on the subdiagonal
+                    @test_throws ArgumentError A[3, 2] = 1 # test assignment on the subdiagonaldataonal
                     @test_throws ArgumentError A[2, 3] = 1 # test assignment on the superdiagonal
                 end
             end

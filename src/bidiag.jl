@@ -53,7 +53,7 @@ julia> Bu = Bidiagonal(dv, ev, :U) # ev is on the first superdiagonal
  ⋅  ⋅  3  9
  ⋅  ⋅  ⋅  4
 
-julia> Bl = Bidiagonal(dv, ev, :L) # ev is on the first subdiagonal
+julia> Bl = Bidiagonal(dv, ev, :L) # ev is on the first subdiagonaldataonal
 4×4 Bidiagonal{Int64, Vector{Int64}}:
  1  ⋅  ⋅  ⋅
  7  2  ⋅  ⋅
@@ -92,7 +92,7 @@ julia> Bidiagonal(A, :U) # contains the main diagonal and first superdiagonal of
  ⋅  ⋅  3  3
  ⋅  ⋅  ⋅  4
 
-julia> Bidiagonal(A, :L) # contains the main diagonal and first subdiagonal of A
+julia> Bidiagonal(A, :L) # contains the main diagonal and first subdiagonaldataonal of A
 4×4 Bidiagonal{Int64, Vector{Int64}}:
  1  ⋅  ⋅  ⋅
  2  2  ⋅  ⋅
@@ -161,6 +161,9 @@ Array(A::Bidiagonal) = Matrix(A)
 promote_rule(::Type{Matrix{T}}, ::Type{<:Bidiagonal{S}}) where {T,S} =
     @isdefined(T) && @isdefined(S) ? Matrix{promote_type(T,S)} : Matrix
 promote_rule(::Type{Matrix}, ::Type{<:Bidiagonal}) = Matrix
+
+# Converting to LinearAlgebra
+convert(::Type{LinearAlgebra.Bidiagonal}, B::Bidiagonal) = LinearAlgebra.Bidiagonal(B.dv, B.ev, B.uplo)
 
 #Converting from Bidiagonal to Tridiagonal
 function Tridiagonal{T}(A::Bidiagonal) where T

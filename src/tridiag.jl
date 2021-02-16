@@ -9,7 +9,7 @@ struct SymTridiagonal{T, DV<:AbstractVector{T}, EV<:AbstractVector{T}} <: Abstra
     function SymTridiagonal{T, DV, EV}(dv, ev) where {T, DV<:AbstractVector{T}, EV<:AbstractVector{T}}
         require_one_based_indexing(dv, ev)
         if !(length(dv) - 1 <= length(ev) <= length(dv))
-            throw(DimensionMismatch("subdiagonal has wrong length. Has length $(length(ev)), but should be either $(length(dv) - 1) or $(length(dv))."))
+            throw(DimensionMismatch("subdiagonaldataonal has wrong length. Has length $(length(ev)), but should be either $(length(dv) - 1) or $(length(dv))."))
         end
         new{T, DV, EV}(dv, ev)
     end
@@ -25,7 +25,7 @@ regular matrix with [`convert(Array, _)`](@ref) (or `Array(_)` for short).
 
 For `SymTridiagonal` block matrices, the elements of `dv` are symmetrized.
 The argument `ev` is interpreted as the superdiagonal. Blocks from the
-subdiagonal are (materialized) transpose of the corresponding superdiagonal blocks.
+subdiagonaldataonal are (materialized) transpose of the corresponding superdiagonal blocks.
 
 # Examples
 ```jldoctest
@@ -272,7 +272,7 @@ end
 
 
 # Implements the determinant using principal minors
-# a, b, c are assumed to be the subdiagonal, diagonal, and superdiagonal of
+# a, b, c are assumed to be the subdiagonaldataonal, diagonal, and superdiagonal of
 # a tridiagonal matrix.
 #Reference:
 #    R. Usmani, "Inversion of a tridiagonal Jacobi matrix",
@@ -331,7 +331,7 @@ struct Tridiagonal{T,DL<:AbstractVector{T},D<:AbstractVector{T},DU<:AbstractVect
         n = length(d)
         if (length(dl) != n-1 || length(du) != n-1) && !(length(d) == 0 && length(dl) == 0 && length(du) == 0)
             throw(ArgumentError(string("cannot construct Tridiagonal from incompatible ",
-                "lengths of subdiagonal, diagonal and superdiagonal: ",
+                "lengths of subdiagonaldataonal, diagonal and superdiagonal: ",
                 "($(length(dl)), $(length(d)), $(length(du)))")))
         end
         new{T,DL,D,DU}(dl, d, du)
@@ -341,7 +341,7 @@ end
 """
     Tridiagonal(dl::DL, d::D, du::DU) where V <: AbstractVector
 
-Construct a tridiagonal matrix from the first subdiagonal, diagonal, and first superdiagonal,
+Construct a tridiagonal matrix from the first subdiagonaldataonal, diagonal, and first superdiagonal,
 respectively. The result is of type `Tridiagonal` and provides efficient specialized linear
 solvers, but may be converted into a regular matrix with
 [`convert(Array, _)`](@ref) (or `Array(_)` for short).
@@ -689,3 +689,6 @@ bandwidths(::Tridiagonal) = (1,1)
 Base.BroadcastStyle(::Type{SymTridiagonal{T,DV,EV}}) where {T,DV,EV} = StructuredMatrixStyle{LinearAlgebra.SymTridiagonal{T,DV}}()
 Base.BroadcastStyle(::Type{Tridiagonal{T,DL,D,DU}}) where {T,DL,D,DU} = StructuredMatrixStyle{LinearAlgebra.Tridiagonal{T,D}}()
 
+
+convert(::Type{LinearAlgebra.Tridiagonal}, B::Tridiagonal) = LinearAlgebra.Tridiagonal(B.dl, B.d, B.du)
+convert(::Type{LinearAlgebra.SymTridiagonal}, B::SymTridiagonal) = LinearAlgebra.SymTridiagonal(B.dv, B.ev)
