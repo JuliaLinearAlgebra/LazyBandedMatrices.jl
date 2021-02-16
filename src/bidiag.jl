@@ -436,4 +436,9 @@ end
 
 MemoryLayout(::Type{<:Bidiagonal{<:Any,DV,EV}}) where {DV,EV} = bidiagonallayout(MemoryLayout(DV), MemoryLayout(EV))
 bandwidths(A::Bidiagonal) = A.uplo == 'U' ? (0,1) : (1,0)
-ArrayLayouts.bidiagonaluplo(A::Bidiagonal) = A.uplo
+bidiagonaluplo(A::Bidiagonal) = A.uplo
+
+
+diagonaldata(D::Bidiagonal) = D.dv
+supdiagonaldata(D::Bidiagonal) = D.uplo == 'U' ? D.ev : throw(ArgumentError("$D is lower-bidiagonal"))
+subdiagonaldata(D::Bidiagonal) = D.uplo == 'L' ? D.ev : throw(ArgumentError("$D is upper-bidiagonal"))
