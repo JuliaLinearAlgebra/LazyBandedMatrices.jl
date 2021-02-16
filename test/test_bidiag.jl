@@ -1,6 +1,8 @@
 # This file is based on a part of Julia LinearAlgebra/test/bidiag.jl. License is MIT: https://julialang.org/license
 using Test, LazyBandedMatrices, SparseArrays, Random, FillArrays
+import LinearAlgebra
 import LazyBandedMatrices: Bidiagonal, SymTridiagonal, Tridiagonal
+import LinearAlgebra: mul!
 
 @testset "Bidiagonal" begin
     n = 10 #Size of test matrix

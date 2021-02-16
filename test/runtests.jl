@@ -1,6 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
             ArrayLayouts, MatrixFactorizations, Random, Test
 import LinearAlgebra
+import LinearAlgebra: qr, rmul!, lmul!
 import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout

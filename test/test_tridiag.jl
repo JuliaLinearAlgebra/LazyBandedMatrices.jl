@@ -1,6 +1,10 @@
 # This file based on a part of Julia, LinearAlgebra/test/tridiag.jl. License is MIT: https://julialang.org/license
 using Test, SparseArrays, Random, LazyBandedMatrices
 import LinearAlgebra
+# need to avoid confusion with LinearAlgebra.Tridiagonal
+import LinearAlgebra: tril!, triu!, tril, triu, det, logabsdet, diag, isdiag, istriu, istril, I, dot,
+                        UpperTriangular, LowerTriangular, UnitUpperTriangular, UnitLowerTriangular,
+                        Symmetric, Hermitian, Diagonal, diagm
 import LazyBandedMatrices: SymTridiagonal, Tridiagonal
 
 @testset "Tridigonal" begin

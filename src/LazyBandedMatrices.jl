@@ -25,7 +25,8 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
-                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable
+                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable,
+                        AbstractLazyBandedLayout, LazyBandedLayout
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -42,7 +43,7 @@ import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockin
 
 # for bidiag/tridiag
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
-            iszero, isone, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix
+            iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling,
                         LowerTriangular, UpperTriangular, UnitLowerTriangular, UnitUpperTriangular, char_uplo
@@ -64,15 +65,12 @@ BroadcastStyle(::AbstractBlockStyle{N}, ::LazyArrayStyle{N}) where N = LazyArray
 bandedcolumns(::AbstractLazyLayout) = BandedColumns{LazyLayout}()
 bandedcolumns(::DualLayout{<:AbstractLazyLayout}) = BandedColumns{LazyLayout}()
 
-abstract type AbstractLazyBandedLayout <: AbstractBandedLayout end
+
 abstract type AbstractLazyBlockBandedLayout <: AbstractBlockBandedLayout end
 abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 
-struct LazyBandedLayout <: AbstractLazyBandedLayout end
 struct LazyBlockBandedLayout <: AbstractLazyBlockBandedLayout end
 struct LazyBandedBlockBandedLayout <: AbstractLazyBandedBlockBandedLayout end
-
-sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
