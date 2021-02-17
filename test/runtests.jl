@@ -1,5 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, BlockArrays,
-            ArrayLayouts, MatrixFactorizations, LinearAlgebra, Random, Test
+            ArrayLayouts, MatrixFactorizations, Random, Test
+import LinearAlgebra
+import LinearAlgebra: qr, rmul!, lmul!
 import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
@@ -7,6 +9,10 @@ import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedR
 import ArrayLayouts: StridedLayout, OnesLayout
 
 Random.seed!(0)
+
+include("test_tridiag.jl")
+include("test_bidiag.jl")
+include("test_special.jl")
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -507,7 +513,7 @@ end
         b=rand(T,100)
         @test_broken ql(A)\b ≈ Matrix(A)\b
 
-        A = Tridiagonal(randn(T,99), randn(T,100), randn(T,99))
+        A = LinearAlgebra.Tridiagonal(randn(T,99), randn(T,100), randn(T,99))
         @test ql(A).factors ≈ ql!(Matrix(A)).factors
         @test ql(A).τ ≈ ql!(Matrix(A)).τ
         b=rand(T,100)

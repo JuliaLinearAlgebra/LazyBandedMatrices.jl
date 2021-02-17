@@ -1,6 +1,8 @@
 module LazyBandedMatrices
 using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays,
-        ArrayLayouts, MatrixFactorizations, LinearAlgebra, Base, StaticArrays
+        ArrayLayouts, MatrixFactorizations, Base, StaticArrays
+
+import LinearAlgebra
 
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!,
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
@@ -8,11 +10,13 @@ import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflecto
 import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail, convert
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
-                        lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose
+                        lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
+                        Symmetric, Hermitian, Adjoint, Transpose, Diagonal
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
-                    OnesLayout, DualLayout, mulreduce, _inv
+                    OnesLayout, DualLayout, mulreduce, _inv, symtridiagonallayout, tridiagonallayout, bidiagonallayout,
+                    bidiagonaluplo, diagonaldata, subdiagonaldata, supdiagonaldata
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -36,7 +40,22 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
 import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock
 
+# for bidiag/tridiag
+import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
+            iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix, permutedims
+import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
+                        symmetric, symmetric_type, diag, issymmetric, UniformScaling,
+                        LowerTriangular, UpperTriangular, UnitLowerTriangular, UnitUpperTriangular, char_uplo
+
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
+
+include("tridiag.jl")
+include("bidiag.jl")
+include("special.jl")
+
+abstract type AbstractLazyBandedLayout <: AbstractBandedLayout end
+struct LazyBandedLayout <: AbstractLazyBandedLayout end
+sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -49,15 +68,12 @@ BroadcastStyle(::AbstractBlockStyle{N}, ::LazyArrayStyle{N}) where N = LazyArray
 bandedcolumns(::AbstractLazyLayout) = BandedColumns{LazyLayout}()
 bandedcolumns(::DualLayout{<:AbstractLazyLayout}) = BandedColumns{LazyLayout}()
 
-abstract type AbstractLazyBandedLayout <: AbstractBandedLayout end
+
 abstract type AbstractLazyBlockBandedLayout <: AbstractBlockBandedLayout end
 abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 
-struct LazyBandedLayout <: AbstractLazyBandedLayout end
 struct LazyBlockBandedLayout <: AbstractLazyBlockBandedLayout end
 struct LazyBandedBlockBandedLayout <: AbstractLazyBandedBlockBandedLayout end
-
-sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
@@ -120,7 +136,7 @@ const BandedMatrixTypes = (:AbstractBandedMatrix, :(AdjOrTrans{<:Any,<:AbstractB
                                     :(AbstractTriangular{<:Any, <:AbstractBandedMatrix}),
                                     :(Symmetric{<:Any, <:AbstractBandedMatrix}))
 
-const OtherBandedMatrixTypes = (:Zeros, :Eye, :Diagonal, :SymTridiagonal)
+const OtherBandedMatrixTypes = (:Zeros, :Eye, :Diagonal, :(LinearAlgebra.SymTridiagonal))
 
 for T1 in BandedMatrixTypes, T2 in BandedMatrixTypes
     @eval kron(A::$T1, B::$T2) = BandedMatrix(Kron(A,B))
@@ -689,12 +705,13 @@ bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
 BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
-                SymTridiagonalLayout{LazyLayout}}
+                SymTridiagonalLayout{LazyLayout}, BidiagonalLayout{LazyLayout}, TridiagonalLayout{LazyLayout}}
 
 StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
-                BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
-                BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}},
+                BlockLayout{TridiagonalLayout{LazyLayout,LazyLayout,LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
+                BlockLayout{BidiagonalLayout{LazyLayout,LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout,LazyLayout}},
+                BlockLayout{LazyBandedLayout},
                 AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout,
                 AbstractInvLayout{<:BandedLazyLayouts}}
 
@@ -784,5 +801,6 @@ end
 
 # useful for turning Array into block array
 unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
+
 
 end
