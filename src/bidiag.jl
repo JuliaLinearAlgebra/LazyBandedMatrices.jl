@@ -349,6 +349,7 @@ end
 *(A::Bidiagonal, B::Number) = Bidiagonal(A.dv*B, A.ev*B, A.uplo)
 *(B::Number, A::Bidiagonal) = A*B
 /(A::Bidiagonal, B::Number) = Bidiagonal(A.dv/B, A.ev/B, A.uplo)
+\(B::Number, A::Bidiagonal) = A/B
 
 function ==(A::Bidiagonal, B::Bidiagonal)
     if A.uplo == B.uplo
@@ -442,3 +443,15 @@ bidiagonaluplo(A::Bidiagonal) = A.uplo
 diagonaldata(D::Bidiagonal) = D.dv
 supdiagonaldata(D::Bidiagonal) = D.uplo == 'U' ? D.ev : throw(ArgumentError("$D is lower-bidiagonal"))
 subdiagonaldata(D::Bidiagonal) = D.uplo == 'L' ? D.ev : throw(ArgumentError("$D is upper-bidiagonal"))
+
+permutedims(B::Bidiagonal) = Bidiagonal(B.dv, B.ev, B.uplo == 'U' ? 'L' : 'U')
+
+function BlockArrays.sizes_from_blocks(A::Bidiagonal, _)
+    # for k = 1:length(A.du)
+    #     size(A.du[k],1) == sz[1][k] || throw(ArgumentError("block sizes of upper diagonal inconsisent with diagonal"))
+    #     size(A.du[k],2) == sz[2][k+1] || throw(ArgumentError("block sizes of upper diagonal inconsisent with diagonal"))
+    #     size(A.dl[k],1) == sz[1][k+1] || throw(ArgumentError("block sizes of lower diagonal inconsisent with diagonal"))
+    #     size(A.dl[k],2) == sz[2][k] || throw(ArgumentError("block sizes of lower diagonal inconsisent with diagonal"))
+    # end
+    (size.(A.dv, 1), size.(A.dv,2))
+end

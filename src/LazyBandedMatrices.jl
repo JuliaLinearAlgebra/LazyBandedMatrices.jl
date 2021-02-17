@@ -43,7 +43,7 @@ import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockin
 
 # for bidiag/tridiag
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
-            iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix
+            iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix, permutedims
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling,
                         LowerTriangular, UpperTriangular, UnitLowerTriangular, UnitUpperTriangular, char_uplo
@@ -53,6 +53,10 @@ export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat,
 include("tridiag.jl")
 include("bidiag.jl")
 include("special.jl")
+
+abstract type AbstractLazyBandedLayout <: AbstractBandedLayout end
+struct LazyBandedLayout <: AbstractLazyBandedLayout end
+sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -702,12 +706,13 @@ bandeddata(R::ApplyMatrix{<:Any,typeof(rot180)}) =
 BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, BandedRows{LazyLayout},
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
-                SymTridiagonalLayout{LazyLayout}}
+                SymTridiagonalLayout{LazyLayout}, BidiagonalLayout{LazyLayout}, TridiagonalLayout{LazyLayout}}
 
 StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
-                BlockLayout{TridiagonalLayout{LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
-                BlockLayout{BidiagonalLayout{LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout}},
+                BlockLayout{TridiagonalLayout{LazyLayout,LazyLayout,LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
+                BlockLayout{BidiagonalLayout{LazyLayout,LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout,LazyLayout}},
+                BlockLayout{LazyBandedLayout},
                 AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout,
                 AbstractInvLayout{<:BandedLazyLayouts}}
 

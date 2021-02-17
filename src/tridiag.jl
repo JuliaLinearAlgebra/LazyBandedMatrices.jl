@@ -118,6 +118,7 @@ SymTridiagonal{T}(S::SymTridiagonal) where {T} =
     SymTridiagonal(convert(AbstractVector{T}, S.dv)::AbstractVector{T},
                    convert(AbstractVector{T}, S.ev)::AbstractVector{T})
 SymTridiagonal(S::SymTridiagonal) = S
+SymTridiagonal(dv::AbstractVector{U}, ev::AbstractVector{V}) where {U,V} = SymTridiagonal{promote_type(U,V)}(dv, ev)
 
 AbstractMatrix{T}(S::SymTridiagonal) where {T} =
     SymTridiagonal(convert(AbstractVector{T}, S.dv)::AbstractVector{T},
@@ -208,6 +209,7 @@ end
 *(A::SymTridiagonal, B::Number) = SymTridiagonal(A.dv*B, A.ev*B)
 *(B::Number, A::SymTridiagonal) = A*B
 /(A::SymTridiagonal, B::Number) = SymTridiagonal(A.dv/B, A.ev/B)
+\(B::Number, A::SymTridiagonal) = A/B
 ==(A::SymTridiagonal, B::SymTridiagonal) = (A.dv==B.dv) && (A.ev==B.ev)
 
 
@@ -364,9 +366,8 @@ julia> Tridiagonal(dl, d, du)
 ```
 """
 Tridiagonal(dl::DL, d::D, du::DU) where {T,DL<:AbstractVector{T},D<:AbstractVector{T},DU<:AbstractVector{T}} = Tridiagonal{T,DL,D,DU}(dl, d, du)
-function Tridiagonal{T}(dl::AbstractVector, d::AbstractVector, du::AbstractVector) where {T}
-    Tridiagonal(map(x->convert(AbstractVector{T}, x), (dl, d, du))...)
-end
+Tridiagonal{T}(dl::AbstractVector, d::AbstractVector, du::AbstractVector) where {T} = Tridiagonal(map(x->convert(AbstractVector{T}, x), (dl, d, du))...)
+Tridiagonal(dl::AbstractVector{T}, d::AbstractVector{U}, du::AbstractVector{V}) where {T,U,V} = Tridiagonal{promote_type(T,U,V)}(dl, d, du)
 
 """
     Tridiagonal(A)
@@ -572,6 +573,7 @@ end
 *(A::Tridiagonal, B::Number) = Tridiagonal(A.dl*B, A.d*B, A.du*B)
 *(B::Number, A::Tridiagonal) = A*B
 /(A::Tridiagonal, B::Number) = Tridiagonal(A.dl/B, A.d/B, A.du/B)
+\(B::Number, A::Tridiagonal) = A/B
 
 ==(A::Tridiagonal, B::Tridiagonal) = (A.dl==B.dl) && (A.d==B.d) && (A.du==B.du)
 ==(A::Tridiagonal, B::SymTridiagonal) = (A.dl==A.du==B.ev) && (A.d==B.dv)
@@ -692,3 +694,25 @@ Base.BroadcastStyle(::Type{Tridiagonal{T,DL,D,DU}}) where {T,DL,D,DU} = Structur
 
 convert(::Type{LinearAlgebra.Tridiagonal}, B::Tridiagonal) = LinearAlgebra.Tridiagonal(B.dl, B.d, B.du)
 convert(::Type{LinearAlgebra.SymTridiagonal}, B::SymTridiagonal) = LinearAlgebra.SymTridiagonal(B.dv, B.ev)
+
+permutedims(S::SymTridiagonal) = S
+permutedims(T::Tridiagonal) = Tridiagonal(T.du, T.d, T.dl)
+
+diagonaldata(D::SymTridiagonal) = D.dv
+diagonaldata(D::Tridiagonal) = D.d
+
+supdiagonaldata(D::SymTridiagonal) = D.ev
+subdiagonaldata(D::SymTridiagonal) = D.ev
+
+subdiagonaldata(D::Tridiagonal) = D.dl
+supdiagonaldata(D::Tridiagonal) = D.du
+
+function BlockArrays.sizes_from_blocks(A::Tridiagonal, _)
+    # for k = 1:length(A.du)
+    #     size(A.du[k],1) == sz[1][k] || throw(ArgumentError("block sizes of upper diagonal inconsisent with diagonal"))
+    #     size(A.du[k],2) == sz[2][k+1] || throw(ArgumentError("block sizes of upper diagonal inconsisent with diagonal"))
+    #     size(A.dl[k],1) == sz[1][k+1] || throw(ArgumentError("block sizes of lower diagonal inconsisent with diagonal"))
+    #     size(A.dl[k],2) == sz[2][k] || throw(ArgumentError("block sizes of lower diagonal inconsisent with diagonal"))
+    # end
+    (size.(A.d, 1), size.(A.d,2))
+end

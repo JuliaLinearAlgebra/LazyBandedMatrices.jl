@@ -1,5 +1,6 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
 import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
+import LinearAlgebra: Adjoint ,Transpose
 
 @testset "BlockVcat" begin
     @testset "vec vcat" begin
