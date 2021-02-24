@@ -823,6 +823,11 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test b .* c isa BroadcastVector
         @test (c .* b)[Block(1)] == c[1:2] .* b[Block(1)]
     end
+
+    @testset "Concat bandwidths" begin
+        @test bandwidths(Hcat(1,randn(1,5))) == (0,5)
+        @test bandwidths(Vcat(1,randn(5,1))) == (5,0)
+    end
 end
 
 @testset "QR" begin
@@ -831,6 +836,8 @@ end
     b = Vcat([1,2,3],Zeros(size(A,1)-3))
     @test F.Q'b == apply(*,F.Q',b)
 end
+
+
 
 include("test_blockkron.jl")
 include("test_blockconcat.jl")
