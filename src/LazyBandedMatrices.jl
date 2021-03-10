@@ -389,6 +389,8 @@ for op in (:*, :/, :\, :+, :-)
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::AbstractBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :/)
