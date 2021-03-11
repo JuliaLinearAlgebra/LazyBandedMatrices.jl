@@ -667,6 +667,7 @@ end
     A.data[block]
 end
 @inline Base.getindex(A::CachedMatrix, kr::AbstractVector, jr::Block) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::CachedMatrix, kr::BlockRange{1}, jr::BlockRange{1}) = ArrayLayouts.layout_getindex(A, kr, jr)
 
 include("bandedql.jl")
 include("blockconcat.jl")
