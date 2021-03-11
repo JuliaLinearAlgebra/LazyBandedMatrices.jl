@@ -381,13 +381,17 @@ end
     end
     @testset "BroadcastBlockBanded" begin
         A = BlockBandedMatrix(randn(6,6),1:3,1:3,(1,1))
-        D = BroadcastMatrix(*, 2, A)
-        @test blockbandwidths(D) == (1,1)
-        @test MemoryLayout(D) == BroadcastBlockBandedLayout{typeof(*)}()
-        @test BandedBlockBandedMatrix(D) == D == copyto!(BandedBlockBandedMatrix(D), D) == 2*D.args[2]
+        B = BroadcastMatrix(*, 2, A)
+        @test blockbandwidths(B) == (1,1)
+        @test MemoryLayout(B) == BroadcastBlockBandedLayout{typeof(*)}()
+        @test BandedBlockBandedMatrix(B) == B == copyto!(BandedBlockBandedMatrix(B), B) == 2*B.args[2]
 
-        E = BroadcastMatrix(*, A, 2)
-        @test MemoryLayout(E) == BroadcastBlockBandedLayout{typeof(*)}()
+        C = BroadcastMatrix(*, A, 2)
+        @test MemoryLayout(C) == BroadcastBlockBandedLayout{typeof(*)}()
+
+        
+        D = Diagonal(PseudoBlockArray(randn(5),1:3))
+        @test MemoryLayout(BroadcastMatrix(*, A, D)) isa BroadcastBlockBandedLayout{typeof(*)}
 
         F = BroadcastMatrix(*, A, A)
         @test MemoryLayout(F) == BroadcastBlockBandedLayout{typeof(*)}()
@@ -395,14 +399,17 @@ end
     @testset "BroadcastBandedBlockBanded" begin
         A = BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1))
 
-        D = BroadcastMatrix(*, 2, A)
-        @test blockbandwidths(D) == (1,1)
-        @test subblockbandwidths(D) == (1,1)
-        @test MemoryLayout(D) == BroadcastBandedBlockBandedLayout{typeof(*)}()
-        @test BandedBlockBandedMatrix(D) == D == copyto!(BandedBlockBandedMatrix(D), D) == 2*D.args[2]
+        B = BroadcastMatrix(*, 2, A)
+        @test blockbandwidths(B) == (1,1)
+        @test subblockbandwidths(B) == (1,1)
+        @test MemoryLayout(B) == BroadcastBandedBlockBandedLayout{typeof(*)}()
+        @test BandedBlockBandedMatrix(B) == B == copyto!(BandedBlockBandedMatrix(B), B) == 2*B.args[2]
 
         E = BroadcastMatrix(*, A, 2)
         @test MemoryLayout(E) == BroadcastBandedBlockBandedLayout{typeof(*)}()
+
+        D = Diagonal(PseudoBlockArray(randn(5),1:3))
+        @test MemoryLayout(BroadcastMatrix(*, A, D)) isa BroadcastBandedBlockBandedLayout{typeof(*)}
 
         F = BroadcastMatrix(*, Ones(axes(A,1)), A)
         @test blockbandwidths(F) == (1,1)
