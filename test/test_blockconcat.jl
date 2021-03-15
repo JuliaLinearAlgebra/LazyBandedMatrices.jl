@@ -264,4 +264,11 @@ end
             @test A[Block.(1:2),Block.(1:2)] isa BlockSkylineMatrix
         end
     end
+
+    @testset "Diagonal" begin
+        A = unitblocks(brand(5,5,1,2))
+        B = unitblocks(brand(5,5,2,1))
+        C = BlockBroadcastArray{Float64}(Diagonal, A, B)
+        
+    end
 end

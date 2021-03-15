@@ -22,7 +22,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector, AbstractInvLayout,
                         _mat_mul_arguments, paddeddata, sub_paddeddata, sub_materialize, lazymaterialize,
-                        MulMatrix, Mul, CachedMatrix, CachedArray, cachedlayout, _cache,
+                        MulMatrix, Mul, CachedMatrix, CachedArray, AbstractCachedMatrix, AbstractCachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
                         _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable
@@ -654,23 +654,23 @@ function resizedata!(::BlockBandedColumns{<:AbstractColumnMajor}, _, B::Abstract
 end
 
 # Use memory laout for sub-blocks
-@inline function Base.getindex(A::CachedMatrix, K::Block{1}, J::Block{1})
+@inline function Base.getindex(A::AbstractCachedMatrix, K::Block{1}, J::Block{1})
     @boundscheck checkbounds(A, K, J)
     resizedata!(A, K, J)
     A.data[K, J]
 end
-@inline Base.getindex(A::CachedMatrix, kr::Colon, jr::Block{1}) = ArrayLayouts.layout_getindex(A, kr, jr)
-@inline Base.getindex(A::CachedMatrix, kr::Block{1}, jr::Colon) = ArrayLayouts.layout_getindex(A, kr, jr)
-@inline Base.getindex(A::CachedMatrix, kr::Block{1}, jr::AbstractVector) = ArrayLayouts.layout_getindex(A, kr, jr)
-@inline Base.getindex(A::CachedArray{T,N}, kr::Block{1}, jrs...) where {T,N} = ArrayLayouts.layout_getindex(A, kr, jrs...)
-@inline function Base.getindex(A::CachedArray{T,N}, block::Block{N}) where {T,N}
+@inline Base.getindex(A::AbstractCachedMatrix, kr::Colon, jr::Block{1}) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::AbstractCachedMatrix, kr::Block{1}, jr::Colon) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::AbstractCachedMatrix, kr::Block{1}, jr::AbstractVector) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::AbstractCachedArray{T,N}, kr::Block{1}, jrs...) where {T,N} = ArrayLayouts.layout_getindex(A, kr, jrs...)
+@inline function Base.getindex(A::AbstractCachedArray{T,N}, block::Block{N}) where {T,N}
     @boundscheck checkbounds(A, block)
     resizedata!(A, block)
     A.data[block]
 end
-@inline Base.getindex(A::CachedMatrix, kr::AbstractVector, jr::Block) = ArrayLayouts.layout_getindex(A, kr, jr)
-@inline Base.getindex(A::CachedMatrix, kr::BlockRange{1}, jr::BlockRange{1}) = ArrayLayouts.layout_getindex(A, kr, jr)
 
+@inline Base.getindex(A::AbstractCachedMatrix, kr::AbstractVector, jr::Block) = ArrayLayouts.layout_getindex(A, kr, jr)
+@inline Base.getindex(A::AbstractCachedMatrix, kr::BlockRange{1}, jr::BlockRange{1}) = ArrayLayouts.layout_getindex(A, kr, jr)
 include("bandedql.jl")
 include("blockconcat.jl")
 include("blockkron.jl")
@@ -750,7 +750,7 @@ function colsupport(lay::ApplyLayout{typeof(\)}, L, j)
     A,B = arguments(lay, L)
     l,u = bandwidths(A)
     cs = colsupport(B,j)
-    m,_ = size(L)
+    m = size(L,1)
     l == u == 0 && return cs
     l == 0 && return 1:last(cs)
     u == 0 && return first(cs):m
@@ -761,7 +761,7 @@ function rowsupport(lay::ApplyLayout{typeof(\)}, L, k)
     A,B = arguments(lay, L)
     l,u = bandwidths(A)
     cs = rowsupport(B,k)
-    m,_ = size(L)
+    m = size(L,1)
     l == u == 0 && return cs
     l == 0 && return first(cs):m
     u == 0 && return 1:last(cs)
@@ -808,6 +808,6 @@ end
 
 # useful for turning Array into block array
 unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
-
-
+unitblocks(a::OneTo) = blockedrange(Ones{Int}(length(a)))
+unitblocks(a::AbstractUnitRange) = BlockArrays._BlockedUnitRange(first(a),(first(a)-1) .+ BlockArrays._blocklengths2blocklasts(Ones{Int}(length(a))))
 end
