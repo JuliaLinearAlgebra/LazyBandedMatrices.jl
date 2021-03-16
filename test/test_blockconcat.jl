@@ -158,7 +158,7 @@ end
         dest = PseudoBlockArray{Float64}(undef, axes(A'))
         @test (A')[Block(2,3)] == A[Block(3,2)]'
         @test copyto!(dest, A') == A'
-        @test @allocated(copyto!(dest, A')) ≤ 2400
+        @test @allocated(copyto!(dest, A')) ≤ 2600
 
 
         Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
