@@ -229,6 +229,7 @@ BlockBroadcastArray{T}(::typeof(hcat), args...) where T = BlockBroadcastMatrix{T
 BlockBroadcastArray{T}(::typeof(vcat), args::AbstractVector...) where T = BlockBroadcastVector{T}(vcat, args...)
 BlockBroadcastArray{T}(::typeof(vcat), args...) where T = BlockBroadcastMatrix{T}(vcat, args...)
 BlockBroadcastArray{T}(::typeof(hvcat), args...) where T = BlockBroadcastMatrix{T}(hvcat, args...)
+BlockBroadcastArray{T}(::typeof(Diagonal), args...) where T = BlockBroadcastMatrix{T}(Diagonal, args...)
 
 
 _block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
@@ -244,6 +245,7 @@ axes(A::BlockBroadcastVector{<:Any,typeof(vcat)}) = (_block_vcat_axes(axes.(A.ar
 axes(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}) = (axes(A.args[1],1), _block_vcat_axes(axes.(A.args,2)...))
 
 axes(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = _block_interlace_axes(A.args[1], map(axes,A.args[2:end])...)
+axes(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = (_block_vcat_axes(axes.(A.args,1)...), _block_vcat_axes(axes.(A.args,2)...))
 # size(A::BlockBroadcastArray) = map(length, axes(A))
 
 copy(b::BlockBroadcastArray{T,N}) where {T,N} = BlockBroadcastArray{T,N}(b.f, map(copy, b.args)...)
@@ -263,6 +265,7 @@ convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{<:Any,N,typeof(hvcat)
 convert(::Type{AbstractArray{T}}, B::BlockBroadcastArray{T,N,typeof(hvcat)}) where {T,N} = B
 convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{T,N,typeof(hvcat)}) where {T,N} = B
 
+Base.BroadcastStyle(::Type{<:BlockBroadcastArray{T,N}}) where {T,N} = LazyArrayStyle{N}()
 
 function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
     K = findblockindex(axes(A,1), k)
@@ -279,10 +282,19 @@ function getindex(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int)
     A.args[(blockindex(K)-1)*A.args[1] + blockindex(J)+1][Int(block(K)), Int(block(J))]
 end
 
+function getindex(A::BlockBroadcastMatrix{T,typeof(Diagonal)}, k::Int, j::Int) where T
+    K,J = findblockindex.(axes(A), (k,j))
+    blockindex(K) == blockindex(J) || return zero(T)
+    A.args[blockindex(K)][Int(block(K)),Int(block(J))]
+end
+
 viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Int(k))...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(getindex.(A.args, kj.n...)...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = hvcat(A.args[1], getindex.(A.args[2:end], kj.n...)...)
 blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = max.(map(blockbandwidths,Base.tail(A.args))...)
+blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = max.(map(blockbandwidths,A.args)...)
+subblockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = (0,0)
+
 
 function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     p = B.args[1]
@@ -307,6 +319,8 @@ MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where A
 
 # temporary hack, need to think of how to flag as lazy for infinite case.
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hcat),Arrays}}) where Arrays = LazyLayout()
+
+MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(Diagonal),Arrays}}) where Arrays = BandedBlockBandedLayout()
 
 ##
 # special for unitblocks

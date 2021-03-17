@@ -2,6 +2,16 @@ using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillAr
 import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
 import LinearAlgebra: Adjoint ,Transpose
 
+@testset "unitblocks" begin
+    a = unitblocks(Base.OneTo(5))
+    @test a == 1:5
+    @test blockaxes(a,1) == Block.(1:5)
+
+    a = unitblocks(2:5)
+    @test a == 2:5
+    @test blockaxes(a,1) == Block.(1:4)
+end
+
 @testset "BlockVcat" begin
     @testset "vec vcat" begin
         a = BlockVcat(1:5, 10:12, 14:15)
@@ -158,7 +168,7 @@ end
         dest = PseudoBlockArray{Float64}(undef, axes(A'))
         @test (A')[Block(2,3)] == A[Block(3,2)]'
         @test copyto!(dest, A') == A'
-        @test @allocated(copyto!(dest, A')) ≤ 2400
+        @test @allocated(copyto!(dest, A')) ≤ 2600
 
 
         Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
@@ -263,5 +273,17 @@ end
             @test subblockbandwidths(A) == (0,0)
             @test A[Block.(1:2),Block.(1:2)] isa BlockSkylineMatrix
         end
+    end
+
+    @testset "Diagonal" begin
+        A = unitblocks(brand(5,5,1,2))
+        B = unitblocks(brand(5,5,2,1))
+        C = BlockBroadcastArray{Float64}(Diagonal, A, B)
+        @test blockisequal(axes(C),(blockedrange(Fill(2,5)),blockedrange(Fill(2,5))))
+        for k = 1:5, j = 1:5
+            @test C[Block(k,j)] == Diagonal([A[k,j],B[k,j]])
+        end
+        @test blockbandwidths(C) == (2,2)
+        @test subblockbandwidths(C) == (0,0)
     end
 end
