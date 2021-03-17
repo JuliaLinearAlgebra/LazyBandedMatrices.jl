@@ -269,6 +269,11 @@ end
         A = unitblocks(brand(5,5,1,2))
         B = unitblocks(brand(5,5,2,1))
         C = BlockBroadcastArray{Float64}(Diagonal, A, B)
-        
+        @test blockisequal(axes(C),(blockedrange(Fill(2,5)),blockedrange(Fill(2,5))))
+        for k = 1:5, j = 1:5
+            @test C[Block(k,j)] == Diagonal([A[k,j],B[k,j]])
+        end
+        @test blockbandwidths(C) == (2,2)
+        @test subblockbandwidths(C) == (0,0)
     end
 end
