@@ -2,6 +2,16 @@ using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillAr
 import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
 import LinearAlgebra: Adjoint ,Transpose
 
+@testset "unitblocks" begin
+    a = unitblocks(Base.OneTo(5))
+    @test a == 1:5
+    @test blockaxes(a,1) == Block.(1:5)
+
+    a = unitblocks(2:5)
+    @test a == 2:5
+    @test blockaxes(a,1) == Block.(1:4)
+end
+
 @testset "BlockVcat" begin
     @testset "vec vcat" begin
         a = BlockVcat(1:5, 10:12, 14:15)
