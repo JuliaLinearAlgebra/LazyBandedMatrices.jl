@@ -4,7 +4,7 @@ import LinearAlgebra
 # need to avoid confusion with LinearAlgebra.Tridiagonal
 import LinearAlgebra: tril!, triu!, tril, triu, det, logabsdet, diag, isdiag, istriu, istril, I, dot,
                         UpperTriangular, LowerTriangular, UnitUpperTriangular, UnitLowerTriangular,
-                        Symmetric, Hermitian, Diagonal, diagm
+                        Symmetric, Hermitian, Diagonal, diagm, eigen, eigvals
 import LazyBandedMatrices: SymTridiagonal, Tridiagonal
 
 @testset "Tridigonal" begin
