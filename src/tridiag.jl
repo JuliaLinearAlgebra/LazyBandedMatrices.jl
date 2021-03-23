@@ -120,6 +120,8 @@ SymTridiagonal{T}(S::SymTridiagonal) where {T} =
 SymTridiagonal(S::SymTridiagonal) = S
 SymTridiagonal(dv::AbstractVector{U}, ev::AbstractVector{V}) where {U,V} = SymTridiagonal{promote_type(U,V)}(dv, ev)
 
+LinearAlgebra.SymTridiagonal{T,V}(S::SymTridiagonal) where {T,V} = LinearAlgebra.SymTridiagonal{T,V}(convert(V,S.dv),convert(V,S.ev))
+
 AbstractMatrix{T}(S::SymTridiagonal) where {T} =
     SymTridiagonal(convert(AbstractVector{T}, S.dv)::AbstractVector{T},
                    convert(AbstractVector{T}, S.ev)::AbstractVector{T})
@@ -716,3 +718,6 @@ function BlockArrays.sizes_from_blocks(A::Tridiagonal, _)
     # end
     (size.(A.d, 1), size.(A.d,2))
 end
+
+eigvals(A::SymTridiagonal{T}) where T = eigvals(LinearAlgebra.SymTridiagonal{T,Vector{T}}(A))
+eigen(A::SymTridiagonal{T}) where T = eigen(LinearAlgebra.SymTridiagonal{T,Vector{T}}(A))

@@ -11,7 +11,7 @@ import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
-                        Symmetric, Hermitian, Adjoint, Transpose, Diagonal
+                        Symmetric, Hermitian, Adjoint, Transpose, Diagonal, eigvals, eigen
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
