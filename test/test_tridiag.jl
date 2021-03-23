@@ -1,5 +1,5 @@
 # This file based on a part of Julia, LinearAlgebra/test/tridiag.jl. License is MIT: https://julialang.org/license
-using Test, SparseArrays, Random, LazyBandedMatrices
+using Test, SparseArrays, Random, LazyBandedMatrices, FillArrays
 import LinearAlgebra
 # need to avoid confusion with LinearAlgebra.Tridiagonal
 import LinearAlgebra: tril!, triu!, tril, triu, det, logabsdet, diag, isdiag, istriu, istril, I, dot,
@@ -446,4 +446,10 @@ import LazyBandedMatrices: SymTridiagonal, Tridiagonal
         @test_throws ArgumentError SymTridiagonal{Float32}(T)
     end
 
+    @testset "eigen" begin
+        A = SymTridiagonal(Zeros(5), 1:4)
+        Ã = LinearAlgebra.SymTridiagonal(zeros(5), collect(1.0:4))
+        @test eigvals(A) == eigvals(Ã)
+        @test eigen(A) == eigen(Ã)
+    end
 end # module TestTridiagonal
