@@ -93,12 +93,14 @@ end
     end
     @testset "BlockBanded and padded" begin
         A = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0)); A.data .= randn.();
+        D = mortar(Diagonal([randn(k,k) for k=1:4]))
         c = Vcat(randn(3), Zeros(7))
         b = PseudoBlockVector(c, (axes(A,2),))
         @test MemoryLayout(b) isa PaddedLayout
         @test MemoryLayout(A*b) isa PaddedLayout
         @test MemoryLayout(A*c) isa PaddedLayout
         @test A*b ≈ A*c ≈ Matrix(A)*Vector(b)
+        @test D*b ≈ D*c ≈ Matrix(D)*Vector(b)
 
         @test b[Block.(2:3)] isa PseudoBlockVector{Float64,<:ApplyArray}
         @test MemoryLayout(b[Block.(2:3)]) isa PaddedLayout
