@@ -338,13 +338,13 @@ end
         @test bandwidths(A) == (1,1)
         @test colsupport(A, 1) == 1:2
         @test rowsupport(A, 1) == 1:2
-        @test A == broadcast(*, A.args...)
+        @test A == broadcast(*, A.args...) == BandedMatrix(A)
         @test MemoryLayout(typeof(A)) isa BroadcastBandedLayout{typeof(*)}
 
         @test MemoryLayout(typeof(A')) isa BroadcastBandedLayout{typeof(*)}
         @test bandwidths(A') == (1,1)
         @test colsupport(A',1) == rowsupport(A', 1) == 1:2
-        @test A' == BroadcastArray(A') == Array(A)'
+        @test A' == BroadcastArray(A') == Array(A)' == BandedMatrix(A')
 
         V = view(A, 2:3, 3:5)
         @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
@@ -379,6 +379,11 @@ end
             @test B[band(0)] == Matrix(B)[band(0)]
             @test C[band(0)] == Matrix(C)[band(0)]
             @test D[band(0)] == Matrix(D)[band(0)]
+        end
+
+        @testset "non-simple" begin
+            A = BroadcastMatrix(sin,brand(5,5,1,2))
+            
         end
     end
     @testset "BroadcastBlockBanded" begin
