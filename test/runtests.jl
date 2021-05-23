@@ -383,7 +383,8 @@ end
 
         @testset "non-simple" begin
             A = BroadcastMatrix(sin,brand(5,5,1,2))
-            
+            @test bandwidths(A) == (1,2)
+            @test BandedMatrix(A) == Matrix(A) == A
         end
     end
     @testset "BroadcastBlockBanded" begin
