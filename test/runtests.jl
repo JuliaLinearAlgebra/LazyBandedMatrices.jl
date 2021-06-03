@@ -195,6 +195,7 @@ end
         M = ApplyMatrix(*, A, B)
         @test blockbandwidths(M) == (2,1)
         @test MemoryLayout(M) isa ApplyBlockBandedLayout{typeof(*)}
+        @test Base.BroadcastStyle(typeof(M)) isa LazyArrayStyle{2}
         @test BlockBandedMatrix(M) ≈ A*B
         @test arguments(M) == (A,B)
         V = view(M, Block.(1:2), Block.(1:2))
@@ -209,6 +210,7 @@ end
         @test blockbandwidths(M) == (2,1)
         @test subblockbandwidths(M) == (2,1)
         @test MemoryLayout(M) isa ApplyBandedBlockBandedLayout{typeof(*)}
+        @test Base.BroadcastStyle(typeof(M)) isa LazyArrayStyle{2}
         @test BandedBlockBandedMatrix(M) ≈ BlockBandedMatrix(M) ≈ A*B
         @test arguments(M) == (A,B)
         V = view(M, Block.(1:2), Block.(1:2))

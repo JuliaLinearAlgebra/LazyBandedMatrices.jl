@@ -320,9 +320,8 @@ applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayo
 applylayout(::Type{typeof(*)}, ::AbstractBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
 
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout{typeof(*)}) = BandedStyle()
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::AbstractLazyBandedLayout) = LazyArrayStyle{2}()
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::AbstractLazyBlockBandedLayout) = LazyArrayStyle{2}()
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::AbstractLazyBandedBlockBandedLayout) = LazyArrayStyle{2}()
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBlockBandedLayout{typeof(*)}) = LazyArrayStyle{2}()
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedBlockBandedLayout{typeof(*)}) = LazyArrayStyle{2}()
 
 @inline colsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_rowsupport(A, j)
