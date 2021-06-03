@@ -236,12 +236,14 @@ _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aa
 
 const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
 
+_block_last(b::Block) = b
+_block_last(b::AbstractVector{<:Block}) = last(b)
 function similar(Ml::MulAdd{<:AllBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _) where T
     A,x = Ml.A,Ml.B
     xf = paddeddata(x)
     ax1,ax2 = axes(A)
     N = findblock(ax2,length(xf))
-    M = last(blockcolsupport(A,N))
+    M = _block_last(blockcolsupport(A,N))
     m = last(ax1[M]) # number of non-zero entries
     c = cache(Zeros{T}(length(ax1)))
     resizedata!(c, m)
@@ -444,6 +446,8 @@ end
 
 _BandedMatrix(::ApplyBandedLayout{typeof(*)}, V::AbstractMatrix{T}) where T = 
     copyto!(BandedMatrix{T}(undef, axes(V), bandwidths(V)), V)
+_BandedMatrix(::BroadcastBandedLayout, V::AbstractMatrix{T}) where T = 
+    copyto!(BandedMatrix{T}(undef, axes(V), bandwidths(V)), broadcasted(V))
 
 _broadcast_BandedMatrix(a::AbstractMatrix) = BandedMatrix(a)
 _broadcast_BandedMatrix(a) = a

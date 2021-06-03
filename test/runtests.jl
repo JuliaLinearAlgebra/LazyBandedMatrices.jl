@@ -93,12 +93,14 @@ end
     end
     @testset "BlockBanded and padded" begin
         A = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0)); A.data .= randn.();
+        D = mortar(Diagonal([randn(k,k) for k=1:4]))
         c = Vcat(randn(3), Zeros(7))
         b = PseudoBlockVector(c, (axes(A,2),))
         @test MemoryLayout(b) isa PaddedLayout
         @test MemoryLayout(A*b) isa PaddedLayout
         @test MemoryLayout(A*c) isa PaddedLayout
         @test A*b ≈ A*c ≈ Matrix(A)*Vector(b)
+        @test D*b ≈ D*c ≈ Matrix(D)*Vector(b)
 
         @test b[Block.(2:3)] isa PseudoBlockVector{Float64,<:ApplyArray}
         @test MemoryLayout(b[Block.(2:3)]) isa PaddedLayout
@@ -336,13 +338,13 @@ end
         @test bandwidths(A) == (1,1)
         @test colsupport(A, 1) == 1:2
         @test rowsupport(A, 1) == 1:2
-        @test A == broadcast(*, A.args...)
+        @test A == broadcast(*, A.args...) == BandedMatrix(A)
         @test MemoryLayout(typeof(A)) isa BroadcastBandedLayout{typeof(*)}
 
         @test MemoryLayout(typeof(A')) isa BroadcastBandedLayout{typeof(*)}
         @test bandwidths(A') == (1,1)
         @test colsupport(A',1) == rowsupport(A', 1) == 1:2
-        @test A' == BroadcastArray(A') == Array(A)'
+        @test A' == BroadcastArray(A') == Array(A)' == BandedMatrix(A')
 
         V = view(A, 2:3, 3:5)
         @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
@@ -377,6 +379,12 @@ end
             @test B[band(0)] == Matrix(B)[band(0)]
             @test C[band(0)] == Matrix(C)[band(0)]
             @test D[band(0)] == Matrix(D)[band(0)]
+        end
+
+        @testset "non-simple" begin
+            A = BroadcastMatrix(sin,brand(5,5,1,2))
+            @test bandwidths(A) == (1,2)
+            @test BandedMatrix(A) == Matrix(A) == A
         end
     end
     @testset "BroadcastBlockBanded" begin
