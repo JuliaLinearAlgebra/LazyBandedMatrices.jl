@@ -141,7 +141,7 @@ end
         @test isbanded(M) && isbanded(Applied(M))
         @test bandwidths(M) == bandwidths(Applied(M))
         @test BandedMatrix(M) == A*B == copyto!(BandedMatrix(M), M)
-        @test MemoryLayout(typeof(M)) isa ApplyBandedLayout{typeof(*)}
+        @test MemoryLayout(M) isa ApplyBandedLayout{typeof(*)}
         @test arguments(M) == (A,B)
         @test call(M) == *
         @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
@@ -153,7 +153,7 @@ end
 
         V = view(M,1:4,1:4)
         @test bandwidths(V) == (1,1)
-        @test MemoryLayout(typeof(V)) == MemoryLayout(typeof(M))
+        @test MemoryLayout(V) == MemoryLayout(M)
         @test M[1:4,1:4] isa BandedMatrix
         @test colsupport(V,1) == 1:2
         @test rowsupport(V,1) == 1:2
@@ -341,15 +341,15 @@ end
         @test colsupport(A, 1) == 1:2
         @test rowsupport(A, 1) == 1:2
         @test A == broadcast(*, A.args...) == BandedMatrix(A)
-        @test MemoryLayout(typeof(A)) isa BroadcastBandedLayout{typeof(*)}
+        @test MemoryLayout(A) isa BroadcastBandedLayout{typeof(*)}
 
-        @test MemoryLayout(typeof(A')) isa BroadcastBandedLayout{typeof(*)}
+        @test MemoryLayout(A') isa BroadcastBandedLayout{typeof(*)}
         @test bandwidths(A') == (1,1)
         @test colsupport(A',1) == rowsupport(A', 1) == 1:2
         @test A' == BroadcastArray(A') == Array(A)' == BandedMatrix(A')
 
         V = view(A, 2:3, 3:5)
-        @test MemoryLayout(typeof(V)) isa BroadcastBandedLayout{typeof(*)}
+        @test MemoryLayout(V) isa BroadcastBandedLayout{typeof(*)}
         @test bandwidths(V) == (1,0)
         @test colsupport(V,1) == 1:2
         @test V == BroadcastArray(V) == Array(A)[2:3,3:5]
@@ -680,7 +680,18 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         A = Vcat(Zeros(1,10), brand(9,10,1,1))
         @test isbanded(A)
         @test bandwidths(A) == (2,0)
-        @test MemoryLayout(typeof(A)) isa ApplyBandedLayout{typeof(vcat)}
+        @test MemoryLayout(A) isa ApplyBandedLayout{typeof(vcat)}
+        @test BandedMatrix(A) == Array(A) == A
+        @test A*A isa MulMatrix
+        @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
+        @test A[1:5,1:5] isa BandedMatrix
+    end
+
+    @testset "Banded Hcat" begin
+        A = Hcat(Zeros(10), brand(10,9,1,1))
+        @test isbanded(A)
+        @test bandwidths(A) == (0,2)
+        @test MemoryLayout(A) isa ApplyBandedLayout{typeof(hcat)}
         @test BandedMatrix(A) == Array(A) == A
         @test A*A isa MulMatrix
         @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
