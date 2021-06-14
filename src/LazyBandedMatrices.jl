@@ -685,7 +685,9 @@ include("blockkron.jl")
 ###
 
 applylayout(::Type{typeof(vcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
 sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
+sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
 
 applylayout(::Type{typeof(rot180)}, ::BandedColumns{LAY}) where LAY =
     BandedColumns{typeof(sublayout(LAY(), NTuple{2,StepRange{Int,Int}}))}()
