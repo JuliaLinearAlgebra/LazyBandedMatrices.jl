@@ -685,6 +685,8 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test A*A isa MulMatrix
         @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
         @test A[1:5,1:5] isa BandedMatrix
+
+
     end
 
     @testset "Banded Hcat" begin
@@ -695,6 +697,13 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test BandedMatrix(A) == Array(A) == A
         @test A*A isa MulMatrix
         @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
+        @test A[1:5,1:5] isa BandedMatrix
+
+        A = Hcat(Zeros(10,3), brand(10,9,1,1))
+        @test isbanded(A)
+        @test bandwidths(A) == (-2,4)
+        @test MemoryLayout(A) isa ApplyBandedLayout{typeof(hcat)}
+        @test BandedMatrix(A) == Array(A) == A
         @test A[1:5,1:5] isa BandedMatrix
     end
 
