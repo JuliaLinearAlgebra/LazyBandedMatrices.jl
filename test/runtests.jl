@@ -244,7 +244,7 @@ end
         B = brand(5,5,1,0)
         C = BroadcastMatrix(*, A, 2)
         M = ApplyArray(*,A,B)
-        @test M^2 isa ApplyMatrix{Float64,typeof(*)}
+        @test M^2 isa BandedMatrix
         @test M*C isa ApplyMatrix{Float64,typeof(*)}
         @test C*M isa ApplyMatrix{Float64,typeof(*)}
     end
