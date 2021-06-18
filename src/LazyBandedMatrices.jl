@@ -11,7 +11,7 @@ import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
-                        Symmetric, Hermitian, Adjoint, Transpose, Diagonal, eigvals, eigen
+                        Symmetric, Hermitian, Adjoint, Transpose, Diagonal, eigvals, eigen, pinv
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
                     sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
@@ -25,7 +25,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         MulMatrix, Mul, CachedMatrix, CachedArray, AbstractCachedMatrix, AbstractCachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
-                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable
+                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -153,6 +153,7 @@ end
 ###
 # Columns as padded
 # This is ommitted as it changes the behaviour of slicing B[:,4]
+# it's activated in InfiniteLinearAlgebra
 ###
 
 # sublayout(::AbstractBandedLayout, ::Type{<:Tuple{KR,Integer}}) where {KR<:AbstractUnitRange{Int}} = 
@@ -529,11 +530,11 @@ const VcatBandedMatrix{T,N} = Vcat{T,2,NTuple{N,BandedMatrix{T,Matrix{T},OneTo{I
 BroadcastStyle(::Type{HcatBandedMatrix{T,N}}) where {T,N} = BandedStyle()
 BroadcastStyle(::Type{VcatBandedMatrix{T,N}}) where {T,N} = BandedStyle()
 
-hcat(A::BandedMatrix...) = BandedMatrix(Hcat(A...))
-hcat(A::BandedMatrix, B::AbstractMatrix...) = Matrix(Hcat(A, B...))
+Base.typed_hcat(::Type{T}, A::BandedMatrix, B::BandedMatrix...) where T = BandedMatrix{T}(Hcat{T}(A...))
+Base.typed_hcat(::Type{T}, A::BandedMatrix, B::AbstractVecOrMat...) where T = Matrix{T}(Hcat{T}(A, B...))
 
-vcat(A::BandedMatrix...) = BandedMatrix(Vcat(A...))
-vcat(A::BandedMatrix, B::AbstractMatrix...) = Matrix(Vcat(A, B...))
+Base.typed_vcat(::Type{T}, A::BandedMatrix...) where T = BandedMatrix{T}(Vcat{T}(A...))
+Base.typed_vcat(::Type{T}, A::BandedMatrix, B::AbstractVecOrMat...) where T = Matrix{T}(Vcat{T}(A, B...))
 
 
 
@@ -732,25 +733,27 @@ StructuredLazyLayouts = Union{BandedLazyLayouts,
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
 
-copy(M::Mul{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:StructuredLazyLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:Any, <:StructuredLazyLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:StructuredLazyLayouts, <:AbstractLazyLayout}) = lazymaterialize(M)
-copy(M::Mul{<:AbstractLazyLayout, <:StructuredLazyLayouts}) = lazymaterialize(M)
-copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout}) = lazymaterialize(M)
-copy(M::Mul{<:DiagonalLayout, <:StructuredLazyLayouts}) = lazymaterialize(M)
+copy(M::Mul{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = simplify(M)
+copy(M::Mul{<:StructuredLazyLayouts}) = simplify(M)
+copy(M::Mul{<:Any, <:StructuredLazyLayouts}) = simplify(M)
+copy(M::Mul{<:StructuredLazyLayouts, <:AbstractLazyLayout}) = simplify(M)
+copy(M::Mul{<:AbstractLazyLayout, <:StructuredLazyLayouts}) = simplify(M)
+copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout}) = simplify(M)
+copy(M::Mul{<:DiagonalLayout, <:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = LinearAlgebra.copy_oftype(M.A, eltype(M))
 copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = LinearAlgebra.copy_oftype(M.B, eltype(M))
-copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, arguments(M.A)..., arguments(M.B)...)
-copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredLazyLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:StructuredLazyLayouts,<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
-copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:BroadcastLayouts,<:StructuredApplyLayouts{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
-copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
-copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = lazymaterialize(*, arguments(M.A)..., M.B)
-copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = lazymaterialize(*, M.A, arguments(M.B)...)
-copy(M::Mul{<:AbstractInvLayout,<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
+copy(M::Mul{<:StructuredLazyLayouts,<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:BroadcastLayouts}) = simplify(M)
+copy(M::Mul{<:BroadcastLayouts,<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
+copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
+copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = simplify(M)
+copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
+copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+
+copy(L::Ldiv{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = lazymaterialize(\, L.A, L.B)
 
 # TODO: this is type piracy
 function colsupport(lay::ApplyLayout{typeof(\)}, L, j)
@@ -787,6 +790,7 @@ simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
 
 
 copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))
+copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay<:StructuredLazyLayouts = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))
 _inv(::StructuredLazyLayouts, _, A) = ApplyArray(inv, A)
 
 ##
