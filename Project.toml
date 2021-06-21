@@ -1,7 +1,7 @@
 name = "LazyBandedMatrices"
 uuid = "d7e5e226-e90b-4449-9968-0f923699bf6f"
 authors = ["Sheehan Olver <solver@mac.com>"]
-version = "0.5.9"
+version = "0.6.0"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
@@ -16,14 +16,14 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-ArrayLayouts = "0.6.1, 0.7"
+ArrayLayouts = "0.7"
 BandedMatrices = "0.16.4"
 BlockArrays = "0.14, 0.15, 0.16"
 BlockBandedMatrices = "0.10"
 FillArrays = "0.11"
-LazyArrays = "0.20, 0.21"
+LazyArrays = "0.21.7"
 MatrixFactorizations = "0.8"
-StaticArrays = "0.12, 1"
+StaticArrays = "1"
 julia = "1.5"
 
 [extras]

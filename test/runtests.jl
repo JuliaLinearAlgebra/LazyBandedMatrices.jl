@@ -244,9 +244,27 @@ end
         B = brand(5,5,1,0)
         C = BroadcastMatrix(*, A, 2)
         M = ApplyArray(*,A,B)
-        @test M^2 isa ApplyMatrix{Float64,typeof(*)}
+        @test M^2 isa BandedMatrix
         @test M*C isa ApplyMatrix{Float64,typeof(*)}
         @test C*M isa ApplyMatrix{Float64,typeof(*)}
+    end
+    @testset "Apply*Broadcast" begin
+        A = randn(5,5)
+        B = randn(5,5)
+        C = brand(5,5,1,1)
+        D = brand(5,5,1,1)
+        @test ApplyArray(*, A, B) * BroadcastArray(*, A, B) ≈ (A*B) * (A .* B)
+        @test ApplyArray(*, C, D) * BroadcastArray(*, A, B) ≈ (C*D) * (A .* B)
+        @test ApplyArray(*, A, B) * BroadcastArray(*, C, D) ≈ (A*B) * (C .* D)
+        @test BroadcastArray(*, A, B) * ApplyArray(*, A, B) ≈ (A .* B) * (A*B)
+        @test BroadcastArray(*, C, D) * ApplyArray(*, A, B) ≈ (C .* D) * (A*B)
+        @test BroadcastArray(*, A, B) * ApplyArray(*, C, D) ≈ (A .* B) * (C*D)
+
+        @test ApplyArray(*, A, B) \ BroadcastArray(*, A, B) ≈ (A*B) \ (A .* B)
+        @test BroadcastArray(*, A, B) \ ApplyArray(*, A, B) ≈ (A .* B) \ (A * B)
+        @test BroadcastArray(*, A, B) \ BroadcastArray(*, A, B) ≈ (A .* B) \ (A .* B)
+        @test BroadcastArray(*, C, D) \ BroadcastArray(*, C, D) ≈ (C .* D) \ (C .* D)
+        @test ApplyArray(*, C, D) \ BroadcastArray(*, C, D) ≈ (C * D) \ (C .* D)
     end
 end
 
