@@ -747,6 +747,7 @@ copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredLazyLayouts}) = simp
 copy(M::Mul{<:StructuredLazyLayouts,<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:BroadcastLayouts}) = simplify(M)
 copy(M::Mul{<:BroadcastLayouts,<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+copy(M::Mul{BroadcastLayout{typeof(*)},<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = simplify(M)
