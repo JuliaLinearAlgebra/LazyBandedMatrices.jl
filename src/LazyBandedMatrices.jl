@@ -289,6 +289,7 @@ ApplyLayouts{F} = Union{ApplyLayout{F},ApplyBandedLayout{F},ApplyBlockBandedLayo
 
 arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+LazyArrays._mul_arguments(::StructuredApplyLayouts{F}, A) where F = LazyArrays._mul_arguments(ApplyLayout{F}(), A)
 @inline _islazy(::StructuredApplyLayouts) = Val(true)
 
 # The following catches the arguments machinery to work for BlockRange

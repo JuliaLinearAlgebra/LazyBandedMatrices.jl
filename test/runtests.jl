@@ -158,7 +158,7 @@ end
         @test colsupport(V,1) == 1:2
         @test rowsupport(V,1) == 1:2
 
-        MemoryLayout(view(M, [1,3], [2,3])) isa ApplyLayout{typeof(*)}
+        @test MemoryLayout(view(M, [1,3], [2,3])) isa ApplyLayout{typeof(*)}
 
         A = brand(5,5,0,1)
         B = brand(6,5,1,0)
@@ -265,6 +265,13 @@ end
         @test BroadcastArray(*, A, B) \ BroadcastArray(*, A, B) ≈ (A .* B) \ (A .* B)
         @test BroadcastArray(*, C, D) \ BroadcastArray(*, C, D) ≈ (C .* D) \ (C .* D)
         @test ApplyArray(*, C, D) \ BroadcastArray(*, C, D) ≈ (C * D) \ (C .* D)
+    end
+
+    @testset "flatten" begin
+        A = brand(5,5,1,1)
+        B = brand(5,5,1,1)
+        C = brand(5,5,1,1)
+        @test LazyArrays.flatten(ApplyArray(*, A, ApplyArray(*, B, C))) ≈ A * B *C
     end
 end
 
