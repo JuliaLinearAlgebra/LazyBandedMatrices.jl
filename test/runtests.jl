@@ -188,6 +188,17 @@ end
             M = ApplyArray(*,A,B)
             @test M \ C ≈ Matrix(M) \ C
         end
+
+        @testset "Sym/Herm" begin
+            A = brand(5,5,0,1)
+            B = brand(5,5,1,0)
+            M = ApplyArray(*,A,B)
+            C = ApplyArray(*,A,im*B)
+            @test MemoryLayout(Symmetric(M)) isa SymmetricLayout{LazyBandedLayout}
+            @test MemoryLayout(Symmetric(C)) isa SymmetricLayout{LazyBandedLayout}
+            @test MemoryLayout(Hermitian(M)) isa SymmetricLayout{LazyBandedLayout}
+            @test MemoryLayout(Hermitian(C)) isa HermitianLayout{LazyBandedLayout}
+        end
     end
     @testset "MulBlockBanded" begin
         A = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0)); A.data .= randn.();
