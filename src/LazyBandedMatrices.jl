@@ -748,8 +748,12 @@ copy(M::Mul{<:StructuredLazyLayouts, <:AbstractLazyLayout}) = simplify(M)
 copy(M::Mul{<:AbstractLazyLayout, <:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout}) = simplify(M)
 copy(M::Mul{<:DiagonalLayout, <:StructuredLazyLayouts}) = simplify(M)
+
+simplifiable(::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = Val(true)
+simplifiable(::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = Val(true)
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = LinearAlgebra.copy_oftype(M.A, eltype(M))
 copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = LinearAlgebra.copy_oftype(M.B, eltype(M))
+
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts,<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)

@@ -2,7 +2,8 @@ using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, Block
             ArrayLayouts, MatrixFactorizations, Random, Test
 import LinearAlgebra
 import LinearAlgebra: qr, rmul!, lmul!
-import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle
+import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, 
+                    PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle, simplifiable
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
@@ -283,6 +284,14 @@ end
         B = brand(5,5,1,1)
         C = brand(5,5,1,1)
         @test LazyArrays.flatten(ApplyArray(*, A, ApplyArray(*, B, C))) ≈ A * B *C
+    end
+
+    @testset "Eye simplifiable" begin
+        A = Eye(5)
+        B = brand(5,5,1,1)
+        C = brand(5,5,1,1)
+        @test simplifiable(*, A, BroadcastArray(*, B, C)) == Val(true)
+        @test simplifiable(*, BroadcastArray(*, B, C), A) == Val(true)
     end
 end
 

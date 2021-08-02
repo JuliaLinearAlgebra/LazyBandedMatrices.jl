@@ -2,7 +2,7 @@
 # PseudoBlockArray apply
 ###
 
-arguments(LAY, A::PseudoBlockArray) = arguments(LAY, A.blocks)
+arguments(LAY::MemoryLayout, A::PseudoBlockArray) = arguments(LAY, A.blocks)
 
 
 ##########
