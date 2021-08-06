@@ -83,11 +83,49 @@ sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:Blo
 LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSlice{<:BlockRange{1}}) =
     arguments(lay, A)[Int.(kr.block)]
 
+
+_split2blocks(KR) = ()
+function _split2blocks(KR, ax::OneTo, C...)
+    if KR[1] == Block(1)
+        (ax, _split2blocks(KR[2:end] .- Block(1), C...)...)
+    else
+        (Base.OneTo(0), _split2blocks(KR .- Block(1), C...)...)
+    end
+end
+function _split2blocks(KR, A, C...)
+    M = blocklength(A)
+    if Int(last(KR)) ≤ M
+        (KR, _split2blocks(Block.(1:0), C...)...)
+    else
+        (KR[1]:Block(M), _split2blocks(Block(1):(last(KR)-Block(M)), C...)...)
+    end
+end
+
+function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,1,<:Any,<:Tuple{BlockSlice{<:BlockRange1}}})
+    kr, = parentindices(V)
+    P = parent(V)
+    a = arguments(lay, P)
+    KR = _split2blocks(kr.block, axes.(a,1)...)
+    getindex.(a, KR)
+end
+
 function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
     kr, jr = parentindices(V)
     @assert jr.block ≡ Block(1)
-    arguments(lay, parent(V))[Int.(kr.block)]
+    P = parent(V)
+    a = arguments(lay, P)
+    KR = _split2blocks(kr.block, axes.(a,1)...)
+    getindex.(a, KR)
 end
+
+function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}})
+    kr, jr = parentindices(V)
+    P = parent(V)
+    a = arguments(lay, P)
+    KR = _split2blocks(kr.block, axes.(a,1)...)
+    getindex.(a, KR, Ref(jr.block))
+end
+
 
 ##########
 # BlockHcat

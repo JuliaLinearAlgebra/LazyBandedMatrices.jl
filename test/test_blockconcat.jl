@@ -52,6 +52,8 @@ end
         @test c == [a; b]
         @test c[Block(2)] == a[Block(2)]
         @test c[Block(3)] == b[Block(1)]
+        @test c[Block.(2:3)] == [a[Block(2)]; b[Block(1)]]
+        @test c[Block.(2:3),Block(1)] == reshape([a[Block(2)]; b[Block(1)]], 4, 1)
         @test copy(c) ≡ convert(AbstractArray{Int},c) ≡ convert(AbstractVector{Int},c) ≡ c
         @test AbstractArray{Float64}(c) == AbstractVector{Float64}(c) == c
         @test copy(c') ≡ c'
