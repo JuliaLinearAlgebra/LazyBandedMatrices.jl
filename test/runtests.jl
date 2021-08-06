@@ -243,7 +243,7 @@ end
         @test M[Block.(2:3),Block(2)[1:2]] isa PseudoBlockArray
         @test M[Block(2)[1:2],Block.(2:3)] isa PseudoBlockArray
     end
-    @testset "Psuedo Mul" begin
+    @testset "Pseudo Mul" begin
         A = PseudoBandedMatrix(rand(5, 4), 1, 2)
         B = PseudoBandedMatrix(rand(4, 4), 2, 3)
         C = PseudoBandedMatrix(zeros(5, 4), 3, 4)
