@@ -87,9 +87,9 @@ LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSl
 _split2blocks(KR) = ()
 function _split2blocks(KR, ax::OneTo, C...)
     if isempty(KR) || first(KR) ≠ Block(1)
-        (Base.OneTo(0), _split2blocks(KR .- Block(1), C...)...)
+        (Base.OneTo(0), _split2blocks((KR[1] - Block(1)):(KR[end] - Block(1)), C...)...)
     else
-        (ax, _split2blocks(KR[2:end] .- Block(1), C...)...)
+        (ax, _split2blocks((KR[2]- Block(1)):(KR[end]-Block(1)), C...)...)
     end
 end
 function _split2blocks(KR, A, C...)
