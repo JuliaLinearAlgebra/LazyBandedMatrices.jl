@@ -19,6 +19,7 @@ end
         @test @inferred(a[Block(1)]) ≡ 1:5
         @test a == [1:5; 10:12; 14:15]
         @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
+        @test blocklengths(axes(a[Block.(1:2)],1)) == [5,3]
         @test a[:] == a[1:size(a,1)] == a
         @test a[1:10] isa Vcat
         @test a[Block(1)[1:2]] ≡ 1:2
@@ -34,6 +35,8 @@ end
         @test A[Block(1,1)] == A.arrays[1]
         @test A[Block.(1:2),Block(1)] == A
         @test A[Block.(1:2),Block(1)] isa typeof(A)
+        @test blocklengths(axes(A[Block.(1:2),Block(1)],1)) == [2,3]
+        @test blocklengths(axes(A[Block.(1:2),Block(1)],2)) == [3]
 
         @test A[Block.(1:2), Block.(1:1)] == A
         @test A[Block.(1:2), Block.(1:1)] isa BlockVcat
