@@ -20,8 +20,10 @@ end
 BlockVcat{T,N}(arrays::AbstractArray...) where {T,N} = BlockVcat{T,N,typeof(arrays)}(arrays)
 BlockVcat{T}(arrays::AbstractArray{<:Any,N}...) where {T,N} = BlockVcat{T,N}(arrays...)
 BlockVcat(arrays::AbstractArray...) = BlockVcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
+blockvcat(a) = a
+blockvcat(a, b...) = BlockVcat(a, b...)
 
-# all 
+# all
 _vcat_axes(ax::OneTo{Int}...) = blockedrange(SVector(map(length,ax)...))
 _vcat_axes(ax...) = blockedrange(vcat(map(blocklengths,ax)...))
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
@@ -74,20 +76,52 @@ MemoryLayout(::Type{<:BlockVcat}) = ApplyLayout{typeof(vcat)}()
 arguments(::ApplyLayout{typeof(vcat)}, b::BlockVcat) = b.arrays
 
 
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) =
-    BlockVcat(arguments(lay, V)...)
-
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockVcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = BlockVcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) = blockvcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockvcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockvcat(arguments(lay, V)...)
 
 LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSlice{<:BlockRange{1}}) =
     arguments(lay, A)[Int.(kr.block)]
 
-function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
-    kr, jr = parentindices(V)
-    @assert jr.block ≡ Block(1)
-    arguments(lay, parent(V))[Int.(kr.block)]
+
+_split2blocks(KR) = ()
+function _split2blocks(KR, ax::OneTo, C...)
+    if isempty(KR)
+        (Base.OneTo(0), _split2blocks(Block.(1:0), C...)...)
+    elseif first(KR) ≠ Block(1)
+        (Base.OneTo(0), _split2blocks((KR[1] - Block(1)):(KR[end] - Block(1)), C...)...)
+    elseif length(KR) == 1
+        (ax, _split2blocks(Block.(1:0), C...)...)
+    else
+        (ax, _split2blocks((KR[2]- Block(1)):(KR[end]-Block(1)), C...)...)
+    end
 end
+function _split2blocks(KR, A, C...)
+    M = blocklength(A)
+    if Int(last(KR)) ≤ M
+        (KR, _split2blocks(Block.(1:0), C...)...)
+    else
+        (KR[1]:Block(M), _split2blocks(Block(1):(last(KR)-Block(M)), C...)...)
+    end
+end
+
+function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,1,<:Any,<:Tuple{BlockSlice{<:BlockRange1}}})
+    kr, = parentindices(V)
+    P = parent(V)
+    a = arguments(lay, P)
+    KR = _split2blocks(kr.block, axes.(a,1)...)
+    filter(!isempty,getindex.(a, KR))
+end
+
+
+function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice}})
+    kr, jr = parentindices(V)
+    P = parent(V)
+    a = arguments(lay, P)
+    KR = _split2blocks(kr.block, axes.(a,1)...)
+    filter(!isempty,getindex.(a, KR, Ref(jr.block)))
+end
+
 
 ##########
 # BlockHcat
@@ -103,6 +137,8 @@ end
 
 BlockHcat{T}(arrays::AbstractArray...) where T = BlockHcat{T,typeof(arrays)}(arrays)
 BlockHcat(arrays::AbstractArray...) = BlockHcat{mapreduce(eltype, promote_type, arrays)}(arrays...)
+blockhcat(a) = a
+blockhcat(a, b...) = BlockHcat(a, b...)
 
 axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes(axes.(b.arrays,2)...))
 axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
@@ -133,14 +169,26 @@ getindex(b::BlockHcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), 
 MemoryLayout(::Type{<:BlockHcat}) = ApplyLayout{typeof(hcat)}()
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockHcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = BlockHcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+
+
+function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice,BlockSlice{<:BlockRange1}}})
+    kr, jr = parentindices(V)
+    P = parent(V)
+    a = arguments(lay, P)
+    JR = _split2blocks(jr.block, axes.(a,2)...)
+    filter(!isempty,getindex.(a, Ref(kr.block), JR))
+end
 
 function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
     kr, jr = parentindices(V)
-    @assert kr.block ≡ Block(1)
-    arguments(lay, parent(V))[Int.(jr.block)]
+    J = jr.block
+    P = parent(V)
+    arguments(lay, view(P,kr,J:J))
 end
+
 
 for adj in (:adjoint, :transpose)
     @eval begin
@@ -205,7 +253,7 @@ getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k),
    BlockBroadcastArray(f, A, B, C...)
 
 is a block array corresponding to `f.(blocks(A), blocks(B), ...)`,
-except if `A` is scalar. 
+except if `A` is scalar.
 """
 
 struct BlockBroadcastArray{T, N, FF, Args} <: AbstractBlockArray{T, N}

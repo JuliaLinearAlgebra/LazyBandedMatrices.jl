@@ -19,6 +19,7 @@ end
         @test @inferred(a[Block(1)]) ≡ 1:5
         @test a == [1:5; 10:12; 14:15]
         @test a[Block.(1:2)] ≡ BlockVcat(1:5, 10:12)
+        @test blocklengths(axes(a[Block.(1:2)],1)) == [5,3]
         @test a[:] == a[1:size(a,1)] == a
         @test a[1:10] isa Vcat
         @test a[Block(1)[1:2]] ≡ 1:2
@@ -34,6 +35,8 @@ end
         @test A[Block(1,1)] == A.arrays[1]
         @test A[Block.(1:2),Block(1)] == A
         @test A[Block.(1:2),Block(1)] isa typeof(A)
+        @test blocklengths(axes(A[Block.(1:2),Block(1)],1)) == [2,3]
+        @test blocklengths(axes(A[Block.(1:2),Block(1)],2)) == [3]
 
         @test A[Block.(1:2), Block.(1:1)] == A
         @test A[Block.(1:2), Block.(1:1)] isa BlockVcat
@@ -52,6 +55,8 @@ end
         @test c == [a; b]
         @test c[Block(2)] == a[Block(2)]
         @test c[Block(3)] == b[Block(1)]
+        @test c[Block.(2:3)] == [a[Block(2)]; b[Block(1)]]
+        @test c[Block.(2:3),Block(1)] == reshape([a[Block(2)]; b[Block(1)]], 4, 1)
         @test copy(c) ≡ convert(AbstractArray{Int},c) ≡ convert(AbstractVector{Int},c) ≡ c
         @test AbstractArray{Float64}(c) == AbstractVector{Float64}(c) == c
         @test copy(c') ≡ c'
@@ -76,6 +81,8 @@ end
         @test convert(AbstractArray{Float64},V) ≡ convert(AbstractMatrix{Float64},V) ≡ V
         @test copy(V) == AbstractArray{Float64}(V) == AbstractMatrix{Float64}(V) == V
         @test copy(A') == A'
+
+        @test V[Block.(2:3), Block.(1:2)] == [A[Block(2),Block.(1:2)]; B[Block(1),Block.(1:2)]]
     end
 
     @testset "triangle recurrence" begin
@@ -126,13 +133,17 @@ end
     end
 
     @testset "block vec hcat" begin
-        a = PseudoBlockArray(1:5, SVector(1,3))
-        b = PseudoBlockArray(2:6, SVector(1,3))
+        a = PseudoBlockArray(1:4, SVector(1,3))
+        b = PseudoBlockArray(2:5, SVector(1,3))
         A = BlockHcat(a, b)
         @test axes(A,2) ≡ blockedrange(Ones{Int}(2))
         @test axes(A,1) ≡ axes(a,1)
         @test A[Block(1,1)] == a[Block(1)]
         @test A[Block(2,2)] == b[Block(2)]
+        @test A[Block(2), Block.(1:2)] == [a[Block(2)] b[Block(2)]]
+        @test A[Block.(1:2),Block.(2)] == reshape(b,4,1)
+        @test A[Block.(1:2), Block.(1:1)] == reshape(a,4,1)
+
         @test A == [a b]
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
@@ -145,6 +156,9 @@ end
         H = BlockHcat(A, B)
         @test H == [A B]
         @test H[Block(1,3)] == B[Block(1,1)]
+
+        @test H[Block(2),Block.(2:3)] == H[Block.(2:2),Block.(2:3)]  == [A[Block(2,2)] B[Block(2,1)]]
+        @test H[Block.(2:2),Block(3)] == H[Block(2,3)]
         @test convert(AbstractArray{Float64},H) ≡ convert(AbstractMatrix{Float64},H) ≡ H
         @test copy(H) == AbstractArray{Float64}(H) == AbstractMatrix{Float64}(H) == H
         @test copy(H') == H'
