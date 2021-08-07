@@ -23,7 +23,7 @@ BlockVcat(arrays::AbstractArray...) = BlockVcat{mapreduce(eltype, promote_type, 
 blockvcat(a) = a
 blockvcat(a, b...) = BlockVcat(a, b...)
 
-# all 
+# all
 _vcat_axes(ax::OneTo{Int}...) = blockedrange(SVector(map(length,ax)...))
 _vcat_axes(ax...) = blockedrange(vcat(map(blocklengths,ax)...))
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
@@ -86,8 +86,12 @@ LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSl
 
 _split2blocks(KR) = ()
 function _split2blocks(KR, ax::OneTo, C...)
-    if isempty(KR) || first(KR) ≠ Block(1)
+    if isempty(KR)
+        (Base.OneTo(0), _split2blocks(Block.(1:0), C...)...)
+    elseif first(KR) ≠ Block(1)
         (Base.OneTo(0), _split2blocks((KR[1] - Block(1)):(KR[end] - Block(1)), C...)...)
+    elseif length(KR) == 1
+        (ax, _split2blocks(Block.(1:0), C...)...)
     else
         (ax, _split2blocks((KR[2]- Block(1)):(KR[end]-Block(1)), C...)...)
     end
@@ -249,7 +253,7 @@ getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k),
    BlockBroadcastArray(f, A, B, C...)
 
 is a block array corresponding to `f.(blocks(A), blocks(B), ...)`,
-except if `A` is scalar. 
+except if `A` is scalar.
 """
 
 struct BlockBroadcastArray{T, N, FF, Args} <: AbstractBlockArray{T, N}
