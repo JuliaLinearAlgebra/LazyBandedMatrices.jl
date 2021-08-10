@@ -361,7 +361,7 @@ function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     ret
 end
 
-blockinterlacelayout(_...) = UnknownLayout()
+blockinterlacelayout(_...) = LazyLayout()
 blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
