@@ -267,7 +267,7 @@ end
         f = unitblocks(randn(2,3))
 
         A = BlockBroadcastArray(hvcat, 2, a, b, c, d, e, f)
-        @test MemoryLayout(A) isa UnknownLayout
+        @test MemoryLayout(A) isa LazyLayout
         @test blocksize(A) == (2,3)
         @test A[Block(1,1)] == [a[1] b[1]; c[1] d[1]; e[1] f[1]]
         @test A[1,1] == a[1,1]

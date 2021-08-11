@@ -361,14 +361,14 @@ function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     ret
 end
 
-blockinterlacelayout(_...) = UnknownLayout()
-blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = BlockBandedLayout()
+blockinterlacelayout(_...) = LazyLayout()
+blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = LazyBlockBandedLayout()
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
 # temporary hack, need to think of how to flag as lazy for infinite case.
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hcat),Arrays}}) where Arrays = LazyLayout()
 
-MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(Diagonal),Arrays}}) where Arrays = BandedBlockBandedLayout()
+MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(Diagonal),Arrays}}) where Arrays = LazyBandedBlockBandedLayout()
 
 ##
 # special for unitblocks
