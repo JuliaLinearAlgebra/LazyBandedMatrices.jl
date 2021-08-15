@@ -382,3 +382,27 @@ subblockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{
 
 LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::UnitRange) = view(dat.blocks,kr)
 LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = view(dat.blocks,kr)
+
+###
+# col/rowsupport
+##
+
+function blockcolsupport(H::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j)
+    cs = colsupport.(tail(H.args), Ref(j))
+    Block(minimum(map(first,cs))):Block(maximum(map(last,cs)))
+end
+
+function blockrowsupport(H::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j)
+    cs = rowsupport.(tail(H.args), Ref(j))
+    minimum(map(first,cs)):maximum(map(last,cs))
+end
+
+function blockcolsupport(H::BlockHcat, j::Integer)
+    ξ = j
+    for A in arguments(H)
+        n = blocksize(A,2)
+        ξ ≤ n && return blockcolsupport(A, ξ)
+        ξ -= n
+    end
+    return Block.(1:0)
+end

@@ -834,4 +834,12 @@ end
 unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
 unitblocks(a::OneTo) = blockedrange(Ones{Int}(length(a)))
 unitblocks(a::AbstractUnitRange) = BlockArrays._BlockedUnitRange(first(a),(first(a)-1) .+ BlockArrays._blocklengths2blocklasts(Ones{Int}(length(a))))
+
+#ambiguity
+sub_materialize(::AbstractBandedLayout, V, ::Tuple{<:BlockedUnitRange,Base.OneTo{Int}}) = BandedMatrix(V)
+function blockcolsupport(::AbstractBandedLayout, A, j)
+    a,b = axes(A)
+    cs = colsupport(A, b[Block(j)])
+    findblock(a, first(cs)):findblock(a, last(cs))
+end
 end

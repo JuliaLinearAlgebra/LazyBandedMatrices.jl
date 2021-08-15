@@ -1,5 +1,5 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
+import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, LazyLayout
 import LinearAlgebra: Adjoint ,Transpose
 
 @testset "unitblocks" begin
