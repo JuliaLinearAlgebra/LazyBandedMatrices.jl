@@ -180,6 +180,8 @@ end
 # needed for ∞-dimensional banded linear algebra
 ###
 
+
+
 _makevec(data::AbstractVector) = data
 _makevec(data::Number) = [data]
 
@@ -395,6 +397,13 @@ BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
 # functions that satisfy f(0,0) == 0
 
+for op in (:+, :-)
+    @eval begin
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::PaddedLayout) = BroadcastBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::PaddedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
+    end
+end
+
 for op in (:*, :/, :\, :+, :-)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
@@ -529,6 +538,11 @@ function bandwidths(M::Hcat)
     (maximum(_bandwidth.(M.args,1) .- cs), maximum(_bandwidth.(M.args,2) .+ cs))
 end
 isbanded(M::Hcat) = all(isbanded, M.args)
+
+# just support padded for now
+bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = bandwidths(M.args[2])
+isbanded(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = true
+
 
 
 const HcatBandedMatrix{T,N} = Hcat{T,NTuple{N,BandedMatrix{T,Matrix{T},OneTo{Int}}}}

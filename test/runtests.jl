@@ -128,6 +128,18 @@ end
         @test paddeddata(c) == [1]
         @test paddeddata(c) isa PseudoBlockVector
     end
+
+    @testset "Banded Perturbed" begin
+        n = 1000
+        D = Diagonal(1:n)
+        P = ApplyArray(hvcat, 2, randn(3,3), Zeros(3,n-3), Zeros(n-3,3), Zeros(n-3,n-3))
+        @test isbanded(P)
+        @test bandwidths(P) == (2,2)
+
+        B = BroadcastArray(+, D, P)
+        @test MemoryLayout(B) isa BroadcastBandedLayout
+        @test bandwidths(B) == (2,2)
+    end
 end
 
 @testset "MulMatrix" begin
