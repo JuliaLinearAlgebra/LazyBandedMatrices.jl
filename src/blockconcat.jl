@@ -409,6 +409,9 @@ function blockrowsupport(H::BlockVcat, k::Integer)
     return Block.(1:0)
 end
 
+blockcolsupport(H::BlockHcat, J::Block{1}) = blockcolsupport(H, Int(J))
+blockrowsupport(H::BlockVcat, K::Block{1}) = blockrowsupport(H, Int(K))
+
 blockcolsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convexunion(rowsupport.(tail(A.args), Ref(Int.(k)))...))
 
