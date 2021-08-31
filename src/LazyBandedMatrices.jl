@@ -27,7 +27,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         MulMatrix, Mul, CachedMatrix, CachedArray, AbstractCachedMatrix, AbstractCachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
-                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify
+                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify, convexunion, most
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -40,7 +40,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
-import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock
+import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks
 
 # for bidiag/tridiag
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
@@ -179,6 +179,8 @@ end
 # Specialised multiplication for arrays padded for zeros
 # needed for ∞-dimensional banded linear algebra
 ###
+
+
 
 _makevec(data::AbstractVector) = data
 _makevec(data::Number) = [data]
@@ -395,6 +397,13 @@ BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
 # functions that satisfy f(0,0) == 0
 
+for op in (:+, :-)
+    @eval begin
+        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::PaddedLayout) = BroadcastBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::PaddedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
+    end
+end
+
 for op in (:*, :/, :\, :+, :-)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
@@ -529,6 +538,11 @@ function bandwidths(M::Hcat)
     (maximum(_bandwidth.(M.args,1) .- cs), maximum(_bandwidth.(M.args,2) .+ cs))
 end
 isbanded(M::Hcat) = all(isbanded, M.args)
+
+# just support padded for now
+bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = bandwidths(M.args[2])
+isbanded(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = true
+
 
 
 const HcatBandedMatrix{T,N} = Hcat{T,NTuple{N,BandedMatrix{T,Matrix{T},OneTo{Int}}}}
@@ -834,4 +848,5 @@ end
 unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
 unitblocks(a::OneTo) = blockedrange(Ones{Int}(length(a)))
 unitblocks(a::AbstractUnitRange) = BlockArrays._BlockedUnitRange(first(a),(first(a)-1) .+ BlockArrays._blocklengths2blocklasts(Ones{Int}(length(a))))
+
 end

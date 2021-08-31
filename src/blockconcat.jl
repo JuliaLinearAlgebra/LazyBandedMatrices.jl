@@ -12,7 +12,7 @@ arguments(LAY::MemoryLayout, A::PseudoBlockArray) = arguments(LAY, A.blocks)
 struct BlockVcat{T, N, Arrays} <: AbstractBlockArray{T,N}
     arrays::Arrays
     function BlockVcat{T,N,Arrays}(arrays::Arrays) where {T,N,Arrays}
-        blockisequal(axes.(arrays,2)...) || throw(ArgumentError("Blocks must match"))
+        length(arrays) == 1 || blockisequal(axes.(arrays,2)...) || throw(ArgumentError("Blocks must match"))
         new{T,N,Arrays}(arrays)
     end
 end
@@ -130,7 +130,7 @@ end
 struct BlockHcat{T, Arrays} <: AbstractBlockMatrix{T}
     arrays::Arrays
     function BlockHcat{T,Arrays}(arrays::Arrays) where {T,Arrays}
-        blockisequal(axes.(arrays,1)...) || throw(ArgumentError("Blocks must match"))
+        length(arrays) == 1 || blockisequal(axes.(arrays,1)...) || throw(ArgumentError("Blocks must match"))
         new{T,Arrays}(arrays)
     end
 end
@@ -382,3 +382,36 @@ subblockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{
 
 LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::UnitRange) = view(dat.blocks,kr)
 LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = view(dat.blocks,kr)
+
+
+###
+# block col/rowsupport
+###
+blockcolsupport(M::BlockVcat, j) = first(blockcolsupport(first(M.arrays),j)):(Block(blocksize(BlockVcat(most(M.arrays)...),1))+last(blockcolsupport(last(M.arrays),j)))
+blockrowsupport(M::BlockHcat, k) = first(blockrowsupport(first(M.arrays),k)):(Block(blocksize(BlockHcat(most(M.arrays)...),1))+last(blockrowsupport(last(M.arrays),k)))
+function blockcolsupport(H::BlockHcat, j::Integer)
+    ξ = j
+    for A in arguments(H)
+        n = blocksize(A,2)
+        ξ ≤ n && return blockcolsupport(A, ξ)
+        ξ -= n
+    end
+    return Block.(1:0)
+end
+
+function blockrowsupport(H::BlockVcat, k::Integer)
+    ξ = k
+    for A in arguments(H)
+        n = blocksize(A,1)
+        ξ ≤ n && return blockrowsupport(A, ξ)
+        ξ -= n
+    end
+    return Block.(1:0)
+end
+
+blockcolsupport(H::BlockHcat, J::Block{1}) = blockcolsupport(H, Int(J))
+blockrowsupport(H::BlockVcat, K::Block{1}) = blockrowsupport(H, Int(K))
+
+blockcolsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
+blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convexunion(rowsupport.(tail(A.args), Ref(Int.(k)))...))
+
