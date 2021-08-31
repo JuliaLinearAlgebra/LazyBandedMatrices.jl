@@ -166,6 +166,16 @@ viewblock(b::BlockHcat, kj::Block{2}) = _findhcatblock(kj, b.arrays...)
 getindex(b::BlockHcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
 getindex(b::BlockHcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
+function blockcolsupport(H::BlockHcat, j::Integer)
+    ξ = j
+    for A in arguments(H)
+        n = blocksize(A,2)
+        ξ ≤ n && return blockcolsupport(A, ξ)
+        ξ -= n
+    end
+    return Block.(1:0)
+end
+
 MemoryLayout(::Type{<:BlockHcat}) = ApplyLayout{typeof(hcat)}()
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
@@ -343,7 +353,7 @@ blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = max.(map(blockba
 blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = max.(map(blockbandwidths,A.args)...)
 subblockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = (0,0)
 
-blockcolsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(j))...))
+blockcolsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 
 function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     p = B.args[1]
