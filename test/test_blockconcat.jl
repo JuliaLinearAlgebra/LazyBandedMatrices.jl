@@ -1,6 +1,6 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout
-import LinearAlgebra: Adjoint ,Transpose
+import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport
+import LinearAlgebra: Adjoint, Transpose
 
 @testset "unitblocks" begin
     a = unitblocks(Base.OneTo(5))
@@ -104,6 +104,13 @@ end
 
         b = PseudoBlockArray(Vcat(randn(3), Zeros(3)), [3,3])
         @test LazyArrays.paddeddata(view(b, 1:4)) == LazyArrays.paddeddata(view(b, Base.OneTo(4))) == b[1:3]
+    end
+
+    @testset "blockcol/rowsupport" begin
+        B = BlockBandedMatrix(randn(10,10),1:4,1:4,(1,0))
+        V = BlockVcat(B, B)
+        @test blockrowsupport(V, 3) == blockrowsupport(V, 7) == Block.(2:3)
+        @test blockcolsupport(V,1) == Block.(1:6)
     end
 end
 
@@ -211,6 +218,13 @@ end
         @test transpose(A) isa BlockVcat
         @test A'' == A
         @test A'' isa BlockHcat
+    end
+
+    @testset "blockcol/rowsupport" begin
+        B = BlockBandedMatrix(randn(10,10),1:4,1:4,(1,0))
+        H = BlockHcat(B, B)
+        @test blockcolsupport(H, 2) == blockcolsupport(H, 6) == Block.(2:3)
+        @test blockrowsupport(H, 1) == Block.(1:5)
     end
 end
 
