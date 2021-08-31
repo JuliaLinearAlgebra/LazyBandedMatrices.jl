@@ -109,8 +109,8 @@ end
     @testset "blockcol/rowsupport" begin
         B = BlockBandedMatrix(randn(10,10),1:4,1:4,(1,0))
         V = BlockVcat(B, B)
-        @test blockrowsupport(V, 3) == blockrowsupport(V, 7) == Block.(2:3)
-        @test blockcolsupport(V,1) == Block.(1:6)
+        @test blockrowsupport(V, Block(3)) == blockrowsupport(V, Block(7)) == Block.(2:3)
+        @test blockcolsupport(V, Block(1)) == Block.(1:6)
     end
 end
 
@@ -223,8 +223,8 @@ end
     @testset "blockcol/rowsupport" begin
         B = BlockBandedMatrix(randn(10,10),1:4,1:4,(1,0))
         H = BlockHcat(B, B)
-        @test blockcolsupport(H, 2) == blockcolsupport(H, 6) == Block.(2:3)
-        @test blockrowsupport(H, 1) == Block.(1:5)
+        @test blockcolsupport(H, Block(2)) == blockcolsupport(H, Block(6)) == Block.(2:3)
+        @test blockrowsupport(H, Block(1)) == Block.(1:5)
     end
 end
 
@@ -300,6 +300,9 @@ end
             @test blockbandwidths(A) == (1,2)
             @test subblockbandwidths(A) == (0,0)
             @test A[Block.(1:2),Block.(1:2)] isa BlockSkylineMatrix
+
+            @test blockcolsupport(A, Block(2)) == Block.(1:3)
+            @test blockrowsupport(A, Block(3)) == Block.(2:4)
         end
     end
 
