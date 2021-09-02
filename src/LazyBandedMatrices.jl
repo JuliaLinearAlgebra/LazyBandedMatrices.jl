@@ -15,7 +15,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
                         Symmetric, Hermitian, Adjoint, Transpose, Diagonal, eigvals, eigen, pinv
 
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
-                    sublayout, transposelayout, _copyto!, MemoryLayout, AbstractQLayout, 
+                    sublayout, transposelayout, conjlayout, _copyto!, MemoryLayout, AbstractQLayout, 
                     OnesLayout, DualLayout, mulreduce, _inv, symtridiagonallayout, tridiagonallayout, bidiagonallayout,
                     bidiagonaluplo, diagonaldata, subdiagonaldata, supdiagonaldata,
                     symmetriclayout, hermitianlayout
@@ -84,6 +84,10 @@ struct LazyBandedBlockBandedLayout <: AbstractLazyBandedBlockBandedLayout end
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
 
+transposelayout(::AbstractLazyBandedBlockBandedLayout) = LazyBandedBlockBandedLayout()
+transposelayout(::AbstractLazyBlockBandedLayout) = LazyBlockBandedLayout()
+conjlayout(::Type{<:Complex}, ::AbstractLazyBandedBlockBandedLayout) = LazyBandedBlockBandedLayout()
+conjlayout(::Type{<:Complex}, ::AbstractLazyBlockBandedLayout) = LazyBlockBandedLayout()
 
 bandwidths(M::Applied{<:Any,typeof(*)}) = min.(_bnds(M), prodbandwidths(M.args...))
 
