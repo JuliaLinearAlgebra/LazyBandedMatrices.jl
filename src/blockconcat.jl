@@ -415,3 +415,14 @@ blockrowsupport(H::BlockVcat, K::Block{1}) = blockrowsupport(H, Int(K))
 blockcolsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convexunion(rowsupport.(tail(A.args), Ref(Int.(k)))...))
 
+blockcolsupport(A::BlockBroadcastVector{<:Any,typeof(vcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
+
+blockbroadcastlayout(FF, args...) = UnknownLayout()
+blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedLayout...) = PaddedLayout{UnknownLayout}()
+
+function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
+    dats = map(paddeddata,B.args)
+    BlockBroadcastVector{T}(vcat, dats...)
+end
+
+MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blockbroadcastlayout(FF, tuple_type_memorylayouts(Args)...)

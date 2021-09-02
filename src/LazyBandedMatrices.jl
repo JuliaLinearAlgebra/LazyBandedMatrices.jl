@@ -27,7 +27,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         MulMatrix, Mul, CachedMatrix, CachedArray, AbstractCachedMatrix, AbstractCachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
-                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify, convexunion, most
+                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify, convexunion, most, tuple_type_memorylayouts
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -399,6 +399,8 @@ subblockbandwidths(B::BroadcastMatrix) = subblockbandwidths(broadcasted(B))
 BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
+broadcastlayout(::Type{F}, ::AbstractBlockBandedLayout) where F = BroadcastBlockBandedLayout{F}()
+broadcastlayout(::Type{F}, ::AbstractBandedBlockBandedLayout) where F = BroadcastBandedBlockBandedLayout{F}()
 # functions that satisfy f(0,0) == 0
 
 for op in (:+, :-)
