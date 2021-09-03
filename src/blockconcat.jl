@@ -166,7 +166,6 @@ viewblock(b::BlockHcat, kj::Block{2}) = _findhcatblock(kj, b.arrays...)
 getindex(b::BlockHcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
 getindex(b::BlockHcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
-MemoryLayout(::Type{<:BlockHcat}) = ApplyLayout{typeof(hcat)}()
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
 sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
@@ -339,10 +338,26 @@ end
 viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Int(k))...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(getindex.(A.args, kj.n...)...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = hvcat(A.args[1], getindex.(A.args[2:end], kj.n...)...)
+
+
+###
+# blockbandwidths
+###
 blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = max.(map(blockbandwidths,Base.tail(A.args))...)
 blockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = max.(map(blockbandwidths,A.args)...)
 subblockbandwidths(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = (0,0)
 
+function blockbandwidths(M::BlockVcat{<:Any,2})
+    cs = tuple(0, _cumsum(blocksize.(M.arrays[1:end-1],1)...)...) # cumsum of sizes
+    (maximum(cs .+ blockbandwidth.(M.arrays,1)), maximum(blockbandwidth.(M.arrays,2) .- cs))
+end
+isblockbanded(M::BlockVcat{<:Any,2}) = all(isblockbanded, M.arrays)
+
+function blockbandwidths(M::BlockHcat)
+    cs = tuple(0, _cumsum(blocksize.(M.arrays[1:end-1],2)...)...) # cumsum of sizes
+    (maximum(blockbandwidth.(M.arrays,1) .- cs), maximum(blockbandwidth.(M.arrays,2) .+ cs))
+end
+isblockbanded(M::BlockHcat) = all(isblockbanded, M.args)
 
 function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     p = B.args[1]
@@ -361,8 +376,21 @@ function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     ret
 end
 
+
+###
+# MemoryLayout
+#
+# sometimes we get block/banded when concatenting block/banded matrices
+###
+
+blockhcatlayout(_...) = ApplyLayout{typeof(hcat)}()
+# at the moment we just support hcat for a special case of a subview of Eye concatenated with a block banded.
+# This can be generalised later as needed
+blockhcatlayout(::AbstractBandedLayout, ::AbstractBlockBandedLayout) = ApplyBlockBandedLayout{typeof(hcat)}()
+MemoryLayout(::Type{<:BlockHcat{<:Any,Arrays}}) where Arrays = blockhcatlayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
+
 blockinterlacelayout(_...) = LazyLayout()
-blockinterlacelayout(::Union{ZerosLayout,AbstractBandedLayout}...) = LazyBlockBandedLayout()
+blockinterlacelayout(::Union{ZerosLayout,PaddedLayout,AbstractBandedLayout}...) = LazyBlockBandedLayout()
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
 # temporary hack, need to think of how to flag as lazy for infinite case.

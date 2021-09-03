@@ -200,6 +200,8 @@ end
 
 _block_paddeddata(C, data, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
 
+resizedata!(P::PseudoBlockVector, n::Integer) = resizedata!(P.blocks, n)
+
 function paddeddata(P::PseudoBlockVector)
     C = P.blocks
     ax = axes(P,1)
@@ -318,6 +320,8 @@ arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{
 
 sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+
+sublayout(::ApplyBlockBandedLayout, ::Type{<:Tuple{<:BlockSlice{<:BlockRange1}, <:BlockSlice{<:BlockRange1}}}) = BlockBandedLayout()
 
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{Block1}}}) where F = BandedLayout()
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedLayout()
@@ -546,8 +550,8 @@ end
 isbanded(M::Hcat) = all(isbanded, M.args)
 
 # just support padded for now
-bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = bandwidths(M.args[2])
-isbanded(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = true
+bandwidths(::PaddedLayout, A) = bandwidths(paddeddata(A))
+isbanded(::PaddedLayout, A) = true # always treat as banded
 
 
 
