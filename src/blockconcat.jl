@@ -337,7 +337,7 @@ end
 
 viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Int(k))...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(getindex.(A.args, kj.n...)...)
-viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = hvcat(A.args[1], getindex.(A.args[2:end], kj.n...)...)
+viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = ApplyArray(hvcat, first(A.args), getindex.(tail(A.args), kj.n...)...)
 
 
 ###
@@ -388,9 +388,59 @@ blockhcatlayout(_...) = ApplyLayout{typeof(hcat)}()
 # This can be generalised later as needed
 blockhcatlayout(::AbstractBandedLayout, ::AbstractBlockBandedLayout) = ApplyBlockBandedLayout{typeof(hcat)}()
 MemoryLayout(::Type{<:BlockHcat{<:Any,Arrays}}) where Arrays = blockhcatlayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
+sublayout(::ApplyBlockBandedLayout{typeof(hcat)}, ::Type{<:Tuple{<:BlockSlice{<:BlockRange1}, <:BlockSlice{<:BlockRange1}}}) = ApplyBlockBandedLayout{typeof(hcat)}()
+
+_copyto!(_, LAY::ApplyBlockBandedLayout{typeof(hcat)}, dest::AbstractMatrix, H::AbstractMatrix) =
+    block_hcat_copyto!(dest, arguments(LAY,H)...)
+function block_hcat_copyto!(dest::AbstractMatrix, arrays...)
+    nrows = blocksize(dest, 1)
+    ncols = 0
+    dense = true
+    for a in arrays
+        dense &= isa(a,Array)
+        nd = ndims(a)
+        ncols += (nd==2 ? blocksize(a,2) : 1)
+    end
+
+    nrows == blocksize(first(arrays),1) || throw(DimensionMismatch("Destination rows must match"))
+    ncols == blocksize(dest,2) || throw(DimensionMismatch("Destination columns must match"))
+
+    pos = 1
+    for a in arrays
+        p1 = pos+(isa(a,AbstractMatrix) ? blocksize(a, 2) : 1)-1
+        copyto!(view(dest,:, Block.(pos:p1)), a)
+        pos = p1+1
+    end
+    return dest
+end
+
+
+struct BlockBandedInterlaceLayout <: AbstractLazyBlockBandedLayout end
+
+sublayout(::BlockBandedInterlaceLayout, ::Type{<:NTuple{2,BlockSlices}}) = BlockBandedInterlaceLayout()
+
+arguments(::BlockBandedInterlaceLayout, A::BlockBroadcastMatrix{<:Any,typeof(vcat)}) = A.args
+
+# avoid extra types, since we are using int indexing for now... 
+# TODO: rewrite when other block sizes are allowed
+deblock(A::PseudoBlockArray) = A.blocks
+function arguments(::BlockBandedInterlaceLayout, A::SubArray)
+    P = parent(A)
+    args = arguments(BlockBandedInterlaceLayout(), P)
+    KR,JR = parentindices(A)
+    kr,jr = Int.(KR.block),Int.(JR.block)
+    tuple(first(args), view.(deblock.(tail(args)), Ref(kr), Ref(jr))...)
+end
+
+# function _copyto!(::BlockBandedColumnMajor, ::BlockBandedInterlaceLayout, dest::AbstractMatrix, src::AbstractMatrix)
+#     args = arguments(BlockBandedInterlaceLayout(), src)
+#     N,M = blocksize(dest)
+
+# end
 
 blockinterlacelayout(_...) = LazyLayout()
-blockinterlacelayout(::Union{ZerosLayout,PaddedLayout,AbstractBandedLayout}...) = LazyBlockBandedLayout()
+blockinterlacelayout(::Union{ZerosLayout,PaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
+
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
 # temporary hack, need to think of how to flag as lazy for infinite case.
