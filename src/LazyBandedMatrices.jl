@@ -193,7 +193,7 @@ _makevec(data::Number) = [data]
 
 # make sure data is big enough for blocksize
 function _block_paddeddata(C::CachedVector, data::AbstractVector, n)
-    if n ≠ length(data)
+    if n > length(data)
         resizedata!(C,n)
         data = paddeddata(C)
     end
@@ -203,7 +203,11 @@ end
 _block_paddeddata(C, data::Union{Number,AbstractVector}, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
 _block_paddeddata(C, data::AbstractMatrix, n, m) = PaddedArray(data, n, m)
 
-resizedata!(P::PseudoBlockVector, n::Integer) = resizedata!(P.blocks, n)
+function resizedata!(P::PseudoBlockVector, n::Integer)
+    ax = axes(P,1)
+    N = findblock(ax,n)
+    resizedata!(P.blocks, last(ax[N]))
+end
 
 function paddeddata(P::PseudoBlockVector)
     C = P.blocks
