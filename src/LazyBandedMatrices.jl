@@ -200,7 +200,7 @@ function _block_paddeddata(C::CachedVector, data::AbstractVector, n)
     _makevec(data)
 end
 
-_block_paddeddata(C, data::AbstractVector, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
+_block_paddeddata(C, data::Union{Number,AbstractVector}, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
 _block_paddeddata(C, data::AbstractMatrix, n, m) = PaddedArray(data, n, m)
 
 resizedata!(P::PseudoBlockVector, n::Integer) = resizedata!(P.blocks, n)
