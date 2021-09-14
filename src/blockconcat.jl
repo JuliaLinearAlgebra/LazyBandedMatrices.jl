@@ -357,7 +357,7 @@ function blockbandwidths(M::BlockHcat)
     cs = tuple(0, _cumsum(blocksize.(M.arrays[1:end-1],2)...)...) # cumsum of sizes
     (maximum(blockbandwidth.(M.arrays,1) .- cs), maximum(blockbandwidth.(M.arrays,2) .+ cs))
 end
-isblockbanded(M::BlockHcat) = all(isblockbanded, M.args)
+isblockbanded(M::BlockHcat) = all(isblockbanded, M.arrays)
 
 function subblockbandwidths(B::BlockBroadcastMatrix{<:Any,typeof(hvcat)})
     p = B.args[1]

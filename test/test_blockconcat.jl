@@ -111,6 +111,8 @@ end
         V = BlockVcat(B, B)
         @test blockrowsupport(V, Block(3)) == blockrowsupport(V, Block(7)) == Block.(2:3)
         @test blockcolsupport(V, Block(1)) == Block.(1:6)
+        @test blockbandwidths(V) == (5,0)
+        @test isblockbanded(V)
     end
 end
 
@@ -225,6 +227,16 @@ end
         H = BlockHcat(B, B)
         @test blockcolsupport(H, Block(2)) == blockcolsupport(H, Block(6)) == Block.(2:3)
         @test blockrowsupport(H, Block(1)) == Block.(1:5)
+        @test blockbandwidths(H) == (1,4)
+        @test isblockbanded(H)
+        @test copyto!(similar(H), H) == copy(H) == H
+    end
+
+    @testset "Eye BlockHcat" begin
+        B = BlockBandedMatrix(randn(10,10),1:4,1:4,(1,0))
+        H = BlockHcat(Eye((axes(B,1),))[:,Block(1)], B)
+        @test MemoryLayout(H) isa LazyBandedMatrices.ApplyBlockBandedLayout{typeof(hcat)}
+        
     end
 end
 
