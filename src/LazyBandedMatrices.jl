@@ -207,6 +207,7 @@ function resizedata!(P::PseudoBlockVector, n::Integer)
     ax = axes(P,1)
     N = findblock(ax,n)
     resizedata!(P.blocks, last(ax[N]))
+    P
 end
 
 function paddeddata(P::PseudoBlockVector)
