@@ -2,7 +2,8 @@ using LazyBandedMatrices, BlockBandedMatrices, BandedMatrices, LazyArrays, Block
             ArrayLayouts, MatrixFactorizations, Random, Test
 import LinearAlgebra
 import LinearAlgebra: qr, rmul!, lmul!
-import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle
+import LazyArrays: Applied, resizedata!, FillLayout, MulStyle, arguments, colsupport, rowsupport, LazyLayout, ApplyStyle, 
+                    PaddedLayout, paddeddata, call, ApplyLayout, LazyArrayStyle, simplifiable
 import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout, 
                     ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout, BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
 import BandedMatrices: BandedStyle, _BandedMatrix, AbstractBandedMatrix, BandedRows, BandedColumns
@@ -153,6 +154,22 @@ end
         @test paddeddata(c) == [1]
         @test paddeddata(c) isa PseudoBlockVector
     end
+
+    @testset "Banded Perturbed" begin
+        n = 1000
+        D = Diagonal(1:n)
+        P = ApplyArray(hvcat, 2, randn(3,3), Zeros(3,n-3), Zeros(n-3,3), Zeros(n-3,n-3))
+        @test isbanded(P)
+        @test bandwidths(P) == (2,2)
+
+        B = BroadcastArray(+, D, P)
+        @test MemoryLayout(B) isa BroadcastBandedLayout
+        @test bandwidths(B) == (2,2)
+
+        B = BroadcastArray(+, P, D)
+        @test MemoryLayout(B) isa BroadcastBandedLayout
+        @test bandwidths(B) == (2,2)
+    end
 end
 
 @testset "MulMatrix" begin
@@ -214,6 +231,17 @@ end
             M = ApplyArray(*,A,B)
             @test M \ C ≈ Matrix(M) \ C
         end
+
+        @testset "Sym/Herm" begin
+            A = brand(5,5,0,1)
+            B = brand(5,5,1,0)
+            M = ApplyArray(*,A,B)
+            C = ApplyArray(*,A,im*B)
+            @test MemoryLayout(Symmetric(M)) isa SymmetricLayout{LazyBandedLayout}
+            @test MemoryLayout(Symmetric(C)) isa SymmetricLayout{LazyBandedLayout}
+            @test MemoryLayout(Hermitian(M)) isa SymmetricLayout{LazyBandedLayout}
+            @test MemoryLayout(Hermitian(C)) isa HermitianLayout{LazyBandedLayout}
+        end
     end
     @testset "MulBlockBanded" begin
         A = BlockBandedMatrix{Float64}(undef, 1:4, 1:4, (1,0)); A.data .= randn.();
@@ -257,7 +285,7 @@ end
         @test M[Block.(2:3),Block(2)[1:2]] isa PseudoBlockArray
         @test M[Block(2)[1:2],Block.(2:3)] isa PseudoBlockArray
     end
-    @testset "Psuedo Mul" begin
+    @testset "Pseudo Mul" begin
         A = PseudoBandedMatrix(rand(5, 4), 1, 2)
         B = PseudoBandedMatrix(rand(4, 4), 2, 3)
         C = PseudoBandedMatrix(zeros(5, 4), 3, 4)
@@ -298,6 +326,14 @@ end
         B = brand(5,5,1,1)
         C = brand(5,5,1,1)
         @test LazyArrays.flatten(ApplyArray(*, A, ApplyArray(*, B, C))) ≈ A * B *C
+    end
+
+    @testset "Eye simplifiable" begin
+        A = Eye(5)
+        B = brand(5,5,1,1)
+        C = brand(5,5,1,1)
+        @test simplifiable(*, A, BroadcastArray(*, B, C)) == Val(true)
+        @test simplifiable(*, BroadcastArray(*, B, C), A) == Val(true)
     end
 end
 
@@ -439,6 +475,11 @@ end
             @test bandwidths(A) == (1,2)
             @test BandedMatrix(A) == Matrix(A) == A
         end
+
+        @testset "Complex" begin
+            C = BroadcastMatrix(*, 2, im*brand(5,5,2,1))
+            @test MemoryLayout(C') isa ConjLayout{BroadcastBandedLayout{typeof(*)}}
+        end
     end
     @testset "BroadcastBlockBanded" begin
         A = BlockBandedMatrix(randn(6,6),1:3,1:3,(1,1))
@@ -446,9 +487,15 @@ end
         @test blockbandwidths(B) == (1,1)
         @test MemoryLayout(B) == BroadcastBlockBandedLayout{typeof(*)}()
         @test BandedBlockBandedMatrix(B) == B == copyto!(BandedBlockBandedMatrix(B), B) == 2*B.args[2]
+        @test MemoryLayout(B') isa LazyBandedMatrices.LazyBlockBandedLayout
+        @test BlockBandedMatrix(B') == B'
 
-        C = BroadcastMatrix(*, A, 2)
-        @test MemoryLayout(C) == BroadcastBlockBandedLayout{typeof(*)}()
+        C = BroadcastMatrix(*, 2, im*A)
+        @test MemoryLayout(C') isa LazyBandedMatrices.LazyBlockBandedLayout
+        @test MemoryLayout(transpose(C)) isa LazyBandedMatrices.LazyBlockBandedLayout
+
+        E = BroadcastMatrix(*, A, 2)
+        @test MemoryLayout(E) == BroadcastBlockBandedLayout{typeof(*)}()
 
         
         D = Diagonal(PseudoBlockArray(randn(6),1:3))
@@ -466,6 +513,12 @@ end
         @test subblockbandwidths(B) == (1,1)
         @test MemoryLayout(B) == BroadcastBandedBlockBandedLayout{typeof(*)}()
         @test BandedBlockBandedMatrix(B) == B == copyto!(BandedBlockBandedMatrix(B), B) == 2*B.args[2]
+        @test MemoryLayout(B') isa LazyBandedMatrices.LazyBandedBlockBandedLayout
+        @test BandedBlockBandedMatrix(B') == B'
+
+        C = BroadcastMatrix(*, 2, im*A)
+        @test MemoryLayout(C') isa LazyBandedMatrices.LazyBandedBlockBandedLayout
+        @test MemoryLayout(transpose(C)) isa LazyBandedMatrices.LazyBandedBlockBandedLayout
 
         E = BroadcastMatrix(*, A, 2)
         @test MemoryLayout(E) == BroadcastBandedBlockBandedLayout{typeof(*)}()
