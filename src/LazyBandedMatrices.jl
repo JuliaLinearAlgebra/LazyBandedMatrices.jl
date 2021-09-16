@@ -27,7 +27,8 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         MulMatrix, Mul, CachedMatrix, CachedArray, AbstractCachedMatrix, AbstractCachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
-                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify, convexunion, most
+                        _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify, convexunion, most, tuple_type_memorylayouts,
+                        PaddedArray
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -39,8 +40,9 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         BandedBlockBandedColumns, BlockBandedColumns,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
-                        blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1
-import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks
+                        blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1,
+                        BlockBandedColumnMajor
+import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks, BlockSlices
 
 # for bidiag/tridiag
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
@@ -190,15 +192,23 @@ _makevec(data::AbstractVector) = data
 _makevec(data::Number) = [data]
 
 # make sure data is big enough for blocksize
-function _block_paddeddata(C::CachedVector, data, n)
-    if n ≠ length(data)
+function _block_paddeddata(C::CachedVector, data::AbstractVector, n)
+    if n > length(data)
         resizedata!(C,n)
         data = paddeddata(C)
     end
     _makevec(data)
 end
 
-_block_paddeddata(C, data, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
+_block_paddeddata(C, data::Union{Number,AbstractVector}, n) = Vcat(data, Zeros{eltype(data)}(n-length(data)))
+_block_paddeddata(C, data::AbstractMatrix, n, m) = PaddedArray(data, n, m)
+
+function resizedata!(P::PseudoBlockVector, n::Integer)
+    ax = axes(P,1)
+    N = findblock(ax,n)
+    resizedata!(P.blocks, last(ax[N]))
+    P
+end
 
 function paddeddata(P::PseudoBlockVector)
     C = P.blocks
@@ -209,6 +219,16 @@ function paddeddata(P::PseudoBlockVector)
     PseudoBlockVector(_block_paddeddata(C, data, n), (ax[Block(1):N],))
 end
 
+
+function paddeddata(P::PseudoBlockMatrix)
+    C = P.blocks
+    ax,bx = axes(P)
+    data = paddeddata(C)
+    N = findblock(ax,max(size(data,1),1))
+    M = findblock(bx,max(size(data,2),1))
+    n,m = last(ax[N]),last(ax[M])
+    PseudoBlockArray(_block_paddeddata(C, data, n, m), (ax[Block(1):N],bx[Block(1):M]))
+end
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
@@ -319,6 +339,8 @@ arguments(::ApplyBandedBlockBandedLayout{F}, A) where F = arguments(ApplyLayout{
 sublayout(::ApplyBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedBlockBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
 
+sublayout(::ApplyBlockBandedLayout, ::Type{<:Tuple{<:BlockSlice{<:BlockRange1}, <:BlockSlice{<:BlockRange1}}}) = BlockBandedLayout()
+
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{Block1},BlockSlice{Block1}}}) where F = BandedLayout()
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedLayout()
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{Block1}}}) where F = BandedLayout()
@@ -399,6 +421,8 @@ subblockbandwidths(B::BroadcastMatrix) = subblockbandwidths(broadcasted(B))
 BroadcastLayout(::BroadcastBandedLayout{F}) where F = BroadcastLayout{F}()
 
 broadcastlayout(::Type{F}, ::AbstractBandedLayout) where F = BroadcastBandedLayout{F}()
+broadcastlayout(::Type{F}, ::AbstractBlockBandedLayout) where F = BroadcastBlockBandedLayout{F}()
+broadcastlayout(::Type{F}, ::AbstractBandedBlockBandedLayout) where F = BroadcastBandedBlockBandedLayout{F}()
 # functions that satisfy f(0,0) == 0
 
 for op in (:+, :-)
@@ -544,8 +568,8 @@ end
 isbanded(M::Hcat) = all(isbanded, M.args)
 
 # just support padded for now
-bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = bandwidths(M.args[2])
-isbanded(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Any,Any,Vararg{Zeros}}}) = true
+bandwidths(::PaddedLayout, A) = bandwidths(paddeddata(A))
+isbanded(::PaddedLayout, A) = true # always treat as banded
 
 
 
@@ -670,7 +694,7 @@ function resizedata!(::BlockBandedColumns{<:AbstractColumnMajor}, _, B::Abstract
                 copyto!(view(B.data, KR, JR), B.array[KR, JR])
             end
         end
-        view(B.data, N_old+1:N, M_old+1:M) .= B.array[N_old+1:N, M_old+1:M]
+        isempty(N_old+1:N) || isempty(M_old+1:M) || copyto!(view(B.data, N_old+1:N, M_old+1:M), B.array[N_old+1:N, M_old+1:M])
         if μ > 0
             KR = N_old+1:min(N,M_old+λ)
             JR = max(Block(1),N_old+1-λ):M_old

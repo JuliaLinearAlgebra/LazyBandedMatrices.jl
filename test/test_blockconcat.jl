@@ -1,6 +1,7 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport
+import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!
 import LinearAlgebra: Adjoint, Transpose
+import LazyArrays: PaddedArray
 
 @testset "unitblocks" begin
     a = unitblocks(Base.OneTo(5))
@@ -103,7 +104,18 @@ end
         @test LazyArrays.arguments(a) == LazyArrays.arguments(a.blocks)
 
         b = PseudoBlockArray(Vcat(randn(3), Zeros(3)), [3,3])
-        @test LazyArrays.paddeddata(view(b, 1:4)) == LazyArrays.paddeddata(view(b, Base.OneTo(4))) == b[1:3]
+        @test paddeddata(view(b, 1:4)) == paddeddata(view(b, Base.OneTo(4))) == b[1:3]
+
+        c = PseudoBlockArray(cache(Zeros(6)), 1:3);
+        c[2] = 2
+        @test blocksize(paddeddata(c)) == (2,)
+        @test paddeddata(c)[Block(2)] == [2.0,0.0]
+        resizedata!(c,4);
+        @test blocksize(paddeddata(c)) == (3,)
+
+        dat = randn(3,3)
+        A = PseudoBlockArray(PaddedArray(dat, 6,6), 1:3, 1:3)
+        @test paddeddata(A) == dat
     end
 
     @testset "blockcol/rowsupport" begin
@@ -111,6 +123,8 @@ end
         V = BlockVcat(B, B)
         @test blockrowsupport(V, Block(3)) == blockrowsupport(V, Block(7)) == Block.(2:3)
         @test blockcolsupport(V, Block(1)) == Block.(1:6)
+        @test blockbandwidths(V) == (5,0)
+        @test isblockbanded(V)
     end
 end
 
@@ -225,6 +239,16 @@ end
         H = BlockHcat(B, B)
         @test blockcolsupport(H, Block(2)) == blockcolsupport(H, Block(6)) == Block.(2:3)
         @test blockrowsupport(H, Block(1)) == Block.(1:5)
+        @test blockbandwidths(H) == (1,4)
+        @test isblockbanded(H)
+        @test copyto!(similar(H), H) == copy(H) == H
+    end
+
+    @testset "Eye BlockHcat" begin
+        B = BlockBandedMatrix(randn(10,10),1:4,1:4,(1,0))
+        H = BlockHcat(Eye((axes(B,1),))[:,Block(1)], B)
+        @test MemoryLayout(H) isa LazyBandedMatrices.ApplyBlockBandedLayout{typeof(hcat)}
+        @test H[Block.(1:4), Block.(1:5)] == H == copy(H)
     end
 end
 
@@ -257,6 +281,17 @@ end
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
         @test copy(A') == A'
+
+        @testset "padded" begin
+            a = Vcat(randn(3), Zeros(10))
+            b = Vcat(randn(4), Zeros(9))
+            C = BlockBroadcastArray(vcat,unitblocks(a),unitblocks(a))
+            @test C[1:2:end] == a
+            @test C[2:2:end] == a
+
+            # differening data sizes not supported yet
+            @test_broken paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
+        end
     end
     @testset "hcat" begin
         N = 1000
@@ -303,6 +338,11 @@ end
 
             @test blockcolsupport(A, Block(2)) == Block.(1:3)
             @test blockrowsupport(A, Block(3)) == Block.(2:4)
+
+            
+            V = view(A, Block.(1:3),Block.(1:3))
+            @test MemoryLayout(V) isa LazyBandedMatrices.BlockBandedInterlaceLayout
+            @test arguments(V) == (2,a[1:3,1:3],z[1:3,1:3],z[1:3,1:3],a[1:3,1:3])
         end
     end
 
