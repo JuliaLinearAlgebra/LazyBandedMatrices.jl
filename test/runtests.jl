@@ -68,6 +68,32 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
     @test Base.broadcasted(LazyArrayStyle{0}(), Int, Block(1)) ≡ 1
 end
 
+@testset "LazyBlockArray Triangle Recurrences" begin
+    N = 1000
+    n = mortar(BroadcastArray(Fill,Base.OneTo(N),Base.OneTo(N)))
+    k = mortar(BroadcastArray(Base.OneTo,Base.OneTo(N)))
+
+    @test view(n, Block(5)) ≡ Fill(5,5)
+    @test view(k,Block(5)) ≡ Base.OneTo(5)
+    a = b = c = 0.0
+    # for some reason the following was causing major slowdown. I think it 
+    # went pass a limit to Base.Broadcast.flatten which caused `bc.f` to have a strange type.
+    # bc = Base.Broadcast.instantiate(Base.broadcasted(/, Base.broadcasted(*, k, Base.broadcasted(-, Base.broadcasted(-, k, n), a)), Base.broadcasted(+, 2k, b+c-1)))
+
+    bc = Base.Broadcast.instantiate(Base.broadcasted((k,n,a,b,c) -> k * (k-n-a) / (2k+(b+c-1)), k, n, a, b, c))
+    @test axes(n,1) ≡ axes(k,1) ≡ axes(bc)[1] ≡ blockedrange(Base.OneTo(N))
+    u = (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))
+    @test u == (Vector(k) .* (Vector(k) .- Vector(n) .- a) ./ (2Vector(k) .+ (b+c-1)))
+    @test copyto!(u, bc) == (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))
+    @test @allocated(copyto!(u, bc)) ≤ 1000 
+    # not clear why allocatinos so high: all allocations are coming from checking
+    # axes
+
+    u = PseudoBlockArray{Float64}(undef, collect(1:N))
+    @test copyto!(u, bc) == (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))
+    @test @allocated(copyto!(u, bc)) ≤ 1000
+end
+
 
 @testset "Padded" begin
     @testset "Banded padded" begin

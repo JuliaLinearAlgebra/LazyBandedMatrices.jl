@@ -274,7 +274,11 @@ end
         b = 11:10+N
         a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(vcat, a, b)
-        @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
+        if VERSION < v"1.7-"
+            @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
+        else
+            @test axes(A,1) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
+        end
         @test @allocated(axes(A)) ≤ 50
         @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
         @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
@@ -299,7 +303,11 @@ end
         b = 11:10+N
         a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(hcat, a', b')
-        @test axes(A,2) isa BlockedUnitRange{StepRange{Int,Int}}
+        if VERSION < v"1.7-"
+            @test axes(A,2) isa BlockedUnitRange{StepRange{Int,Int}}
+        else
+            @test axes(A,2) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
+        end
         @test @allocated(axes(A)) ≤ 50
         @test A[Block(1,1)] == PseudoBlockArray(A)[Block(1,1)] == [1 11]
         @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]
