@@ -332,8 +332,12 @@ end
         A = Eye(5)
         B = brand(5,5,1,1)
         C = brand(5,5,1,1)
+        D = Diagonal(Fill(2,5))
         @test simplifiable(*, A, BroadcastArray(*, B, C)) == Val(true)
         @test simplifiable(*, BroadcastArray(*, B, C), A) == Val(true)
+
+        @test D * BroadcastArray(*, B, C) ≈ D * (B .* C)
+        @test BroadcastArray(*, B, C) * D ≈ (B .* C) * D
     end
 end
 
