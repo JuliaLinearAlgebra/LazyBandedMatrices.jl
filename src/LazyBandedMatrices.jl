@@ -555,6 +555,9 @@ _cumsum(a, b...) = tuple(a, (a .+ _cumsum(b...))...)
 _bandwidth(a::Number, n) = 0
 _bandwidth(a, n) = bandwidth(a, n)
 
+_bandwidths(a::Number) = (0,0)
+_bandwidths(a) = bandwidths(a)
+
 function bandwidths(M::Vcat{<:Any,2})
     cs = tuple(0, _cumsum(size.(M.args[1:end-1],1)...)...) # cumsum of sizes
     (maximum(cs .+ _bandwidth.(M.args,1)), maximum(_bandwidth.(M.args,2) .- cs))
@@ -568,7 +571,7 @@ end
 isbanded(M::Hcat) = all(isbanded, M.args)
 
 # just support padded for now
-bandwidths(::PaddedLayout, A) = bandwidths(paddeddata(A))
+bandwidths(::PaddedLayout, A) = _bandwidths(paddeddata(A))
 isbanded(::PaddedLayout, A) = true # always treat as banded
 
 
@@ -734,8 +737,16 @@ include("blockkron.jl")
 # Concat and rot ArrayLayouts
 ###
 
-applylayout(::Type{typeof(vcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
+const PaddedLayouts = Union{PaddedLayout,DualLayout{<:PaddedLayout}}
+
+applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
 applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
+# adhoc for application... TODO: generalise
+applylayout(::Type{typeof(vcat)}, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
+applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
 sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
 sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
 
