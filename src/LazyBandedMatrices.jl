@@ -738,7 +738,7 @@ include("blockkron.jl")
 ###
 
 const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
-const PaddedLayouts = Union{PaddedLayout,DualLayout{<:PaddedLayout}}
+const PaddedLayouts = Union{ScalarLayout,PaddedLayout,DualLayout{<:PaddedLayout}}
 
 applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
 applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
@@ -747,6 +747,9 @@ applylayout(::Type{typeof(vcat)}, ::PaddedLayouts, ::AbstractBandedLayout) = App
 applylayout(::Type{typeof(hcat)}, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
 applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
 applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
+# hvcat with padded and banded in bottom right is banded, but only support 2x2 and 3x3
+applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
+applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
 sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
 sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
 
