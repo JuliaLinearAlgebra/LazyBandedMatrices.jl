@@ -554,12 +554,16 @@ sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{
 const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
 const ScalarOrBandedLayouts = Union{ScalarLayout,ZerosLayouts,AllBandedLayout}
 
-applylayout(::Type{typeof(vcat)}, ::A, ::ZerosLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{A}()
-applylayout(::Type{typeof(vcat)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof(hcat)}()
+for op in (:hcat, :vcat)
+    @eval begin
+        applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{A}()
+        applylayout(::Type{typeof($op)}, ::A, ::PaddedLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{ApplyLayout{typeof($op)}}()
+        applylayout(::Type{typeof($op)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof($op)}()
+        sublayout(::ApplyBandedLayout{typeof($op)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof($op)}()
+    end
+end
+
 applylayout(::Type{typeof(hvcat)}, _, ::ScalarOrBandedLayouts...)= ApplyBandedLayout{typeof(hvcat)}()
-sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
-sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
 
 
 # cumsum for tuples
@@ -595,7 +599,7 @@ function bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Int,Vararg{Any}}}
     for K = 1:N, J = 1:N
         if !(K == J == 1)
             λ,μ = _bandwidth(args[J+N*(K-1)],1),_bandwidth(args[J+N*(K-1)],2)
-            if λ > -μ # don't do anything if bandwidths are empty
+            if λ ≥ -μ # don't do anything if bandwidths are empty
                 l = max(l,λ + rs[K] - cs[J])::Int
                 u = max(u,μ + cs[K] - rs[J])::Int
             end
@@ -625,6 +629,8 @@ Base.typed_vcat(::Type{T}, A::BandedMatrix, B::AbstractVecOrMat...) where T = Ma
 
 layout_broadcasted(lay, ::ApplyBandedLayout{typeof(vcat)}, op, A::AbstractVector, B::AbstractVector) = layout_broadcasted(lay, ApplyLayout{typeof(vcat)}(), op,A, B)
 layout_broadcasted(::ApplyBandedLayout{typeof(vcat)}, lay, op, A::AbstractVector, B::AbstractVector) = layout_broadcasted(ApplyLayout{typeof(vcat)}(), lay, op,A, B)
+
+LazyArrays._vcat_sub_arguments(::ApplyBandedLayout{typeof(vcat)}, A, V) = LazyArrays._vcat_sub_arguments(ApplyLayout{typeof(vcat)}(), A, V)
 
 #######
 # CachedArray

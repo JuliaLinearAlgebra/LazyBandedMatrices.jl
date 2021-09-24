@@ -169,6 +169,9 @@ end
         B = BroadcastArray(+, P, D)
         @test MemoryLayout(B) isa BroadcastBandedLayout
         @test bandwidths(B) == (2,2)
+
+        C = ApplyArray(hvcat, 2, 1, 2, 3, 4)
+        @test bandwidths(C) == (1,1)
     end
 end
 
