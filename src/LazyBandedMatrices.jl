@@ -28,7 +28,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
                         _mul_args_colsupport, _mul_args_rowsupport, _islazy, simplifiable, simplify, convexunion, most, tuple_type_memorylayouts,
-                        PaddedArray
+                        PaddedArray, DualOrPaddedLayout, layout_broadcasted
 import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout,
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
@@ -266,7 +266,7 @@ end
 _broadcast_banded_padded_mul((A1,A2)::Tuple{<:AbstractVector,<:AbstractMatrix}, B) = A1 .* mul(A2, B)
 _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aargs...), B)))
 
-const AllBandedLayout = Union{AbstractBandedLayout,SymmetricLayout{<:AbstractBandedLayout},HermitianLayout{<:AbstractBandedLayout}}
+const AllBandedLayout = Union{AbstractBandedLayout,SymmetricLayout{<:AbstractBandedLayout},HermitianLayout{<:AbstractBandedLayout},DualOrPaddedLayout}
 const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
 
 _block_last(b::Block) = b
@@ -356,9 +356,10 @@ applylayout(::Type{typeof(*)}, ::AllBandedLayout...) = ApplyBandedLayout{typeof(
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AbstractBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
 
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout{typeof(*)}) = BandedStyle()
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBlockBandedLayout{typeof(*)}) = LazyArrayStyle{2}()
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedBlockBandedLayout{typeof(*)}) = LazyArrayStyle{2}()
+
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = BandedStyle()
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBlockBandedLayout) = LazyArrayStyle{2}()
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedBlockBandedLayout) = LazyArrayStyle{2}()
 
 @inline colsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_rowsupport(A, j)
@@ -551,18 +552,12 @@ sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{
 
 
 const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
-const PaddedLayouts = Union{ScalarLayout,PaddedLayout,DualLayout{<:PaddedLayout}}
+const ScalarOrBandedLayouts = Union{ScalarLayout,ZerosLayouts,AllBandedLayout}
 
-applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
-# adhoc for application... TODO: generalise
-applylayout(::Type{typeof(vcat)}, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
-applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
-# hvcat with padded and banded in bottom right is banded, but only support 2x2 and 3x3
-applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
-applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
+applylayout(::Type{typeof(vcat)}, ::A, ::ZerosLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{A}()
+applylayout(::Type{typeof(vcat)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof(hcat)}()
+applylayout(::Type{typeof(hvcat)}, _, ::ScalarOrBandedLayouts...)= ApplyBandedLayout{typeof(hvcat)}()
 sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
 sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
 
@@ -599,8 +594,11 @@ function bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Int,Vararg{Any}}}
     l,u = _bandwidth(args[1],1)::Int,_bandwidth(args[1],2)::Int
     for K = 1:N, J = 1:N
         if !(K == J == 1)
-            l = max(l,_bandwidth(args[J+N*(K-1)],1) + rs[K] - cs[J])::Int
-            u = max(u,_bandwidth(args[J+N*(K-1)],2) + cs[K] - rs[J])::Int
+            λ,μ = _bandwidth(args[J+N*(K-1)],1),_bandwidth(args[J+N*(K-1)],2)
+            if λ > -μ # don't do anything if bandwidths are empty
+                l = max(l,λ + rs[K] - cs[J])::Int
+                u = max(u,μ + cs[K] - rs[J])::Int
+            end
         end
     end
     l,u
@@ -625,6 +623,8 @@ Base.typed_vcat(::Type{T}, A::BandedMatrix...) where T = BandedMatrix{T}(Vcat{T}
 Base.typed_vcat(::Type{T}, A::BandedMatrix, B::AbstractVecOrMat...) where T = Matrix{T}(Vcat{T}(A, B...))
 
 
+layout_broadcasted(lay, ::ApplyBandedLayout{typeof(vcat)}, op, A::AbstractVector, B::AbstractVector) = layout_broadcasted(lay, ApplyLayout{typeof(vcat)}(), op,A, B)
+layout_broadcasted(::ApplyBandedLayout{typeof(vcat)}, lay, op, A::AbstractVector, B::AbstractVector) = layout_broadcasted(ApplyLayout{typeof(vcat)}(), lay, op,A, B)
 
 #######
 # CachedArray
