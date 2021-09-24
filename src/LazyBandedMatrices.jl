@@ -321,6 +321,7 @@ ApplyLayouts{F} = Union{ApplyLayout{F},ApplyBandedLayout{F},ApplyBlockBandedLayo
 
 arguments(::ApplyBandedLayout{F}, A) where F = arguments(ApplyLayout{F}(), A)
 sublayout(::ApplyBandedLayout{F}, A) where F = sublayout(ApplyLayout{F}(), A)
+sublayout(::ApplyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = LazyBandedLayout()
 LazyArrays._mul_arguments(::StructuredApplyLayouts{F}, A) where F = LazyArrays._mul_arguments(ApplyLayout{F}(), A)
 @inline _islazy(::StructuredApplyLayouts) = Val(true)
 
@@ -548,6 +549,24 @@ sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{
 # Concat banded matrix
 ######
 
+
+const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
+const PaddedLayouts = Union{ScalarLayout,PaddedLayout,DualLayout{<:PaddedLayout}}
+
+applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
+# adhoc for application... TODO: generalise
+applylayout(::Type{typeof(vcat)}, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
+applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
+applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
+# hvcat with padded and banded in bottom right is banded, but only support 2x2 and 3x3
+applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
+applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
+sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
+sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
+
+
 # cumsum for tuples
 _cumsum(a) = a
 _cumsum(a, b...) = tuple(a, (a .+ _cumsum(b...))...)
@@ -569,6 +588,23 @@ function bandwidths(M::Hcat)
     (maximum(_bandwidth.(M.args,1) .- cs), maximum(_bandwidth.(M.args,2) .+ cs))
 end
 isbanded(M::Hcat) = all(isbanded, M.args)
+
+function bandwidths(M::ApplyMatrix{<:Any,typeof(hvcat),<:Tuple{Int,Vararg{Any}}})
+    N = first(M.args)
+    args = tail(M.args)
+    @assert length(args) == N^2
+    rs = tuple(0, _cumsum(size.(args[1:N:end-2N+1],1)...)...) # cumsum of sizes
+    cs = tuple(0, _cumsum(size.(args[1:N-1],2)...)...) # cumsum of sizes
+
+    l,u = _bandwidth(args[1],1)::Int,_bandwidth(args[1],2)::Int
+    for K = 1:N, J = 1:N
+        if !(K == J == 1)
+            l = max(l,_bandwidth(args[J+N*(K-1)],1) + rs[K] - cs[J])::Int
+            u = max(u,_bandwidth(args[J+N*(K-1)],2) + cs[K] - rs[J])::Int
+        end
+    end
+    l,u
+end
 
 # just support padded for now
 bandwidths(::PaddedLayout, A) = _bandwidths(paddeddata(A))
@@ -736,22 +772,6 @@ include("blockkron.jl")
 ###
 # Concat and rot ArrayLayouts
 ###
-
-const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
-const PaddedLayouts = Union{ScalarLayout,PaddedLayout,DualLayout{<:PaddedLayout}}
-
-applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
-# adhoc for application... TODO: generalise
-applylayout(::Type{typeof(vcat)}, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
-applylayout(::Type{typeof(vcat)}, ::ZerosLayouts, ::PaddedLayouts, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(vcat)}()
-applylayout(::Type{typeof(hcat)}, ::ZerosLayout, ::PaddedLayout, ::AbstractBandedLayout) = ApplyBandedLayout{typeof(hcat)}()
-# hvcat with padded and banded in bottom right is banded, but only support 2x2 and 3x3
-applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
-applylayout(::Type{typeof(hvcat)}, _, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::PaddedLayouts, ::AbstractBandedLayout)= ApplyBandedLayout{typeof(hvcat)}()
-sublayout(::ApplyBandedLayout{typeof(vcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(vcat)}()
-sublayout(::ApplyBandedLayout{typeof(hcat)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof(hcat)}()
 
 applylayout(::Type{typeof(rot180)}, ::BandedColumns{LAY}) where LAY =
     BandedColumns{typeof(sublayout(LAY(), NTuple{2,StepRange{Int,Int}}))}()
