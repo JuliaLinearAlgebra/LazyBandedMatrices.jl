@@ -570,10 +570,10 @@ applylayout(::Type{typeof(hvcat)}, _, ::ScalarOrBandedLayouts...)= ApplyBandedLa
 _cumsum(a) = a
 _cumsum(a, b...) = tuple(a, (a .+ _cumsum(b...))...)
 
-_bandwidth(a::Number, n) = 0
+_bandwidth(a::Number, n) = iszero(a) ? bandwidth(Zeros{typeof(a)}(1,1),n) : 0
 _bandwidth(a, n) = bandwidth(a, n)
 
-_bandwidths(a::Number) = (0,0)
+_bandwidths(a::Number) = iszero(a) ? bandwidths(Zeros{typeof(a)}(1,1)) : (0,0)
 _bandwidths(a) = bandwidths(a)
 
 function bandwidths(M::Vcat{<:Any,2})
