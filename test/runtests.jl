@@ -995,7 +995,7 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         A = _BandedMatrix(BroadcastVector(exp,1:10)', 10, -1,1)
         @test ArrayLayouts.mul(Zeros(5,10),A) ≡ Zeros(5,10)
         @test ArrayLayouts.mul(A,Zeros(10,5)) ≡ Zeros(10,5)
-    end,
+    end
 end
 
 @testset "QR" begin
