@@ -169,6 +169,9 @@ end
         B = BroadcastArray(+, P, D)
         @test MemoryLayout(B) isa BroadcastBandedLayout
         @test bandwidths(B) == (2,2)
+
+        C = ApplyArray(hvcat, 2, 1, 2, 3, 4)
+        @test bandwidths(C) == (1,1)
     end
 end
 
@@ -793,8 +796,6 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test A*A isa MulMatrix
         @test A*A ≈ BandedMatrix(A)*A ≈ A*BandedMatrix(A) ≈ BandedMatrix(A*A)
         @test A[1:5,1:5] isa BandedMatrix
-
-
     end
 
     @testset "Banded Hcat" begin
@@ -971,9 +972,32 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test (c .* b)[Block(1)] == c[1:2] .* b[Block(1)]
     end
 
-    @testset "Concat bandwidths" begin
+    @testset "concat" begin
+        @test MemoryLayout(Vcat(1,1)) isa ApplyLayout{typeof(vcat)}
+        @test MemoryLayout(Vcat(1,Zeros(5),1)) isa ApplyLayout{typeof(vcat)}
+
         @test bandwidths(Hcat(1,randn(1,5))) == (0,5)
         @test bandwidths(Vcat(1,randn(5,1))) == (5,0)
+
+        V = Vcat(brand(5,5,1,1), brand(4,5,0,1))
+        @test arguments(view(V,:,1:3)) == (V.args[1][:,1:3], V.args[2][:,1:3])
+        H = ApplyArray(hvcat, 2, 1, Hcat(1, Zeros(1,10)), Vcat(1, Zeros(10)), Diagonal(1:11))
+        @test bandwidths(H) == (1,1)
+        H = ApplyArray(hvcat, 2, 1, Hcat(0, Zeros(1,10)), Vcat(0, Zeros(10)), Diagonal(1:11))
+        @test bandwidths(H) == (0,0)
+        H = ApplyArray(hvcat, (2,2), 1, Hcat(1, Zeros(1,10)), Vcat(1, Zeros(10)), Diagonal(1:11))
+        @test_broken bandwidths(H) == (1,1)
+
+        @test bandwidths(Vcat(Diagonal(1:3), Zeros(3,3))) == (0,0)
+        @test bandwidths(Hcat(1, Zeros(1,3))) == (0,0)
+        c = cache(Zeros(5));
+        @test bandwidths(c) == (-1,0)
+    end
+
+    @testset "zeros mul" begin
+        A = _BandedMatrix(BroadcastVector(exp,1:10)', 10, -1,1)
+        @test ArrayLayouts.mul(Zeros(5,10),A) ≡ Zeros(5,10)
+        @test ArrayLayouts.mul(A,Zeros(10,5)) ≡ Zeros(10,5)
     end
 end
 
