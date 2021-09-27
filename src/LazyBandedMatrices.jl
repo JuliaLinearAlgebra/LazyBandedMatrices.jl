@@ -558,9 +558,10 @@ const ScalarOrBandedLayouts = Union{ScalarOrZerosLayouts,AllBandedLayout}
 for op in (:hcat, :vcat)
     @eval begin
         applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{A}()
+        applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrZerosLayouts = PaddedLayout{A}()
         applylayout(::Type{typeof($op)}, ::A, ::PaddedLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{ApplyLayout{typeof($op)}}()
         applylayout(::Type{typeof($op)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof($op)}()
-        applylayout(::Type{typeof($op)}, ::ScalarLayoutOrZerosLayouts...) = ApplyLayout{typeof($op)}()
+        applylayout(::Type{typeof($op)}, ::ScalarOrZerosLayouts...) = ApplyLayout{typeof($op)}()
         sublayout(::ApplyBandedLayout{typeof($op)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof($op)}()
     end
 end
