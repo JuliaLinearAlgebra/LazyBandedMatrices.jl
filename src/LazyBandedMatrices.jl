@@ -230,6 +230,9 @@ function paddeddata(P::PseudoBlockMatrix)
     PseudoBlockArray(_block_paddeddata(C, data, n, m), (ax[Block(1):N],bx[Block(1):M]))
 end
 
+blockcolsupport(::PaddedLayout, A, j) = blockcolsupport(paddeddata(A),j)
+blockrowsupport(::PaddedLayout, A, j) = blockrowsupport(paddeddata(A),j)
+
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
     PseudoBlockVector(Vcat(dat, Zeros{T}(length(v) - length(dat))), ax)
