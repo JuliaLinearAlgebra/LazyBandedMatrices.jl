@@ -230,18 +230,29 @@ function paddeddata(P::PseudoBlockMatrix)
     PseudoBlockArray(_block_paddeddata(C, data, n, m), (ax[Block(1):N],bx[Block(1):M]))
 end
 
-blockcolsupport(::PaddedLayout, A, j) = blockcolsupport(paddeddata(A),j)
-blockrowsupport(::PaddedLayout, A, j) = blockrowsupport(paddeddata(A),j)
+blockcolsupport(::PaddedLayout, A, j) = Block.(OneTo(blocksize(paddeddata(A),1)))
+blockrowsupport(::PaddedLayout, A, k) = Block.(OneTo(blocksize(paddeddata(A),2)))
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
     PseudoBlockVector(Vcat(dat, Zeros{T}(length(v) - length(dat))), ax)
 end
 
-function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) where T
+function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{BlockedUnitRange,AbstractUnitRange}) where T
     dat = paddeddata(V)
     ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
 end
+
+function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{BlockedUnitRange,BlockedUnitRange}) where T
+    dat = paddeddata(V)
+    ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
+end
+
+function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{AbstractUnitRange,BlockedUnitRange}) where T
+    dat = paddeddata(V)
+    ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
+end
+
 
 function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes) where T
     A,x = M.A,M.B
