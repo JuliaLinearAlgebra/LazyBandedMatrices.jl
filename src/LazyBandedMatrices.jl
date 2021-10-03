@@ -226,14 +226,33 @@ function paddeddata(P::PseudoBlockMatrix)
     data = paddeddata(C)
     N = findblock(ax,max(size(data,1),1))
     M = findblock(bx,max(size(data,2),1))
-    n,m = last(ax[N]),last(ax[M])
+    n,m = last(ax[N]),last(bx[M])
     PseudoBlockArray(_block_paddeddata(C, data, n, m), (ax[Block(1):N],bx[Block(1):M]))
 end
+
+blockcolsupport(::PaddedLayout, A, j) = Block.(OneTo(blocksize(paddeddata(A),1)))
+blockrowsupport(::PaddedLayout, A, k) = Block.(OneTo(blocksize(paddeddata(A),2)))
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
     PseudoBlockVector(Vcat(dat, Zeros{T}(length(v) - length(dat))), ax)
 end
+
+function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{BlockedUnitRange,AbstractUnitRange}) where T
+    dat = paddeddata(V)
+    ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
+end
+
+function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{BlockedUnitRange,BlockedUnitRange}) where T
+    dat = paddeddata(V)
+    ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
+end
+
+function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{AbstractUnitRange,BlockedUnitRange}) where T
+    dat = paddeddata(V)
+    ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
+end
+
 
 function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes) where T
     A,x = M.A,M.B
