@@ -507,3 +507,5 @@ function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
 end
 
 MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blockbroadcastlayout(FF, tuple_type_memorylayouts(Args)...)
+
+resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBroadcastVector{T}(vcat, resize!.(c.args, N)...)
