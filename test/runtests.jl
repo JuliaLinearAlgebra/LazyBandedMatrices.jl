@@ -836,6 +836,14 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         x = Vcat([1,2], Zeros(3))
         @test A*x isa Vcat
         @test A*A*x isa Vcat
+
+        B = PaddedArray(randn(3,4),5,5)
+        @test MemoryLayout(A*B) isa PaddedLayout
+        @test A*B ≈ Matrix(A)Matrix(B)
+        C = BandedMatrix(1 => randn(4))
+        @test C*B ≈ Matrix(C)Matrix(B)
+        D = BandedMatrix(-1 => randn(4))
+        @test D*B ≈ Matrix(D)Matrix(B)
     end
 
     @testset "Lazy banded" begin

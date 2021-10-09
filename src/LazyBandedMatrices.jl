@@ -14,11 +14,11 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
                         lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
                         Symmetric, Hermitian, Adjoint, Transpose, Diagonal, eigvals, eigen, pinv
 
-import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, require_one_based_indexing,
+import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, MatMulMatAdd, require_one_based_indexing,
                     sublayout, transposelayout, conjlayout, _copyto!, MemoryLayout, AbstractQLayout, 
                     OnesLayout, DualLayout, mulreduce, _inv, symtridiagonallayout, tridiagonallayout, bidiagonallayout,
                     bidiagonaluplo, diagonaldata, subdiagonaldata, supdiagonaldata,
-                    symmetriclayout, hermitianlayout
+                    symmetriclayout, hermitianlayout, _fill_lmul!
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -254,11 +254,19 @@ function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{AbstractU
 end
 
 
-function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes) where T
+function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
     n = max(0,min(length(xf) + bandwidth(A,1),length(M)))
     Vcat(Vector{T}(undef, n), Zeros{T}(size(A,1)-n))
+end
+
+function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T
+    A,x = M.A,M.B
+    xf = paddeddata(x)
+    m = max(0,min(size(xf,1) + bandwidth(A,1),size(M,1)))
+    n = size(xf,2)
+    PaddedArray(Matrix{T}(undef, m, n), size(A,1), size(x,2))
 end
 
 function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:PaddedLayout})
@@ -278,6 +286,27 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
     end
 
     muladd!(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ)
+    y
+end
+
+function materialize!(M::MatMulMatAdd{<:AbstractBandedLayout,<:PaddedLayout,<:PaddedLayout})
+    α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
+    size(y) == (size(A,1),size(x,2)) || throw(DimensionMismatch())
+    size(x,1) == size(A,2) || throw(DimensionMismatch())
+
+    x̃ = paddeddata(x)
+    resizedata!(y, min(size(M,1),size(x̃,1)+bandwidth(A,1)), min(size(M,2),size(x̃,2)))
+    ỹ = paddeddata(y)
+
+    if size(ỹ,1) < min(size(M,1),size(x̃,1)+bandwidth(A,1))
+        # its ok if the entries are actually zero
+        for j = 1:size(x̃,2), k = max(1,size(x̃,1)-bandwidth(A,1)):size(x̃,1)
+            iszero(x̃[k,j]) || throw(ArgumentError("Cannot assign non-zero entries to Zero"))
+        end
+    end
+
+    muladd!(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, view(ỹ,:,axes(x̃,2)))
+    _fill_lmul!(β, view(ỹ,:,size(x̃,2)+1:size(ỹ,2)))
     y
 end
 
