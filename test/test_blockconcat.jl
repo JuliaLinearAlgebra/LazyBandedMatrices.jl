@@ -296,6 +296,16 @@ end
             # differening data sizes not supported yet
             @test_broken paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
         end
+
+        @testset "resize!" begin
+            N = 10
+            a, b = PseudoBlockArray(randn(N),Ones{Int}(N)), PseudoBlockArray(randn(N),Ones{Int}(randn(N)))
+            A = BlockBroadcastArray(vcat, a, b)
+            Ã = resize!(A, Block(3))
+            @test Ã == A[1:6]
+            @test_throws BoundsError A[7]
+            @test !isassigned(A,7)
+        end
     end
     @testset "hcat" begin
         N = 1000
