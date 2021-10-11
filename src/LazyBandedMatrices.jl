@@ -300,8 +300,8 @@ function materialize!(M::MatMulMatAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
 
     if size(ỹ,1) < min(size(M,1),size(x̃,1)+bandwidth(A,1))
         # its ok if the entries are actually zero
-        for j = 1:size(x̃,2), k = max(1,size(x̃,1)-bandwidth(A,1)):size(x̃,1)
-            iszero(x̃[k,j]) || throw(ArgumentError("Cannot assign non-zero entries to Zero"))
+        for j = 1:size(x̃,2), k = max(1,size(ỹ,1)-bandwidth(A,1)+1):size(x̃,1)
+            iszero(x̃[k,j]) || throw(ArgumentError("Cannot assign non-zero entry $k,$j to zero"))
         end
     end
 

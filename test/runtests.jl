@@ -844,6 +844,10 @@ Base.size(F::FiniteDifference) = (F.n,F.n)
         @test C*B ≈ Matrix(C)Matrix(B)
         D = BandedMatrix(-1 => randn(4))
         @test D*B ≈ Matrix(D)Matrix(B)
+
+        B.args[2][end,:] .= 0
+        C = PaddedArray(randn(3,4),5,5)
+        @test muladd!(1.0, A, B, 2.0, deepcopy(C)) ≈ A*B + 2C
     end
 
     @testset "Lazy banded" begin
