@@ -70,6 +70,11 @@ end
 
 getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
 
+function resize!(A::DiagTrav{<:Any,2}, K::Block{1})
+    k = Int(K)
+    DiagTrav(A.array[1:k, 1:k])
+end
+
 struct InvDiagTrav{T, AA<:AbstractVector{T}} <: AbstractMatrix{T}
     vector::AA
 end
