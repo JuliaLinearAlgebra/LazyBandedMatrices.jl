@@ -160,6 +160,9 @@ end
         @test blockrowsupport(C) == Block.(1:2)
 
         @test C[Block.(1:2),1:3] == C[Block.(1:2),Block.(1:2)] == C[1:3,Block.(1:2)] == C[1:3,1:3]
+
+        H = PseudoBlockArray(Hcat(1, Zeros(1,5)), [1], 1:3)
+        @test paddeddata(H) == Ones(1,1)
     end
 
     @testset "Banded Perturbed" begin
