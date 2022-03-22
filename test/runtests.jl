@@ -205,7 +205,7 @@ end
 
         @test Base.BroadcastStyle(typeof(M)) isa BandedStyle
         @test M .+ A isa BandedMatrix
-        @test M .+ A == M .+ Matrix(A) == Matrix(A) .+ M
+        @test M .+ A ≈ M .+ Matrix(A) ≈ Matrix(A) .+ M
 
         V = view(M,1:4,1:4)
         @test bandwidths(V) == (1,1)
