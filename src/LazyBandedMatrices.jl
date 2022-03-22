@@ -18,7 +18,7 @@ import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, MatMulM
                     sublayout, transposelayout, conjlayout, _copyto!, MemoryLayout, AbstractQLayout, 
                     OnesLayout, DualLayout, mulreduce, _inv, symtridiagonallayout, tridiagonallayout, bidiagonallayout,
                     bidiagonaluplo, diagonaldata, subdiagonaldata, supdiagonaldata,
-                    symmetriclayout, hermitianlayout, _fill_lmul!
+                    symmetriclayout, hermitianlayout, _fill_lmul!, _copy_oftype
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
@@ -887,8 +887,8 @@ copy(M::Mul{<:StructuredLazyLayouts, <:Union{ZerosLayout,DualLayout{ZerosLayout}
 
 simplifiable(::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = Val(true)
 simplifiable(::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = Val(true)
-copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = LinearAlgebra.copy_oftype(M.A, eltype(M))
-copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = LinearAlgebra.copy_oftype(M.B, eltype(M))
+copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:OnesLayout}}) = _copy_oftype(M.A, eltype(M))
+copy(M::Mul{<:DiagonalLayout{<:OnesLayout}, <:StructuredLazyLayouts}) = _copy_oftype(M.B, eltype(M))
 
 copy(M::Mul{<:DiagonalLayout{<:AbstractFillLayout}, <:StructuredLazyLayouts}) = copy(mulreduce(M))
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout{<:AbstractFillLayout}}) = copy(mulreduce(M))
