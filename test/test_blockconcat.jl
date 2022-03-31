@@ -324,6 +324,10 @@ end
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
         @test copy(A') == A'
+
+        v = BlockVector(randn(3), 1:2)
+        H = BlockBroadcastArray(hcat, v, v)
+        @test H[Block(2,1)] == [v[Block(2)] v[Block(2)]]
     end
     @testset  "hvcat" begin
         a = unitblocks(randn(2,3))

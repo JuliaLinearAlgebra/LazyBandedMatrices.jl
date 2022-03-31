@@ -335,8 +335,11 @@ function getindex(A::BlockBroadcastMatrix{T,typeof(Diagonal)}, k::Int, j::Int) w
     A.args[blockindex(K)][Int(block(K)),Int(block(J))]
 end
 
+_view_blockvec(A, k) = view(A, k)
+_view_blockvec(A::AbstractVector, k::Block{2}) = view(A, Block(k.n[1]))
+
 viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Int(k))...)
-viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(getindex.(A.args, kj.n...)...)
+viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(_view_blockvec.(A.args, Ref(kj))...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = ApplyArray(hvcat, first(A.args), getindex.(tail(A.args), kj.n...)...)
 
 
