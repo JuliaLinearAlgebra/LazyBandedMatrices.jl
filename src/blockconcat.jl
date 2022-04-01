@@ -23,9 +23,14 @@ BlockVcat(arrays::AbstractArray...) = BlockVcat{mapreduce(eltype, promote_type, 
 blockvcat(a) = a
 blockvcat(a, b...) = BlockVcat(a, b...)
 
-# all
-_vcat_axes(ax::OneTo{Int}...) = blockedrange(SVector(map(length,ax)...))
-_vcat_axes(ax...) = blockedrange(vcat(map(blocklengths,ax)...))
+
+# use integers if possible
+_blocklengths(ax::OneTo) = length(ax)
+_blocklengths(ax) = blocklengths(ax)
+
+__vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
+__vcat_axes(bls...) = blockedrange(vcat(bls...))
+_vcat_axes(ax...) = __vcat_axes(map(_blocklengths,ax)...)
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
 axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
 

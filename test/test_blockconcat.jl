@@ -126,6 +126,12 @@ end
         @test blockbandwidths(V) == (5,0)
         @test isblockbanded(V)
     end
+
+    @testset "use int when possible" begin
+        a = PseudoBlockArray(1:5, SVector(1,3))
+        b = BlockVcat(1:2, a, 3:4)
+        @test axes(b,1) == blockedrange([2, 1, 3, 2])
+    end
 end
 
 
