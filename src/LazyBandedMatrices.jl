@@ -37,7 +37,7 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
 import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths,
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
-                        BandedBlockBandedColumns, BlockBandedColumns,
+                        BandedBlockBandedColumns, BlockBandedColumns, BlockBandedRows, BandedBlockBandedRows,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1,
@@ -864,7 +864,9 @@ BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, B
                 SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}}}
 
 StructuredLazyLayouts = Union{BandedLazyLayouts,
-                BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout}, BlockLayout{LazyLayout},
+                BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout},
+                BlockBandedRows{LazyLayout},BandedBlockBandedRows{LazyLayout},
+                BlockLayout{LazyLayout},
                 BlockLayout{TridiagonalLayout{LazyLayout,LazyLayout,LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout,LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout,LazyLayout}},
                 BlockLayout{LazyBandedLayout},
