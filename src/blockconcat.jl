@@ -318,6 +318,9 @@ convert(::Type{AbstractArray{T}}, B::BlockBroadcastArray{T,N,typeof(hvcat)}) whe
 convert(::Type{AbstractArray{T,N}}, B::BlockBroadcastArray{T,N,typeof(hvcat)}) where {T,N} = B
 
 Base.BroadcastStyle(::Type{<:BlockBroadcastArray{T,N}}) where {T,N} = LazyArrayStyle{N}()
+Base.BroadcastStyle(::Type{<:BlockVcat{T,N}}) where {T,N} = LazyArrayStyle{N}()
+Base.BroadcastStyle(::Type{<:BlockHcat}) = LazyArrayStyle{2}()
+Base.BroadcastStyle(::Type{<:BlockHvcat}) = LazyArrayStyle{2}()
 
 function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
     K = findblockindex(axes(A,1), k)

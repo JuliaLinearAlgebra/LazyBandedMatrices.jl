@@ -132,6 +132,11 @@ end
         b = BlockVcat(1:2, a, 3:4)
         @test axes(b,1) == blockedrange([2, 1, 3, 2])
     end
+
+    @testset "broadcast" begin
+        A = BlockVcat(randn(2,3), randn(1,3))
+        @test A + I isa BroadcastArray
+    end
 end
 
 
@@ -256,6 +261,11 @@ end
         @test MemoryLayout(H) isa LazyBandedMatrices.ApplyBlockBandedLayout{typeof(hcat)}
         @test H[Block.(1:4), Block.(1:5)] == H == copy(H)
     end
+
+    @testset "broadcast" begin
+        A = BlockHcat(randn(3,2), randn(3,1))
+        @test A + I isa BroadcastArray
+    end
 end
 
 @testset "BlockHvcat" begin
@@ -270,6 +280,8 @@ end
     @test convert(AbstractArray{Float64},H) ≡ convert(AbstractMatrix{Float64},H) ≡ H
     @test copy(H) == AbstractArray{Float64}(H) == AbstractMatrix{Float64}(H) == H
     @test copy(H') == H'
+
+    @test H + I isa BroadcastArray
 end
 
 
