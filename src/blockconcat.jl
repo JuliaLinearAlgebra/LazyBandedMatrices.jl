@@ -479,28 +479,25 @@ LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = view(dat.blocks,kr
 ###
 blockcolsupport(M::BlockVcat, j) = first(blockcolsupport(first(M.arrays),j)):(Block(blocksize(BlockVcat(most(M.arrays)...),1))+last(blockcolsupport(last(M.arrays),j)))
 blockrowsupport(M::BlockHcat, k) = first(blockrowsupport(first(M.arrays),k)):(Block(blocksize(BlockHcat(most(M.arrays)...),1))+last(blockrowsupport(last(M.arrays),k)))
-function blockcolsupport(H::BlockHcat, j::Integer)
-    ξ = j
+function blockcolsupport(H::BlockHcat, J::Block{1})
+    j = Integer(J)
     for A in arguments(H)
         n = blocksize(A,2)
-        ξ ≤ n && return blockcolsupport(A, ξ)
-        ξ -= n
+        j ≤ n && return blockcolsupport(A, Block(j))
+        j -= n
     end
     return Block.(1:0)
 end
 
-function blockrowsupport(H::BlockVcat, k::Integer)
-    ξ = k
+function blockrowsupport(H::BlockVcat, K::Block{1})
+    k = Integer(K)
     for A in arguments(H)
         n = blocksize(A,1)
-        ξ ≤ n && return blockrowsupport(A, ξ)
-        ξ -= n
+        k ≤ n && return blockrowsupport(A, Block(k))
+        k -= n
     end
     return Block.(1:0)
 end
-
-blockcolsupport(H::BlockHcat, J::Block{1}) = blockcolsupport(H, Int(J))
-blockrowsupport(H::BlockVcat, K::Block{1}) = blockrowsupport(H, Int(K))
 
 blockcolsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convexunion(rowsupport.(tail(A.args), Ref(Int.(k)))...))
