@@ -82,6 +82,8 @@ abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLa
 struct LazyBlockBandedLayout <: AbstractLazyBlockBandedLayout end
 struct LazyBandedBlockBandedLayout <: AbstractLazyBandedBlockBandedLayout end
 
+const LazyBandedBlockBandedLayouts = Union{AbstractLazyBandedBlockBandedLayout,BandedBlockBandedColumns{<:AbstractLazyLayout}, BandedBlockBandedRows{<:AbstractLazyLayout}}
+
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
 BroadcastStyle(::BandedStyle, M::ApplyArrayBroadcastStyle{2}) = M
@@ -90,6 +92,9 @@ transposelayout(::AbstractLazyBandedBlockBandedLayout) = LazyBandedBlockBandedLa
 transposelayout(::AbstractLazyBlockBandedLayout) = LazyBlockBandedLayout()
 conjlayout(::Type{<:Complex}, ::AbstractLazyBandedBlockBandedLayout) = LazyBandedBlockBandedLayout()
 conjlayout(::Type{<:Complex}, ::AbstractLazyBlockBandedLayout) = LazyBlockBandedLayout()
+
+symmetriclayout(::LazyBandedBlockBandedLayouts) = LazyBandedBlockBandedLayout()
+hermitianlayout(_, ::LazyBandedBlockBandedLayouts) = LazyBandedBlockBandedLayout()
 
 bandwidths(M::Applied{<:Any,typeof(*)}) = min.(_bnds(M), prodbandwidths(M.args...))
 

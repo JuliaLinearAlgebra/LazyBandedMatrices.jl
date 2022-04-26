@@ -532,6 +532,8 @@ end
         @test BandedBlockBandedMatrix(B) == B == copyto!(BandedBlockBandedMatrix(B), B) == 2*B.args[2]
         @test MemoryLayout(B') isa LazyBandedMatrices.LazyBandedBlockBandedLayout
         @test BandedBlockBandedMatrix(B') == B'
+        @test MemoryLayout(Symmetric(B)) isa LazyBandedMatrices.LazyBandedBlockBandedLayout
+        @test MemoryLayout(Hermitian(B)) isa LazyBandedMatrices.LazyBandedBlockBandedLayout
 
         C = BroadcastMatrix(*, 2, im*A)
         @test MemoryLayout(C') isa LazyBandedMatrices.LazyBandedBlockBandedLayout
