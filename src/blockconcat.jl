@@ -29,7 +29,7 @@ _blocklengths(ax::OneTo) = length(ax)
 _blocklengths(ax) = blocklengths(ax)
 
 __vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
-__vcat_axes(bls...) = blockedrange(vcat(bls...))
+__vcat_axes(bls...) = blockedrange(Vcat(bls...))
 _vcat_axes(ax...) = __vcat_axes(map(_blocklengths,ax)...)
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
 axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
