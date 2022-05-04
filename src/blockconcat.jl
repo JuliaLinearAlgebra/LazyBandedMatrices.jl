@@ -322,6 +322,12 @@ Base.BroadcastStyle(::Type{<:BlockVcat{T,N}}) where {T,N} = LazyArrayStyle{N}()
 Base.BroadcastStyle(::Type{<:BlockHcat}) = LazyArrayStyle{2}()
 Base.BroadcastStyle(::Type{<:BlockHvcat}) = LazyArrayStyle{2}()
 
+Base.BroadcastStyle(::Type{<:AdjOrTrans{<:Any,<:BlockBroadcastArray}}) = LazyArrayStyle{2}()
+Base.BroadcastStyle(::Type{<:AdjOrTrans{<:Any,<:BlockVcat}}) = LazyArrayStyle{2}()
+Base.BroadcastStyle(::Type{<:AdjOrTrans{<:Any,<:BlockHcat}}) = LazyArrayStyle{2}()
+Base.BroadcastStyle(::Type{<:AdjOrTrans{<:Any,<:BlockHvcat}}) = LazyArrayStyle{2}()
+
+
 function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
     K = findblockindex(axes(A,1), k)
     A.args[blockindex(K)][Int(block(K))]

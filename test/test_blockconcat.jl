@@ -136,6 +136,9 @@ end
     @testset "broadcast" begin
         A = BlockVcat(randn(2,3), randn(1,3))
         @test A + I isa BroadcastArray
+        
+        a = BlockVcat(randn(2), randn(3))
+        @test a' .+ 1 isa BroadcastArray
     end
 end
 
@@ -265,6 +268,7 @@ end
     @testset "broadcast" begin
         A = BlockHcat(randn(3,2), randn(3,1))
         @test A + I isa BroadcastArray
+        @test Adjoint(A) + I isa BroadcastArray
     end
 end
 
@@ -282,6 +286,7 @@ end
     @test copy(H') == H'
 
     @test H + I isa BroadcastArray
+    @test H' + I isa BroadcastArray
 end
 
 
@@ -303,6 +308,9 @@ end
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
         @test copy(A') == A'
+
+        @test A .+ A isa BroadcastArray
+        @test A' .+ A isa BroadcastArray
 
         @testset "padded" begin
             a = Vcat(randn(3), Zeros(10))
