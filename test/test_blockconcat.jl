@@ -292,25 +292,27 @@ end
 
 @testset "Interlace" begin
     @testset "vcat" begin
-        N = 1000
-        a = 1:N
-        b = 11:10+N
-        a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
-        A = BlockBroadcastArray(vcat, a, b)
-        if VERSION < v"1.7-"
-            @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
-        else
-            @test axes(A,1) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
-        end
-        @test @allocated(axes(A)) ≤ 50
-        @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
-        @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
-        @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
-        @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
-        @test copy(A') == A'
+        @testset "basics" begin
+            N = 1000
+            a = 1:N
+            b = 11:10+N
+            a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
+            A = BlockBroadcastArray(vcat, a, b)
+            if VERSION < v"1.7-"
+                @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
+            else
+                @test axes(A,1) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
+            end
+            @test @allocated(axes(A)) ≤ 50
+            @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
+            @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
+            @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
+            @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
+            @test copy(A') == A'
 
-        @test A .+ A isa BroadcastArray
-        @test A' .+ A isa BroadcastArray
+            @test A .+ A isa BroadcastArray
+            @test A' .+ A isa BroadcastArray
+        end
 
         @testset "padded" begin
             a = Vcat(randn(3), Zeros(10))
@@ -331,6 +333,18 @@ end
             @test Ã == A[1:6]
             @test_throws BoundsError A[7]
             @test !isassigned(A,7)
+        end
+
+        @testset "fast materialize" begin
+            N = 500_000
+            a = 1:N
+            b = 11:10+N
+            a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
+            A = BlockBroadcastArray(vcat, a, b)
+
+            ret = PseudoBlockArray(similar(A))
+            @time copyto!(ret, A);
+            @time copyto!(@view(ret.blocks[1:2:end]), a.blocks)
         end
     end
     @testset "hcat" begin
@@ -354,6 +368,20 @@ end
         v = BlockVector(randn(3), 1:2)
         H = BlockBroadcastArray(hcat, v, v)
         @test H[Block(2,1)] == [v[Block(2)] v[Block(2)]]
+
+        @testset "fast materialize" begin
+            N = 500_000
+            a = PseudoBlockArray(1:N,Ones{Int}(N))
+            M = BlockBroadcastArray(hcat, a, Zeros{Int}(axes(a)))
+            @time ret = PseudoBlockArray(M);
+
+            @time copyto!(view(ret.blocks,:,1), 1:N);
+            @time fill!(view(ret.blocks,:,2), 0);
+
+            @ent MemoryLayout(M)
+            args = M.args
+            
+        end
     end
     @testset  "hvcat" begin
         a = unitblocks(randn(2,3))

@@ -285,6 +285,7 @@ BlockBroadcastArray{T}(::typeof(Diagonal), args...) where T = BlockBroadcastMatr
 
 
 _block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
+_block_vcat_axes(ax::OneTo...) = OneTo(+(map(length,ax)...))
 
 _block_interlace_axes(::Int, ax::Tuple{BlockedUnitRange{OneTo{Int}}}...) = _block_vcat_axes(ax...)
 
@@ -460,10 +461,6 @@ blockinterlacelayout(_...) = LazyLayout()
 blockinterlacelayout(::Union{ZerosLayout,PaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
 
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
-
-# temporary hack, need to think of how to flag as lazy for infinite case.
-MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hcat),Arrays}}) where Arrays = LazyLayout()
-
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(Diagonal),Arrays}}) where Arrays = LazyBandedBlockBandedLayout()
 
 ##
@@ -510,7 +507,48 @@ blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convex
 
 blockcolsupport(A::BlockBroadcastVector{<:Any,typeof(vcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 
-blockbroadcastlayout(FF, args...) = UnknownLayout()
+
+struct BlockBroadcastLayout{FF} <: AbstractLazyLayout end
+
+blockbroadcastlayout(::Type{FF}, args...) where FF = BlockBroadcastLayout{FF}()
+sublayout(::BlockBroadcastLayout{FF}, ::Type{<:Tuple{Vararg{BlockSlice{<:BlockRange1}}}}) where FF = BlockBroadcastLayout{FF}()
+
+arguments(::BlockBroadcastLayout, A::BlockBroadcastArray) = A.args
+
+_viewsubindices(::Tuple{}, inds) = ()
+_viewsubindices(args::Tuple, inds) = (view(first(args), inds...), _viewsubindices(tail(args), inds)...)
+
+_deblockslice(bl::BlockSlice) = bl.block
+
+function arguments(lay::BlockBroadcastLayout, A::SubArray)
+    args = arguments(lay, parent(A))
+    _viewsubindices(args, map(_deblockslice,parentindices(A)))
+end
+
+# function _copyto!(::DenseColumnMajor, lay::BlockBroadcastLayout{typeof(vcat)}, dest::AbstractVector, src::AbstractVector)
+#     args = arguments(lay, src)
+#     error("todo")
+# end
+
+function _copyto!(_, lay::BlockBroadcastLayout{typeof(hcat)}, dest::AbstractMatrix, src::AbstractMatrix)
+    args = arguments(lay, src)
+    if axes(src,2) isa OneTo # one block
+        j = 0
+        for a in args
+            if a isa AbstractVector
+                copyto!(view(dest, :, j+1), a)
+            else
+                copyto!(view(dest, :, j .+ axes(a,2)), a)
+            end
+            j += size(a,2)
+        end
+    else
+        error("implement")
+    end
+end
+
+
+
 blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedLayout...) = PaddedLayout{UnknownLayout}()
 
 function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
