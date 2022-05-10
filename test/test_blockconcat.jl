@@ -380,7 +380,7 @@ end
 
             @ent MemoryLayout(M)
             args = M.args
-            
+            @time copyto!(view(ret,:,1), args[1]);
         end
     end
     @testset  "hvcat" begin
