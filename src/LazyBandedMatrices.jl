@@ -348,7 +348,7 @@ function materialize!(M::MatMulVecAdd{<:AllBlockBandedLayout,<:PaddedLayout,<:Pa
     ỹ = paddeddata(y)
     x̃ = paddeddata(x)
 
-    muladd!(α, view(A, blockaxes(ỹ,1), blockaxes(x̃,1)) , x̃, β, ỹ)
+    muladd!(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ)
     y
 end
 
