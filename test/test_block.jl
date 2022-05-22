@@ -1,3 +1,4 @@
+using LazyBandedMatrices, LazyArrays, BlockBandedMatrices, BlockArrays, Test
 
 @testset "Block" begin
     @testset "LazyBlock" begin
@@ -178,5 +179,18 @@
         @test c .* b isa BroadcastVector
         @test b .* c isa BroadcastVector
         @test (c .* b)[Block(1)] == c[1:2] .* b[Block(1)]
+    end
+
+    @testset "Apply block indexing" begin
+        b = PseudoBlockVector(randn(5),[2,3])
+        a = ApplyArray(+, b, b)
+
+        @test exp.(view(a,Block.(1:2))) == exp.(a)
+
+        B = BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1))
+        A = ApplyArray(+, B, B)
+        @test exp.(view(A,Block.(1:3),Block.(1:3))) == exp.(A)
+        @test exp.(view(A,Block.(1:3),2)) == exp.(A)[Block.(1:3),2]
+        @test exp.(view(A,2,Block.(1:3))) == exp.(A)[2,Block.(1:3)]
     end
 end
