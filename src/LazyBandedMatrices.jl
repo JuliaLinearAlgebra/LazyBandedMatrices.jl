@@ -414,6 +414,10 @@ applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = BandedStyle
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBlockBandedLayout) = LazyArrayStyle{2}()
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedBlockBandedLayout) = LazyArrayStyle{2}()
 
+BroadcastStyle(M::Type{<:SubArray{<:Any,N,<:ApplyArray,I}}) where {N,I<:Tuple{BlockSlice{<:Any,<:BlockedUnitRange},Vararg{Any}}} = applybroadcaststyle(M, MemoryLayout(M))
+BroadcastStyle(M::Type{<:SubArray{<:Any,N,<:ApplyArray,I}}) where {N,I<:Tuple{BlockSlice{<:Any,<:BlockedUnitRange},BlockSlice{<:Any,<:BlockedUnitRange},Vararg{Any}}} = applybroadcaststyle(M, MemoryLayout(M))
+BroadcastStyle(M::Type{<:SubArray{<:Any,N,<:ApplyArray,I}}) where {N,I<:Tuple{Any,BlockSlice{<:Any,<:BlockedUnitRange},Vararg{Any}}} = applybroadcaststyle(M, MemoryLayout(M))
+
 @inline colsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_rowsupport(A, j)
 @inline _mul_arguments(::ApplyBandedLayout{typeof(*)}, A) = arguments(A)
