@@ -348,7 +348,7 @@ function materialize!(M::MatMulVecAdd{<:AllBlockBandedLayout,<:PaddedLayout,<:Pa
     ỹ = paddeddata(y)
     x̃ = paddeddata(x)
 
-    muladd!(α, view(A, blockaxes(ỹ,1), blockaxes(x̃,1)) , x̃, β, ỹ)
+    muladd!(α, view(A, axes(ỹ,1), axes(x̃,1)) , x̃, β, ỹ)
     y
 end
 
@@ -413,6 +413,10 @@ applylayout(::Type{typeof(*)}, ::AbstractBandedBlockBandedLayout...) = ApplyBand
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = BandedStyle()
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBlockBandedLayout) = LazyArrayStyle{2}()
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedBlockBandedLayout) = LazyArrayStyle{2}()
+
+BroadcastStyle(M::Type{<:SubArray{<:Any,N,<:ApplyArray,I}}) where {N,I<:Tuple{BlockSlice{<:Any,<:BlockedUnitRange},Vararg{Any}}} = applybroadcaststyle(M, MemoryLayout(M))
+BroadcastStyle(M::Type{<:SubArray{<:Any,N,<:ApplyArray,I}}) where {N,I<:Tuple{BlockSlice{<:Any,<:BlockedUnitRange},BlockSlice{<:Any,<:BlockedUnitRange},Vararg{Any}}} = applybroadcaststyle(M, MemoryLayout(M))
+BroadcastStyle(M::Type{<:SubArray{<:Any,N,<:ApplyArray,I}}) where {N,I<:Tuple{Any,BlockSlice{<:Any,<:BlockedUnitRange},Vararg{Any}}} = applybroadcaststyle(M, MemoryLayout(M))
 
 @inline colsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_colsupport(A, j)
 @inline rowsupport(::ApplyBandedLayout{typeof(*)}, A, j) = banded_rowsupport(A, j)
