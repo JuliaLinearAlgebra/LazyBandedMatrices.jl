@@ -31,27 +31,6 @@ include("test_block.jl")
 
 
 
-
-
-
-struct FiniteDifference{T} <: AbstractBandedMatrix{T}
-    n::Int
-end
-
-FiniteDifference(n) = FiniteDifference{Float64}(n)
-
-Base.getindex(F::FiniteDifference{T}, k::Int, j::Int) where T =
-    if k == j
-        -2*one(T)*F.n^2
-    elseif abs(k-j) == 1
-        one(T)*F.n^2
-    else
-        zero(T)
-    end
-
-BandedMatrices.bandwidths(F::FiniteDifference) = (1,1)
-Base.size(F::FiniteDifference) = (F.n,F.n)
-
 @testset "Misc" begin
 
     @testset "Diagonal interface" begin

@@ -56,41 +56,6 @@ import BandedMatrices: BandedColumns
         end
     end
 
-    @testset "Block banded Kron" begin
-        n = 10
-        h = 1/n
-        D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))/h^2
-
-        @time D_xx = BandedBlockBandedMatrix(BlockKron(D², Eye(n)))
-        @time D_yy = BandedBlockBandedMatrix(BlockKron(Eye(n),D²))
-        @test D_xx == blockkron(D², Eye(n))
-        @time Δ = D_xx + D_yy
-
-        @test Δ isa BandedBlockBandedMatrix
-        @test blockbandwidths(Δ) == subblockbandwidths(Δ) == (1,1)
-        @test Δ == blockkron(Matrix(D²), Matrix(I,n,n)) + blockkron(Matrix(I,n,n), Matrix(D²))
-
-        n = 10
-        D² = FiniteDifference(n)
-        D̃_xx = BlockKron(D², Eye(n))
-        @test blockbandwidths(D̃_xx) == (1,1)
-        @test subblockbandwidths(D̃_xx) == (0,0)
-
-        V = view(D̃_xx, Block(1,1))
-        @test bandwidths(V) == (0,0)
-
-        @test BandedBlockBandedMatrix(D̃_xx) ≈ D_xx
-
-        D̃_yy = BlockKron(Eye(n), D²)
-        @test blockbandwidths(D̃_yy) == (0,0)
-        @test subblockbandwidths(D̃_yy) == (1,1)
-
-        V = view(D̃_yy, Block(1,1))
-        @test bandwidths(V) == (1,1)
-
-        @test BandedBlockBandedMatrix(D̃_yy) ≈ D_yy
-    end
-
     @testset "DiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
         @test DiagTrav(A) == [1, 4, 2, 7, 5, 3]
