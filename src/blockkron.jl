@@ -15,11 +15,6 @@ bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
 
-isblockbanded(K::BlockKron) = isbanded(first(K.args))
-isbandedblockbanded(K::BlockKron) = all(isbanded, K.args)
-blockbandwidths(K::BlockKron) = bandwidths(first(K.args))
-subblockbandwidths(K::BlockKron) = bandwidths(last(K.args))
-
 
 """
     DiagTrav(A::AbstractMatrix)
