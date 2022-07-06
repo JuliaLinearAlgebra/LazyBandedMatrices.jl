@@ -166,3 +166,5 @@ krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
 BroadcastStyle(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} =
     krontavbroadcaststyle(BroadcastStyle(AA), BroadcastStyle(BB))
+
+mul(L::KronTrav, M::KronTrav) = KronTrav(L.A*M.A, L.B*M.B)
