@@ -99,6 +99,8 @@ import BandedMatrices: BandedColumns
             B = [5 6; 7 8]
             K = KronTrav(A,B)
 
+            @test copy(K) == K
+
             X = [9 10; 11 0]
             @test K*DiagTrav(X) == DiagTrav(B*X*A')
 

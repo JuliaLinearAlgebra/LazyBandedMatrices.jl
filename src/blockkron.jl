@@ -102,6 +102,7 @@ function _krontrav_axes(A::NTuple{N,OneTo{Int}}, B::NTuple{N,OneTo{Int}}) where 
     @. blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
 end
 
+copy(K::KronTrav) = KronTrav(copy(K.A), copy(K.B), K.axes)
 axes(A::KronTrav) = A.axes
 
 function getindex(A::KronTrav{<:Any,1}, K::Block{1})
