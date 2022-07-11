@@ -141,8 +141,8 @@ function _krontrav_getindex(Kin::Block{2}, A, B, C)
     k,j = Kin.n
     AB = KronTrav(A, B)[Block.(1:k), Block.(1:j)]
     C̃ = rot180(layout_getindex(C,1:k,1:j))
-    for j̃ = 1:j, k̃ = 1:k
-        AB[Block(k̃), Block(j̃)] .*= C̃[k̃, j̃]
+    for J = Block.(1:j), K = blockcolsupport(AB, J)
+        lmul!(C̃[Int(K), Int(J)], view(AB, K, J))
     end
     AB
 end
@@ -155,28 +155,55 @@ getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N =
 
 # A.A[1:k,1:j] has A_l,A_u
 # A.B[k:-1:1,j:-1:1] has bandwidths (B_u + k-j, B_l + j-k)
-subblockbandwidths(A::KronTrav) = bandwidths(first(A.args))
-blockbandwidths(A::KronTrav) = broadcast(+, map(bandwidths,A.args)...)
+
+_krontrav_subblockbandwidths(A, B) = bandwidths(A)
+_krontrav_subblockbandwidths(A, B, C) = bandwidths(KronTrav(A, B))
+_krontrav_blockbandwidths(A...) = broadcast(+, map(bandwidths,A)...)
+
+subblockbandwidths(A::KronTrav) = _krontrav_subblockbandwidths(A.args...)
+blockbandwidths(A::KronTrav) = _krontrav_blockbandwidths(A.args...)
+
+
 isblockbanded(A::KronTrav) = all(isbanded, A.args)
-isbandedblockbanded(A::KronTrav) = isblockbanded(A)
+isbandedblockbanded(A::KronTrav) = isblockbanded(A) && length(A.args) == 2
 
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
+struct KronTravLayout{M} <: AbstractBlockLayout end
 
-krontravlayout(_...) = UnknownLayout()
+
+
+krontravlayout(::Vararg{Any,M}) where M = KronTravLayout{M}()
 krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedBlockBandedLayout()
 MemoryLayout(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} = krontravlayout(tuple_type_memorylayouts(AA)...)
 
 
 sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastLayout{typeof(*)}()
+
+sublayout(::KronTravLayout{M}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) where M = KronTravLayout{M}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) where M = KronTravLayout{2}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{<:BlockRange1}}}) = BlockLayout{UnknownLayout,BroadcastLayout{typeof(*)}}()
+sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravBandedBlockBandedLayout()
+
+sub_materialize(::Union{KronTravLayout,KronTravBandedBlockBandedLayout}, V) = KronTrav(map(sub_materialize, krontravargs(V))...)
+
+
+krontravargs(K::KronTrav) = K.args
+function krontravargs(V::SubArray)
+    KR,JR = parentindices(V)
+    m,n = Int(KR.block[end]), Int(JR.block[end])
+    view.(krontravargs(parent(V)), Ref(OneTo(m)), Ref(OneTo(n)))
+end
+
 
 call(b::BroadcastLayout{typeof(*)}, a::KronTrav) = *
 call(b::BroadcastBandedLayout{typeof(*)}, a::SubArray) = *
 
-function _broadcast_sub_arguments(::KronTravBandedBlockBandedLayout, M, V)
+function _broadcast_sub_arguments(::Union{KronTravLayout{2},KronTravBandedBlockBandedLayout}, M, V)
     K,J = parentindices(V)
     k,j = Int(K.block),Int(J.block)
-    @assert length(M.args) == 2
-    A,B = M.args
+    @assert length(krontravargs(M)) == 2
+    A,B = krontravargs(M)
     view(A,1:k,1:j), ApplyMatrix(rot180,view(B,1:k,1:j))
 end
 
@@ -184,9 +211,10 @@ end
 krontavbroadcaststyle(::BandedStyle, ::BandedStyle) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
-krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
-krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
-krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::Union{BandedStyle,StructuredMatrixStyle{<:Diagonal}}...) = BlockBandedStyle()
+krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
 
 tuple_type_broadcaststyle(::Type{Tuple{}}) = ()
 tuple_type_broadcaststyle(T::Type{<:Tuple{A,Vararg{Any}}}) where A = 

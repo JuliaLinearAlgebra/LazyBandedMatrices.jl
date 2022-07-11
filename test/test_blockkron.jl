@@ -135,7 +135,9 @@ import BandedMatrices: BandedColumns
 
             X = [9 10; 11 0]
             @test K*DiagTrav(X) == DiagTrav(B*X*A')
-        end
+
+            @test K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2), Block.(1:2)] == K
+        end 
 
         @testset "tensor" begin
             A = [1 2;
@@ -150,6 +152,8 @@ import BandedMatrices: BandedColumns
                         1*7*2 1*7*4 1*8*2 2*7*2;
                         3*5*2 3*5*4 3*6*2 4*5*2]
 
+            @test K == K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2),Block.(1:2)]
+
             n = 2
             X = Array(reshape(1:n^3, n, n, n))
             X[2,2,1] = X[1,2,2] = X[2,1,2] = X[2,2,2] = 0
@@ -158,30 +162,70 @@ import BandedMatrices: BandedColumns
             for k = 1:n, j=1:n Y[k,:,j] = B*Y[k,:,j] end
             for k = 1:n, j=1:n Y[:,k,j] = C*Y[:,k,j] end
             @test K*DiagTrav(X) ≈ DiagTrav(Y)
+
+            n = 3
+            A,B,C = randn(n,n), randn(n,n), randn(n,n)
+            K = KronTrav(A,B,C)
+            X = randn(n,n,n)
+            for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
+                X[k+1,j+1,ℓ+1] = 0
+            end
+            Y = float(similar(X))
+            for k = 1:n, j=1:n Y[k,j,:] = A*X[k,j,:] end
+            for k = 1:n, j=1:n Y[k,:,j] = B*Y[k,:,j] end
+            for k = 1:n, j=1:n Y[:,k,j] = C*Y[:,k,j] end
+            @test K*DiagTrav(X) ≈ DiagTrav(Y)
         end
 
         @testset "banded" begin
-            n = 4
-            Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
-            A = KronTrav(Δ, Eye(n))
-            B = KronTrav(Eye(n), Δ)
+            @testset "2D" begin
+                n = 4
+                Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+                A = KronTrav(Δ, Eye(n))
+                B = KronTrav(Eye(n), Δ)
 
-            X = triu!(randn(n,n))[:,end:-1:1]
-            @test A * DiagTrav(X) == DiagTrav(X * Δ')
-            @test B * DiagTrav(X) == DiagTrav(Δ * X)
+                X = triu!(randn(n,n))[:,end:-1:1]
+                @test A * DiagTrav(X) == DiagTrav(X * Δ')
+                @test B * DiagTrav(X) == DiagTrav(Δ * X)
 
-            @test blockbandwidths(A) == blockbandwidths(B) == (1,1)
-            @test subblockbandwidths(A) == (1,1)
-            @test subblockbandwidths(B) == (0,0)
-            @test isblockbanded(A)
-            @test isbandedblockbanded(A)
-            @test BandedBlockBandedMatrix(A) == A
-            @test MemoryLayout(A) isa KronTravBandedBlockBandedLayout
+                @test blockbandwidths(A) == blockbandwidths(B) == (1,1)
+                @test subblockbandwidths(A) == (1,1)
+                @test subblockbandwidths(B) == (0,0)
+                @test isblockbanded(A)
+                @test isbandedblockbanded(A)
+                @test BandedBlockBandedMatrix(A) == A
+                @test MemoryLayout(A) isa KronTravBandedBlockBandedLayout
 
 
-            @test Base.BroadcastStyle(typeof(A)) isa BandedBlockBandedStyle
-            @test A+B isa BandedBlockBandedMatrix
-            @test A+B == Matrix(A) + Matrix(B)
+                @test Base.BroadcastStyle(typeof(A)) isa BandedBlockBandedStyle
+                @test A+B isa BandedBlockBandedMatrix
+                @test A+B == Matrix(A) + Matrix(B)
+            end
+            @testset "3D" begin
+                n = 4
+                D² = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+                A = KronTrav(D², Eye(n), Eye(n))
+                B = KronTrav(Eye(n), D², Eye(n))
+                C = KronTrav(Eye(n), Eye(n), D²)
+                @test blockbandwidths(A) == blockbandwidths(B) == blockbandwidths(C) == (1,1)
+
+                @test A == KronTrav(map(Matrix, A.args)...)
+
+                Δ = A + B + C
+
+                X = randn(n, n, n)
+                for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
+                    X[k+1,j+1,ℓ+1] = 0
+                end
+
+                Y = similar(X)
+                for k = 1:n, j=1:n Y[k,j,:] = D²*X[k,j,:] end
+                @test A*DiagTrav(X) ≈ DiagTrav(Y)
+
+                for k = 1:n, j=1:n Y[k,:,j] += D²*X[k,:,j] end
+                for k = 1:n, j=1:n Y[:,k,j] += D²*X[:,k,j] end
+                
+            end
         end
 
         @testset "Views" begin
