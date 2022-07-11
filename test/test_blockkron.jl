@@ -97,8 +97,8 @@ import BandedMatrices: BandedColumns
         A = DiagTrav(randn(3,3,3))
         @test A[Block(1)] == A[1:1,1,1]
         @test A[Block(2)] == [A.array[2,1,1], A.array[1,2,1], A.array[1,1,2]]
-        @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[1,3,1],
-                            A.array[2,1,2], A.array[1,2,2], A.array[1,1,3]]
+        @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[2,1,2],
+                            A.array[1,3,1], A.array[1,2,2], A.array[1,1,3]]
         @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
     end
 
@@ -166,7 +166,7 @@ import BandedMatrices: BandedColumns
             n = 3
             A,B,C = randn(n,n), randn(n,n), randn(n,n)
             K = KronTrav(A,B,C)
-            
+
             X = randn(n,n,n)
             for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
                 X[k+1,j+1,ℓ+1] = 0
@@ -225,7 +225,7 @@ import BandedMatrices: BandedColumns
 
                 for k = 1:n, j=1:n Y[k,:,j] += D²*X[k,:,j] end
                 for k = 1:n, j=1:n Y[:,k,j] += D²*X[:,k,j] end
-                
+                @test Δ*DiagTrav(X) ≈ DiagTrav(Y)
             end
         end
 
