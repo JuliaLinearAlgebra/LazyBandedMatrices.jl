@@ -609,6 +609,14 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test M*C̃ isa MulMatrix
         @test C̃*M̃ isa MulMatrix
         @test M̃*C̃ isa MulMatrix
+        
+        L = _BandedMatrix(MyLazyArray(randn(3,10)),10,1,1)
+        @test Base.BroadcastStyle(typeof(L)) isa LazyArrayStyle{2}
+
+        @test 2 * L isa BandedMatrix
+        @test L * 2 isa BandedMatrix
+        @test 2 \ L isa BandedMatrix
+        @test L / 2 isa BandedMatrix
     end
 
     @testset "Banded rot" begin

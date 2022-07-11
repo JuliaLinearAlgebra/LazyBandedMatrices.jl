@@ -114,6 +114,14 @@ import BandedMatrices: BandedColumns
         A = BlockKron(Δ, Eye(n), Eye(n))
         @test isblockbanded(A)
         @test blockbandwidths(A) == (1,1)
+        @test subblockbandwidths(A) == (0,0)
+        @test BandedBlockBandedMatrix(A) == A
+
+        B = BlockKron(Eye(n), Δ, Eye(n))
+        @test isblockbanded(B)
+        @test blockbandwidths(B) == (0,0)
+        @test_broken subblockbandwidths(B) == (4,4)
+        @test_broken BandedBlockBandedMatrix(B) == B
     end
 
     @testset "KronTrav" begin
@@ -201,6 +209,8 @@ import BandedMatrices: BandedColumns
                 @test Base.BroadcastStyle(typeof(A)) isa BandedBlockBandedStyle
                 @test A+B isa BandedBlockBandedMatrix
                 @test A+B == Matrix(A) + Matrix(B)
+
+                @test A[Block.(Base.OneTo(3)), Block.(Base.OneTo(3))] isa KronTrav
             end
             @testset "3D" begin
                 n = 4
@@ -210,7 +220,7 @@ import BandedMatrices: BandedColumns
                 C = KronTrav(Eye(n), Eye(n), D²)
                 @test blockbandwidths(A) == blockbandwidths(B) == blockbandwidths(C) == (1,1)
 
-                @test A == KronTrav(map(Matrix, A.args)...)
+                @test A == KronTrav(map(Matrix, A.args)...) == BandedBlockBandedMatrix(A)
 
                 Δ = A + B + C
 
@@ -245,6 +255,23 @@ import BandedMatrices: BandedColumns
             @test subblockbandwidths(V) == (1,1)
             @test BandedBlockBandedMatrix(V) == A[Block.(2:4), Block.(1:4)]
             @test A[Block.(2:4), Block.(1:4)] isa BandedBlockBandedMatrix
+        end
+
+        @testset "Lazy" begin
+            n = 5
+            A = MyLazyArray(randn(n,n))
+            B = brand(n,n,1,1)
+            @test Base.BroadcastStyle(typeof(KronTrav(A,B))) isa LazyArrayStyle{2}
+            @test Base.BroadcastStyle(typeof(KronTrav(B,A))) isa LazyArrayStyle{2}
+            @test Base.BroadcastStyle(typeof(KronTrav(A,A))) isa LazyArrayStyle{2}
+        end
+
+        @testset "Mul" begin
+            n = 4
+            Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+            A = KronTrav(Δ, Eye(n))
+            @test A^2 isa KronTrav
+            @test_broken A^2 == Matrix(A)^2
         end
     end
 
