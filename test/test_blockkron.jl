@@ -1,6 +1,7 @@
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 import BlockBandedMatrices: isbandedblockbanded, BandedBlockBandedStyle, BandedLayout
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, arguments, FillLayout, OnesLayout, call
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call
+import LazyArrays: resizedata!
 import BandedMatrices: BandedColumns
 
 
@@ -103,7 +104,6 @@ import BandedMatrices: BandedColumns
 
             X = [9 10; 11 0]
             @test K*DiagTrav(X) == DiagTrav(B*X*A')
-
         end
 
         @testset "banded" begin
