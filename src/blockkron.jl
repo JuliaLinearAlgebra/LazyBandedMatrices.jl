@@ -1,3 +1,10 @@
+const OneToCumsum = RangeCumsum{Int,OneTo{Int}}
+BlockArrays.sortedunion(a::OneToCumsum, ::OneToCumsum) = a
+function BlockArrays.sortedunion(a::RangeCumsum{<:Any,<:AbstractRange}, b::RangeCumsum{<:Any,<:AbstractRange})
+    @assert a == b
+    a
+end
+
 ###
 # Block
 ###
@@ -90,14 +97,19 @@ struct KronTrav{T, N, AA<:Tuple{Vararg{AbstractArray{T,N}}}, AXES} <: AbstractBl
 end
 
 KronTrav(A::AbstractArray{T,N}...) where {T,V,N} =
-    KronTrav(A, _krontrav_axes(map(axes,A)...))
+    KronTrav(A, map(_krontrav_axes, map(axes,A)...))
 
-function _krontrav_axes(A::NTuple{N,OneTo{Int}}, B::NTuple{N,OneTo{Int}}) where N
-    m,n = length.(A), length.(B)
-    mn = min.(m,n)
-    @. blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
+    m,n = length(A), length(B)
+    mn = min(m,n)
+    blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
 end
 
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int}, C::OneTo{Int})
+    m,n,ν = length(A), length(B), length(C)
+    @assert m == n == ν
+    blockedrange(RangeCumsum(OneTo(m)))
+end
 copy(K::KronTrav) = KronTrav(map(copy,K.args), K.axes)
 axes(A::KronTrav) = A.axes
 
@@ -115,9 +127,7 @@ function getindex(M::KronTrav{<:Any,1}, K::Block{1})
     end
 end
 
-function getindex(M::KronTrav{<:Any,2}, K::Block{2})
-    @assert length(M.args) == 2
-    A,B = M.args
+function _krontrav_getindex(K::Block{2}, A, B)
     m,n = size(A), size(B)
     @assert m == n
     k,j = K.n
@@ -126,6 +136,18 @@ function getindex(M::KronTrav{<:Any,2}, K::Block{2})
     # rot180 to preserve bandedness
     layout_getindex(A,1:k,1:j) .* rot180(layout_getindex(B,1:k,1:j))
 end
+
+function _krontrav_getindex(Kin::Block{2}, A, B, C)
+    k,j = Kin.n
+    AB = KronTrav(A, B)[Block.(1:k), Block.(1:j)]
+    C̃ = rot180(layout_getindex(C,1:k,1:j))
+    for j̃ = 1:j, k̃ = 1:k
+        AB[Block(k̃), Block(j̃)] .*= C̃[k̃, j̃]
+    end
+    AB
+end
+
+getindex(M::KronTrav{<:Any,2}, K::Block{2}) = _krontrav_getindex(K, M.args...)
 
 
 getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N =
@@ -140,7 +162,7 @@ isbandedblockbanded(A::KronTrav) = isblockbanded(A)
 
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 
-krontravlayout(_, _) = UnknownLayout()
+krontravlayout(_...) = UnknownLayout()
 krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedBlockBandedLayout()
 MemoryLayout(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} = krontravlayout(tuple_type_memorylayouts(AA)...)
 
