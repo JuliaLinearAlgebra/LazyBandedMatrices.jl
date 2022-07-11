@@ -166,6 +166,7 @@ import BandedMatrices: BandedColumns
             n = 3
             A,B,C = randn(n,n), randn(n,n), randn(n,n)
             K = KronTrav(A,B,C)
+            
             X = randn(n,n,n)
             for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
                 X[k+1,j+1,ℓ+1] = 0

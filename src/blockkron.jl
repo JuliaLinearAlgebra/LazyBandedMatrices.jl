@@ -63,9 +63,9 @@ function getindex(A::DiagTrav{T,3}, K::Block{1}) where T
     @assert m == n == p
     st = stride(A.array,2)
     st3 = stride(A.array,3)
-    ret = A.array[range(k; step=st-1, length=k)]
-    for j = 1:k-1
-        append!(ret, view(A.array, range(j*st3 + (k-j); step=st-1, length=k-j)))
+    ret = T[]
+    for j = 0:k-1
+        append!(ret, view(A.array, range(j*st + k-j; step=st3-st, length=j+1)))
     end
     ret
 end
