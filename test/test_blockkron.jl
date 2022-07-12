@@ -270,8 +270,7 @@ import BandedMatrices: BandedColumns
             n = 4
             Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
             A = KronTrav(Δ, Eye(n))
-            @test A^2 isa KronTrav
-            @test_broken A^2 == Matrix(A)^2
+            @test A^2 == Matrix(A)^2
         end
     end
 

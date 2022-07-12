@@ -167,6 +167,8 @@ blockbandwidths(A::KronTrav) = _krontrav_blockbandwidths(A.args...)
 isblockbanded(A::KronTrav) = all(isbanded, A.args)
 isbandedblockbanded(A::KronTrav) = isblockbanded(A) && length(A.args) == 2
 
+convert(::Type{B}, A::KronTrav{<:Any,2}) where B<:BandedBlockBandedMatrix = convert(B, BandedBlockBandedMatrix(A))
+
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 struct KronTravLayout{M} <: AbstractBlockLayout end
 
@@ -222,4 +224,4 @@ tuple_type_broadcaststyle(T::Type{<:Tuple{A,Vararg{Any}}}) where A =
 BroadcastStyle(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} =
     krontavbroadcaststyle(tuple_type_broadcaststyle(AA)...)
 
-mul(L::KronTrav, M::KronTrav) = KronTrav((L.args .* M.args)...)
+# mul(L::KronTrav, M::KronTrav) = KronTrav((L.args .* M.args)...)
