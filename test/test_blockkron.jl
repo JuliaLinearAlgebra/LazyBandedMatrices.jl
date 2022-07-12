@@ -1,58 +1,86 @@
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 import BlockBandedMatrices: isbandedblockbanded, BandedBlockBandedStyle, BandedLayout
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, arguments, FillLayout, OnesLayout, call
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call
+import LazyArrays: resizedata!
 import BandedMatrices: BandedColumns
 
 
 @testset "Kron" begin
     @testset "Banded kron" begin
-        A = brand(5,5,2,2)
-        B = brand(2,2,1,0)
-        K = kron(A,B)
-        @test K isa BandedMatrix
-        @test bandwidths(K) == (5,4)
-        @test Matrix(K) == kron(Matrix(A), Matrix(B))
+        @testset "2D" begin
+            A = brand(5,5,2,2)
+            B = brand(2,2,1,0)
+            K = kron(A,B)
+            @test K isa BandedMatrix
+            @test bandwidths(K) == (5,4)
+            @test Matrix(K) == kron(Matrix(A), Matrix(B))
 
-        A = brand(3,4,1,1)
-        B = brand(3,2,1,0)
-        K = kron(A,B)
-        @test K isa BandedMatrix
-        @test bandwidths(K) == (7,2)
-        @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
-        K = kron(B,A)
-        @test Matrix(K) ≈ kron(Matrix(B), Matrix(A))
+            A = brand(3,4,1,1)
+            B = brand(3,2,1,0)
+            K = kron(A,B)
+            @test K isa BandedMatrix
+            @test bandwidths(K) == (7,2)
+            @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
+            K = kron(B,A)
+            @test Matrix(K) ≈ kron(Matrix(B), Matrix(A))
 
-        K = kron(A, B')
-        K isa BandedMatrix
-        @test Matrix(K) ≈ kron(Matrix(A), Matrix(B'))
-        K = kron(A', B)
-        K isa BandedMatrix
-        @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B))
-        K = kron(A', B')
-        K isa BandedMatrix
-        @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B'))
+            K = kron(A, B')
+            K isa BandedMatrix
+            @test Matrix(K) ≈ kron(Matrix(A), Matrix(B'))
+            K = kron(A', B)
+            K isa BandedMatrix
+            @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B))
+            K = kron(A', B')
+            K isa BandedMatrix
+            @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B'))
 
-        A = brand(5,6,2,2)
-        B = brand(3,2,1,0)
-        K = kron(A,B)
-        @test K isa BandedMatrix
-        @test bandwidths(K) == (12,4)
-        @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
+            A = brand(5,6,2,2)
+            B = brand(3,2,1,0)
+            K = kron(A,B)
+            @test K isa BandedMatrix
+            @test bandwidths(K) == (12,4)
+            @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
 
-        n = 10; h = 1/n
-        D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
-        D_xx = kron(D², Eye(n))
-        @test D_xx isa BandedMatrix
-        @test bandwidths(D_xx) == (10,10)
-        D_yy = kron(Eye(n), D²)
-        @test D_yy isa BandedMatrix
-        @test bandwidths(D_yy) == (1,1)
-        Δ = D_xx + D_yy
-        @test Δ isa BandedMatrix
-        @test bandwidths(Δ) == (10,10)
+            n = 10; h = 1/n
+            D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
+            D_xx = kron(D², Eye(n))
+            D_yy = kron(Eye(n), D²)
+            @test D_xx isa BandedMatrix
+            @test D_yy isa BandedMatrix
+            @test bandwidths(D_xx) == (10,10)
+            @test bandwidths(D_yy) == (1,1)
+            X = randn(n,n)
+            @test reshape(D_xx*vec(X),n,n) ≈ X*D²'
+            @test reshape(D_yy*vec(X),n,n) ≈ D²*X
+            Δ = D_xx + D_yy
+            @test Δ isa BandedMatrix
+            @test bandwidths(Δ) == (10,10)
+        end
 
         @testset "#87" begin
             @test kron(Diagonal([1,2,3]), Eye(3)) isa Diagonal{Float64,Vector{Float64}}
+        end
+
+        @testset "3D" begin
+            n = 10; h = 1/n
+            D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
+            
+            D_xx = kron(D², Eye(n), Eye(n))
+            D_yy = kron(Eye(n), D², Eye(n))
+            D_zz = kron(Eye(n), Eye(n), D²)
+            @test bandwidths(D_xx) == (n^2,n^2)
+            @test bandwidths(D_yy) == (n,n)
+            @test bandwidths(D_zz) == (1,1)
+
+            X = randn(n,n,n)
+            
+            Y = similar(X)
+            for k = 1:n, j=1:n Y[k,j,:] = D²*X[k,j,:] end
+            @test reshape(D_xx*vec(X), n, n, n) ≈ Y
+            for k = 1:n, j=1:n Y[k,:,j] = D²*X[k,:,j] end
+            @test reshape(D_yy*vec(X), n, n, n) ≈ Y
+            for k = 1:n, j=1:n Y[:,k,j] = D²*X[:,k,j] end
+            @test reshape(D_zz*vec(X), n, n, n) ≈ Y
         end
     end
 
@@ -69,8 +97,8 @@ import BandedMatrices: BandedColumns
         A = DiagTrav(randn(3,3,3))
         @test A[Block(1)] == A[1:1,1,1]
         @test A[Block(2)] == [A.array[2,1,1], A.array[1,2,1], A.array[1,1,2]]
-        @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[1,3,1],
-                            A.array[2,1,2], A.array[1,2,2], A.array[1,1,3]]
+        @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[2,1,2],
+                            A.array[1,3,1], A.array[1,2,2], A.array[1,1,3]]
         @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
     end
 
@@ -82,6 +110,18 @@ import BandedMatrices: BandedColumns
         @test isbandedblockbanded(A)
         @test blockbandwidths(A) == (1,1)
         @test BandedBlockBandedMatrix(A) == A
+
+        A = BlockKron(Δ, Eye(n), Eye(n))
+        @test isblockbanded(A)
+        @test blockbandwidths(A) == (1,1)
+        @test subblockbandwidths(A) == (0,0)
+        @test BandedBlockBandedMatrix(A) == A
+
+        B = BlockKron(Eye(n), Δ, Eye(n))
+        @test isblockbanded(B)
+        @test blockbandwidths(B) == (0,0)
+        @test_broken subblockbandwidths(B) == (4,4)
+        @test_broken BandedBlockBandedMatrix(B) == B
     end
 
     @testset "KronTrav" begin
@@ -99,33 +139,104 @@ import BandedMatrices: BandedColumns
             B = [5 6; 7 8]
             K = KronTrav(A,B)
 
+            @test copy(K) == K
+
             X = [9 10; 11 0]
             @test K*DiagTrav(X) == DiagTrav(B*X*A')
 
+            @test K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2), Block.(1:2)] == K
+        end 
+
+        @testset "tensor" begin
+            A = [1 2;
+                 3 4]
+            B = [5 6;
+                 7 8]
+            C = [2 4;
+                 6 8]
+            K = KronTrav(A,B,C)
+            @test K == [1*5*2 1*5*4 1*6*2 2*5*2;
+                        1*5*6 1*5*8 1*6*6 2*5*6;
+                        1*7*2 1*7*4 1*8*2 2*7*2;
+                        3*5*2 3*5*4 3*6*2 4*5*2]
+
+            @test K == K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2),Block.(1:2)]
+
+            n = 2
+            X = Array(reshape(1:n^3, n, n, n))
+            X[2,2,1] = X[1,2,2] = X[2,1,2] = X[2,2,2] = 0
+            Y = similar(X)
+            for k = 1:n, j=1:n Y[k,j,:] = A*X[k,j,:] end
+            for k = 1:n, j=1:n Y[k,:,j] = B*Y[k,:,j] end
+            for k = 1:n, j=1:n Y[:,k,j] = C*Y[:,k,j] end
+            @test K*DiagTrav(X) ≈ DiagTrav(Y)
+
+            n = 3
+            A,B,C = randn(n,n), randn(n,n), randn(n,n)
+            K = KronTrav(A,B,C)
+
+            X = randn(n,n,n)
+            for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
+                X[k+1,j+1,ℓ+1] = 0
+            end
+            Y = float(similar(X))
+            for k = 1:n, j=1:n Y[k,j,:] = A*X[k,j,:] end
+            for k = 1:n, j=1:n Y[k,:,j] = B*Y[k,:,j] end
+            for k = 1:n, j=1:n Y[:,k,j] = C*Y[:,k,j] end
+            @test K*DiagTrav(X) ≈ DiagTrav(Y)
         end
 
         @testset "banded" begin
-            n = 4
-            Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
-            A = KronTrav(Δ, Eye(n))
-            B = KronTrav(Eye(n), Δ)
+            @testset "2D" begin
+                n = 4
+                Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+                A = KronTrav(Δ, Eye(n))
+                B = KronTrav(Eye(n), Δ)
 
-            X = triu!(randn(n,n))[:,end:-1:1]
-            @test A * DiagTrav(X) == DiagTrav(X * Δ')
-            @test B * DiagTrav(X) == DiagTrav(Δ * X)
+                X = triu!(randn(n,n))[:,end:-1:1]
+                @test A * DiagTrav(X) == DiagTrav(X * Δ')
+                @test B * DiagTrav(X) == DiagTrav(Δ * X)
 
-            @test blockbandwidths(A) == blockbandwidths(B) == (1,1)
-            @test subblockbandwidths(A) == (1,1)
-            @test subblockbandwidths(B) == (0,0)
-            @test isblockbanded(A)
-            @test isbandedblockbanded(A)
-            @test BandedBlockBandedMatrix(A) == A
-            @test MemoryLayout(A) isa KronTravBandedBlockBandedLayout
+                @test blockbandwidths(A) == blockbandwidths(B) == (1,1)
+                @test subblockbandwidths(A) == (1,1)
+                @test subblockbandwidths(B) == (0,0)
+                @test isblockbanded(A)
+                @test isbandedblockbanded(A)
+                @test BandedBlockBandedMatrix(A) == A
+                @test MemoryLayout(A) isa KronTravBandedBlockBandedLayout
 
 
-            @test Base.BroadcastStyle(typeof(A)) isa BandedBlockBandedStyle
-            @test A+B isa BandedBlockBandedMatrix
-            @test A+B == Matrix(A) + Matrix(B)
+                @test Base.BroadcastStyle(typeof(A)) isa BandedBlockBandedStyle
+                @test A+B isa BandedBlockBandedMatrix
+                @test A+B == Matrix(A) + Matrix(B)
+
+                @test A[Block.(Base.OneTo(3)), Block.(Base.OneTo(3))] isa KronTrav
+            end
+            @testset "3D" begin
+                n = 4
+                D² = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+                A = KronTrav(D², Eye(n), Eye(n))
+                B = KronTrav(Eye(n), D², Eye(n))
+                C = KronTrav(Eye(n), Eye(n), D²)
+                @test blockbandwidths(A) == blockbandwidths(B) == blockbandwidths(C) == (1,1)
+
+                @test A == KronTrav(map(Matrix, A.args)...) == BandedBlockBandedMatrix(A)
+
+                Δ = A + B + C
+
+                X = randn(n, n, n)
+                for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
+                    X[k+1,j+1,ℓ+1] = 0
+                end
+
+                Y = similar(X)
+                for k = 1:n, j=1:n Y[k,j,:] = D²*X[k,j,:] end
+                @test A*DiagTrav(X) ≈ DiagTrav(Y)
+
+                for k = 1:n, j=1:n Y[k,:,j] += D²*X[k,:,j] end
+                for k = 1:n, j=1:n Y[:,k,j] += D²*X[:,k,j] end
+                @test Δ*DiagTrav(X) ≈ DiagTrav(Y)
+            end
         end
 
         @testset "Views" begin
@@ -144,6 +255,22 @@ import BandedMatrices: BandedColumns
             @test subblockbandwidths(V) == (1,1)
             @test BandedBlockBandedMatrix(V) == A[Block.(2:4), Block.(1:4)]
             @test A[Block.(2:4), Block.(1:4)] isa BandedBlockBandedMatrix
+        end
+
+        @testset "Lazy" begin
+            n = 5
+            A = MyLazyArray(randn(n,n))
+            B = brand(n,n,1,1)
+            @test Base.BroadcastStyle(typeof(KronTrav(A,B))) isa LazyArrayStyle{2}
+            @test Base.BroadcastStyle(typeof(KronTrav(B,A))) isa LazyArrayStyle{2}
+            @test Base.BroadcastStyle(typeof(KronTrav(A,A))) isa LazyArrayStyle{2}
+        end
+
+        @testset "Mul" begin
+            n = 4
+            Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+            A = KronTrav(Δ, Eye(n))
+            @test A^2 == Matrix(A)^2
         end
     end
 

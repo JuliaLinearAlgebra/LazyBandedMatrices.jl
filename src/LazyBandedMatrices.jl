@@ -8,7 +8,7 @@ import LinearAlgebra
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!,
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
 
-import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail, convert, resize!
+import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail, convert, resize!, tuple_type_tail
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
@@ -17,7 +17,7 @@ import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloa
 import ArrayLayouts: materialize!, colsupport, rowsupport, MatMulVecAdd, MatMulMatAdd, require_one_based_indexing,
                     sublayout, transposelayout, conjlayout, _copyto!, MemoryLayout, AbstractQLayout, 
                     OnesLayout, DualLayout, mulreduce, _inv, symtridiagonallayout, tridiagonallayout, bidiagonallayout,
-                    bidiagonaluplo, diagonaldata, subdiagonaldata, supdiagonaldata,
+                    bidiagonaluplo, diagonaldata, subdiagonaldata, supdiagonaldata, mul,
                     symmetriclayout, hermitianlayout, _fill_lmul!, _copy_oftype
 import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
@@ -33,16 +33,16 @@ import BandedMatrices: bandedcolumns, bandwidths, isbanded, AbstractBandedLayout
                         prodbandwidths, BandedStyle, BandedColumns, BandedRows, BandedLayout,
                         AbstractBandedMatrix, BandedSubBandedMatrix, BandedStyle, _bnds,
                         banded_rowsupport, banded_colsupport, _BandedMatrix, bandeddata,
-                        banded_qr_lmul!, banded_qr_rmul!, _banded_broadcast!
+                        banded_qr_lmul!, banded_qr_rmul!, _banded_broadcast!, bandedbroadcaststyle
 import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         isblockbanded, isbandedblockbanded, blockbandwidths,
                         bandedblockbandedbroadcaststyle, bandedblockbandedcolumns,
                         BandedBlockBandedColumns, BlockBandedColumns, BlockBandedRows, BandedBlockBandedRows,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
-                        AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle,
+                        AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle, BlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1,
                         BlockBandedColumnMajor
-import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks, BlockSlices
+import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks, BlockSlices, AbstractBlockLayout
 
 # for bidiag/tridiag
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
@@ -63,6 +63,8 @@ sublayout(::AbstractLazyBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = L
 symmetriclayout(::AbstractLazyBandedLayout) = SymmetricLayout{LazyBandedLayout}()
 hermitianlayout(::Type{<:Real}, ::AbstractLazyBandedLayout) = SymmetricLayout{LazyBandedLayout}()
 hermitianlayout(::Type{<:Complex}, ::AbstractLazyBandedLayout) = HermitianLayout{LazyBandedLayout}()
+
+bandedbroadcaststyle(::LazyArrayStyle) = LazyArrayStyle{2}()
 
 BroadcastStyle(::LazyArrayStyle{1}, ::BandedStyle) = LazyArrayStyle{2}()
 BroadcastStyle(::BandedStyle, ::LazyArrayStyle{1}) = LazyArrayStyle{2}()
@@ -410,7 +412,7 @@ applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayo
 applylayout(::Type{typeof(*)}, ::AbstractBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
 
 
-applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = BandedStyle()
+applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = LazyArrayStyle{2}()
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBlockBandedLayout) = LazyArrayStyle{2}()
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedBlockBandedLayout) = LazyArrayStyle{2}()
 
@@ -464,7 +466,7 @@ for func in (:blockbandwidths, :subblockbandwidths)
     end
 end
 
-isbanded(M::BroadcastMatrix) = isbanded(broadcasted(M))
+isbanded(M::BroadcastMatrix) = all(isfinite, bandwidths(M))
 
 struct BroadcastBandedLayout{F} <: AbstractLazyBandedLayout end
 struct BroadcastBlockBandedLayout{F} <: AbstractLazyBlockBandedLayout end
@@ -536,6 +538,12 @@ _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
 
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
+
+broadcasted(::LazyArrayStyle, ::typeof(*), c::Number, A::BandedMatrix) = _BandedMatrix(c .* A.data, A.raxis, A.l, A.u)
+broadcasted(::LazyArrayStyle, ::typeof(*), A::BandedMatrix, c::Number) = _BandedMatrix(A.data .* c, A.raxis, A.l, A.u)
+broadcasted(::LazyArrayStyle, ::typeof(\), c::Number, A::BandedMatrix) = _BandedMatrix(c .\ A.data, A.raxis, A.l, A.u)
+broadcasted(::LazyArrayStyle, ::typeof(/), A::BandedMatrix, c::Number) = _BandedMatrix(A.data ./ c, A.raxis, A.l, A.u)
+
 
 copy(M::Mul{BroadcastBandedLayout{typeof(*)}, <:PaddedLayout}) = _broadcast_banded_padded_mul(arguments(BroadcastBandedLayout{typeof(*)}(), M.A), M.B)
 

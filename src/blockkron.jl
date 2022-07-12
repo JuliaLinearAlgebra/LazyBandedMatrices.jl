@@ -1,3 +1,10 @@
+const OneToCumsum = RangeCumsum{Int,OneTo{Int}}
+BlockArrays.sortedunion(a::OneToCumsum, ::OneToCumsum) = a
+function BlockArrays.sortedunion(a::RangeCumsum{<:Any,<:AbstractRange}, b::RangeCumsum{<:Any,<:AbstractRange})
+    @assert a == b
+    a
+end
+
 ###
 # Block
 ###
@@ -56,9 +63,9 @@ function getindex(A::DiagTrav{T,3}, K::Block{1}) where T
     @assert m == n == p
     st = stride(A.array,2)
     st3 = stride(A.array,3)
-    ret = A.array[range(k; step=st-1, length=k)]
-    for j = 1:k-1
-        append!(ret, view(A.array, range(j*st3 + (k-j); step=st-1, length=k-j)))
+    ret = T[]
+    for j = 0:k-1
+        append!(ret, view(A.array, range(j*st + k-j; step=st3-st, length=j+1)))
     end
     ret
 end
@@ -84,84 +91,137 @@ function getindex(A::InvDiagTrav{T}, k::Int, j::Int)  where T
     end
 end
 
-struct KronTrav{T, N, AA<:AbstractArray{T,N}, BB<:AbstractArray{T,N}, AXES} <: AbstractBlockArray{T, N}
-    A::AA
-    B::BB
+struct KronTrav{T, N, AA<:Tuple{Vararg{AbstractArray{T,N}}}, AXES} <: AbstractBlockArray{T, N}
+    args::AA
     axes::AXES
 end
 
-KronTrav(A::AbstractArray{T,N}, B::AbstractArray{V,N}, axes) where {T,V,N} =
-    KronTrav{promote_type(T,V),N,typeof(A),typeof(B),typeof(axes)}(A, B, axes)
+KronTrav(A::AbstractArray{T,N}...) where {T,V,N} =
+    KronTrav(A, map(_krontrav_axes, map(axes,A)...))
 
-KronTrav(A::AbstractArray{T,N}, B::AbstractArray{V,N}) where {T,V,N} =
-    KronTrav(A, B, _krontrav_axes(axes(A), axes(B)))
-
-function _krontrav_axes(A::NTuple{N,OneTo{Int}}, B::NTuple{N,OneTo{Int}}) where N
-    m,n = length.(A), length.(B)
-    mn = min.(m,n)
-    @. blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
+    m,n = length(A), length(B)
+    mn = min(m,n)
+    blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
 end
 
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int}, C::OneTo{Int})
+    m,n,ν = length(A), length(B), length(C)
+    @assert m == n == ν
+    blockedrange(RangeCumsum(OneTo(m)))
+end
+copy(K::KronTrav) = KronTrav(map(copy,K.args), K.axes)
 axes(A::KronTrav) = A.axes
 
-function getindex(A::KronTrav{<:Any,1}, K::Block{1})
-    m,n = length(A.A), length(A.B)
+function getindex(M::KronTrav{<:Any,1}, K::Block{1})
+    A,B = M.args
+    m,n = length(A), length(B)
     mn = min(m,n)
     k = Int(K)
     if k ≤ mn
-        A.A[1:k] .* A.B[k:-1:1]
+        A[1:k] .* B[k:-1:1]
     elseif m < n
-        A.A .* A.B[k:-1:(k-m+1)]
+        A .* B[k:-1:(k-m+1)]
     else # n < m
-        A.A[(k-n+1):k] .* A.B[end:-1:1]
+        A[(k-n+1):k] .* B[end:-1:1]
     end
 end
 
-
-
-function getindex(A::KronTrav{<:Any,2}, K::Block{2})
-    m,n = size(A.A), size(A.B)
+function _krontrav_getindex(K::Block{2}, A, B)
+    m,n = size(A), size(B)
     @assert m == n
     k,j = K.n
-    # Following is equivalent to A.A[1:k,1:j] .* A.B[k:-1:1,j:-1:1]
+    # Following is equivalent to A[1:k,1:j] .* B[k:-1:1,j:-1:1]
     # layout_getindex to avoid SparseArrays from Diagonal
     # rot180 to preserve bandedness
-    layout_getindex(A.A,1:k,1:j) .* rot180(layout_getindex(A.B,1:k,1:j))
+    layout_getindex(A,1:k,1:j) .* rot180(layout_getindex(B,1:k,1:j))
 end
+
+function _krontrav_getindex(Kin::Block{2}, A, B, C)
+    k,j = Kin.n
+    AB = KronTrav(A, B)[Block.(1:k), Block.(1:j)]
+    C̃ = rot180(layout_getindex(C,1:k,1:j))
+    for J = Block.(1:j), K = blockcolsupport(AB, J)
+        lmul!(C̃[Int(K), Int(J)], view(AB, K, J))
+    end
+    AB
+end
+
+getindex(M::KronTrav{<:Any,2}, K::Block{2}) = _krontrav_getindex(K, M.args...)
+
+
 getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N =
     A[findblockindex.(axes(A), kj)...]
 
 # A.A[1:k,1:j] has A_l,A_u
 # A.B[k:-1:1,j:-1:1] has bandwidths (B_u + k-j, B_l + j-k)
-subblockbandwidths(A::KronTrav) = bandwidths(A.A)
-blockbandwidths(A::KronTrav) = bandwidths(A.A) .+ bandwidths(A.B)
-isblockbanded(A::KronTrav) = isbanded(A.A) && isbanded(A.B)
-isbandedblockbanded(A::KronTrav) = isbanded(A.A) && isbanded(A.B)
+
+_krontrav_subblockbandwidths(A, B) = bandwidths(A)
+_krontrav_subblockbandwidths(A, B, C) = bandwidths(KronTrav(A, B))
+_krontrav_blockbandwidths(A...) = broadcast(+, map(bandwidths,A)...)
+
+subblockbandwidths(A::KronTrav) = _krontrav_subblockbandwidths(A.args...)
+blockbandwidths(A::KronTrav) = _krontrav_blockbandwidths(A.args...)
+
+
+isblockbanded(A::KronTrav) = all(isbanded, A.args)
+isbandedblockbanded(A::KronTrav) = isblockbanded(A) && length(A.args) == 2
+
+convert(::Type{B}, A::KronTrav{<:Any,2}) where B<:BandedBlockBandedMatrix = convert(B, BandedBlockBandedMatrix(A))
 
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
+struct KronTravLayout{M} <: AbstractBlockLayout end
 
-krontravlayout(_, _) = UnknownLayout()
+
+
+krontravlayout(::Vararg{Any,M}) where M = KronTravLayout{M}()
 krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedBlockBandedLayout()
-MemoryLayout(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} = krontravlayout(MemoryLayout(AA), MemoryLayout(BB))
+MemoryLayout(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} = krontravlayout(tuple_type_memorylayouts(AA)...)
 
 
 sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastLayout{typeof(*)}()
+
+sublayout(::KronTravLayout{M}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) where M = KronTravLayout{M}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) where M = KronTravLayout{2}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{<:BlockRange1}}}) = BlockLayout{UnknownLayout,BroadcastLayout{typeof(*)}}()
+sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravBandedBlockBandedLayout()
+
+sub_materialize(::Union{KronTravLayout,KronTravBandedBlockBandedLayout}, V) = KronTrav(map(sub_materialize, krontravargs(V))...)
+
+
+krontravargs(K::KronTrav) = K.args
+function krontravargs(V::SubArray)
+    KR,JR = parentindices(V)
+    m,n = Int(KR.block[end]), Int(JR.block[end])
+    view.(krontravargs(parent(V)), Ref(OneTo(m)), Ref(OneTo(n)))
+end
+
 
 call(b::BroadcastLayout{typeof(*)}, a::KronTrav) = *
 call(b::BroadcastBandedLayout{typeof(*)}, a::SubArray) = *
 
-function _broadcast_sub_arguments(::KronTravBandedBlockBandedLayout, A, V)
+function _broadcast_sub_arguments(::Union{KronTravLayout{2},KronTravBandedBlockBandedLayout}, M, V)
     K,J = parentindices(V)
     k,j = Int(K.block),Int(J.block)
-    view(A.A,1:k,1:j), ApplyMatrix(rot180,view(A.B,1:k,1:j))
+    @assert length(krontravargs(M)) == 2
+    A,B = krontravargs(M)
+    view(A,1:k,1:j), ApplyMatrix(rot180,view(B,1:k,1:j))
 end
 
 
 krontavbroadcaststyle(::BandedStyle, ::BandedStyle) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = BandedBlockBandedStyle()
 krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
-krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle) = LazyArrayStyle{2}()
-krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
-krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}) = LazyArrayStyle{2}()
-BroadcastStyle(::Type{KronTrav{T,N,AA,BB,AXIS}}) where {T,N,AA,BB,AXIS} =
-    krontavbroadcaststyle(BroadcastStyle(AA), BroadcastStyle(BB))
+krontavbroadcaststyle(::Union{BandedStyle,StructuredMatrixStyle{<:Diagonal}}...) = BlockBandedStyle()
+krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+
+tuple_type_broadcaststyle(::Type{Tuple{}}) = ()
+tuple_type_broadcaststyle(T::Type{<:Tuple{A,Vararg{Any}}}) where A = 
+    tuple(BroadcastStyle(A), tuple_type_broadcaststyle(tuple_type_tail(T))...)
+BroadcastStyle(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} =
+    krontavbroadcaststyle(tuple_type_broadcaststyle(AA)...)
+
+# mul(L::KronTrav, M::KronTrav) = KronTrav((L.args .* M.args)...)

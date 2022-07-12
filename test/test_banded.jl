@@ -114,8 +114,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
             @test colsupport(M,1) == colsupport(Applied(M),1) == 1:2
             @test rowsupport(M,1) == rowsupport(Applied(M),1) == 1:2
 
-            @test Base.BroadcastStyle(typeof(M)) isa BandedStyle
-            @test M .+ A isa BandedMatrix
+            @test Base.BroadcastStyle(typeof(M)) isa LazyArrayStyle{2}
             @test M .+ A ≈ M .+ Matrix(A) ≈ Matrix(A) .+ M
 
             V = view(M,1:4,1:4)
@@ -610,6 +609,14 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test M*C̃ isa MulMatrix
         @test C̃*M̃ isa MulMatrix
         @test M̃*C̃ isa MulMatrix
+        
+        L = _BandedMatrix(MyLazyArray(randn(3,10)),10,1,1)
+        @test Base.BroadcastStyle(typeof(L)) isa LazyArrayStyle{2}
+
+        @test 2 * L isa BandedMatrix
+        @test L * 2 isa BandedMatrix
+        @test 2 \ L isa BandedMatrix
+        @test L / 2 isa BandedMatrix
     end
 
     @testset "Banded rot" begin
