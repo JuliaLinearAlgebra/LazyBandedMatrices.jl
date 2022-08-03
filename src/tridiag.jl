@@ -78,7 +78,7 @@ end
     SymTridiagonal(A::AbstractMatrix)
 
 Construct a symmetric tridiagonal matrix from the diagonal and first superdiagonal
-of the symmetric matrix `A`.
+of the matrix `A`.
 
 # Examples
 ```jldoctest
@@ -102,13 +102,11 @@ julia> SymTridiagonal(B)
  [1 2; 3 4]  [1 2; 2 3]
 ```
 """
-function SymTridiagonal(A::AbstractMatrix)
-    if (diag(A, 1) == transpose.(diag(A, -1))) && all(issymmetric.(diag(A, 0)))
-        SymTridiagonal(diag(A, 0), diag(A, 1))
-    else
-        throw(ArgumentError("matrix is not symmetric; cannot convert to SymTridiagonal"))
-    end
-end
+SymTridiagonal(A::AbstractMatrix) = _SymTridiagonal(MemoryLayout(A), A)
+_SymTridiagonal(_, A) = SymTridiagonal(diag(A, 0), diag(A, 1))
+
+# allow capture of SymTridiagonal(L*Q) in InfiniteLinearAlgebra.jl
+_SymTridiagonal(::ApplyLayout{typeof(*)}, A) = _SymTridiagonal(map(MemoryLayout, arguments(*, A)), A)
 
 SymTridiagonal{T,DV,EV}(S::SymTridiagonal{T,DV,EV}) where {T,DV<:AbstractVector{T},EV<:AbstractVector{T}} = S
 SymTridiagonal{T,DV,EV}(S::SymTridiagonal) where {T,DV<:AbstractVector{T},EV<:AbstractVector{T}} =
