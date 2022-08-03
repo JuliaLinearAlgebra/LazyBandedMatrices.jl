@@ -37,7 +37,7 @@ import LazyBandedMatrices: SymTridiagonal, Tridiagonal
             end
         end
         @test_throws DimensionMismatch SymTridiagonal(dl, fill(elty(1), n+1))
-        @test_throws ArgumentError SymTridiagonal(rand(n, n))
+        @test SymTridiagonal(ones(n, n)) == SymTridiagonal(ones(n), ones(n-1))
         @test_throws ArgumentError Tridiagonal(dl, dl, dl)
         @test_throws ArgumentError convert(SymTridiagonal{elty}, Tridiagonal(dl, d, du))
 
