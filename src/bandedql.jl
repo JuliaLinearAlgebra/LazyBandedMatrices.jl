@@ -15,7 +15,6 @@ materialize!(M::Rmul{<:Any,<:AdjQRPackedQLayout{<:AbstractBandedLayout}}) = band
 
 
 ql(A::BandedMatrix{T}) where T = ql!(BandedMatrix{float(T)}(A, (max(bandwidth(A,1),bandwidth(A,1)+bandwidth(A,2)+size(A,1)-size(A,2)),bandwidth(A,2))))
-ql(A::Tridiagonal{T}) where T = ql!(BandedMatrix{float(T)}(A, (2,1)))
 
 ql!(A::BandedMatrix) = banded_ql!(A)
 
