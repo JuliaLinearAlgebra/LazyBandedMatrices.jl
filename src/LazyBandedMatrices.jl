@@ -323,6 +323,7 @@ _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aa
 
 const AllBandedLayout = Union{AbstractBandedLayout,SymmetricLayout{<:AbstractBandedLayout},HermitianLayout{<:AbstractBandedLayout},DualOrPaddedLayout}
 const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
+const AllBandedBlockBandedLayout = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:BlockLayout}}
 
 _block_last(b::Block) = b
 _block_last(b::AbstractVector{<:Block}) = last(b)
@@ -409,7 +410,7 @@ sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIn
 
 applylayout(::Type{typeof(*)}, ::AllBandedLayout...) = ApplyBandedLayout{typeof(*)}()
 applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
-applylayout(::Type{typeof(*)}, ::AbstractBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
+applylayout(::Type{typeof(*)}, ::AllBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
 
 
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = LazyArrayStyle{2}()
@@ -497,25 +498,23 @@ for op in (:*, :/, :\, :+, :-)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::DiagonalLayout, ::AbstractBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AbstractBlockBandedLayout, ::DiagonalLayout) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::DiagonalLayout, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::DiagonalLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :/)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AbstractBandedBlockBandedLayout, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :\)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 
