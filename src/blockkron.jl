@@ -96,7 +96,7 @@ struct KronTrav{T, N, AA<:Tuple{Vararg{AbstractArray{T,N}}}, AXES} <: AbstractBl
     axes::AXES
 end
 
-KronTrav(A::AbstractArray{T,N}...) where {T,V,N} =
+KronTrav(A::AbstractArray{T,N}...) where {T,N} =
     KronTrav(A, map(_krontrav_axes, map(axes,A)...))
 
 function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
@@ -183,7 +183,7 @@ sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice1}}) = 
 sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastLayout{typeof(*)}()
 
 sublayout(::KronTravLayout{M}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) where M = KronTravLayout{M}()
-sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) where M = KronTravLayout{2}()
+sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravLayout{2}()
 sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{<:BlockRange1}}}) = BlockLayout{UnknownLayout,BroadcastLayout{typeof(*)}}()
 sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravBandedBlockBandedLayout()
 
