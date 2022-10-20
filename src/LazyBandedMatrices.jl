@@ -508,6 +508,7 @@ for op in (:*, :/)
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::DiagonalLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :\)
@@ -515,6 +516,7 @@ for op in (:*, :\)
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::DiagonalLayout, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 
