@@ -604,7 +604,7 @@ sublayout(M::ApplyBandedLayout{typeof(*)}, ::Type{<:NTuple{2,AbstractUnitRange}}
 sublayout(M::BroadcastBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
 
 transposelayout(b::BroadcastBandedLayout) = b
-arguments(b::BroadcastBandedLayout, A::AdjOrTrans) where F = arguments(BroadcastLayout(b), A)
+arguments(b::BroadcastBandedLayout, A::AdjOrTrans) = arguments(BroadcastLayout(b), A)
 
 sublayout(M::ApplyBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) = M
 sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockRange1}}}) = M
@@ -626,7 +626,7 @@ for op in (:hcat, :vcat)
         applylayout(::Type{typeof($op)}, ::A, ::PaddedLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{ApplyLayout{typeof($op)}}()
         applylayout(::Type{typeof($op)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof($op)}()
         applylayout(::Type{typeof($op)}, ::ScalarOrZerosLayouts...) = ApplyLayout{typeof($op)}()
-        sublayout(::ApplyBandedLayout{typeof($op)}, ::Type{<:NTuple{2,AbstractUnitRange}}) where J = ApplyBandedLayout{typeof($op)}()
+        sublayout(::ApplyBandedLayout{typeof($op)}, ::Type{<:NTuple{2,AbstractUnitRange}}) = ApplyBandedLayout{typeof($op)}()
     end
 end
 
