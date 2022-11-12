@@ -30,30 +30,46 @@ converts a matrix to a block vector by traversing the anti-diagonals.
 """
 struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
     array::AA
+    function DiagTrav{T, N, AA}(array::AA) where {T, N, AA<:AbstractArray{T,N}}
+        ==(size(array)...) || error("array must be square")
+        new{T,N,AA}(array)
+    end
 end
+DiagTrav{T,N}(A::AbstractArray) where {T,N} = DiagTrav{T,N,typeof(A)}(A)
+DiagTrav{T}(A::AbstractArray{<:Any,N}) where {T,N} = DiagTrav{T,N}(A)
+DiagTrav(A::AbstractArray{T}) where T = DiagTrav{T}(A)
 
-function axes(A::DiagTrav{<:Any,2})
-    m,n = size(A.array)
-    mn = min(m,n)
-    (blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn))),)
-end
+axes(A::DiagTrav{<:Any,2}) = (blockedrange(oneto(size(A.array,1))),)
+axes(A::DiagTrav{<:Any,3}) = (blockedrange(cumsum(oneto(size(A.array,1)))),)
 
-function axes(A::DiagTrav{<:Any,3})
-    m,n,p = size(A.array)
-    @assert m == n == p
-    (blockedrange(cumsum(OneTo(m))),)
-end
 
 
 function getindex(A::DiagTrav{<:Any,2}, K::Block{1})
+    @boundscheck checkbounds(A, K)
+    _diagtravgetindex(MemoryLayout(A.array), A.array, K)
+end
+
+function _diagtravgetindex(_, A::AbstractMatrix, K::Block{1})
     k = Int(K)
-    m,n = size(A.array)
-    mn = min(m,n)
-    st = stride(A.array,2)
+    [A[k-j+1,j] for j = 1:k]
+end
+
+
+function _diagtravgetindex(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1})
+    k = Int(K)
+    st = stride(A,2)
+    A[range(k; step=st-1, length=k)]
+end
+
+function _diagtravgetindex(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
+    k = Int(K)
+    P = paddeddata(A)
+    m,_ = size(P)
+    st = stride(P,2)
     if k ≤ m
-        A.array[range(k; step=st-1, length=min(k,mn))]
+        P[range(k; step=st-1, length=k)]
     else
-        A.array[range(m+(k-m)*st; step=st-1, length=min(k,mn))]
+        [Zeros{T}(k-m); P[range(m+(k-m)*st; step=st-1, length=2m-k)]; Zeros{T}(k-m)]
     end
 end
 
@@ -77,7 +93,7 @@ function resize!(A::DiagTrav{<:Any,2}, K::Block{1})
     DiagTrav(A.array[1:k, 1:k])
 end
 
-struct InvDiagTrav{T, AA<:AbstractVector{T}} <: AbstractMatrix{T}
+struct InvDiagTrav{T, AA<:AbstractVector{T}} <: LayoutMatrix{T}
     vector::AA
 end
 
