@@ -42,6 +42,16 @@ DiagTrav(A::AbstractArray{T}) where T = DiagTrav{T}(A)
 axes(A::DiagTrav{<:Any,2}) = (blockedrange(oneto(size(A.array,1))),)
 axes(A::DiagTrav{<:Any,3}) = (blockedrange(cumsum(oneto(size(A.array,1)))),)
 
+function blockcolsupport(A::DiagTrav{<:Any,2}, _)
+    cs = colsupport(A.array)
+    rs = rowsupport(A.array)
+    Block.(max(first(cs),first(rs)):max(last(cs),last(rs)))
+end
+
+function colsupport(A::DiagTrav{<:Any,2}, _)
+    bs = blockcolsupport(A)
+    sum(1:Int(first(bs)-1))+1:sum(1:Int(last(bs)))
+end
 
 
 function getindex(A::DiagTrav{<:Any,2}, K::Block{1})
