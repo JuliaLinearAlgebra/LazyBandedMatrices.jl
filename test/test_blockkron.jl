@@ -125,8 +125,8 @@ import BandedMatrices: BandedColumns
             b = [4,5,6]
             c = [7,8]
             @test KronTrav(a,b) == DiagTrav(b*a')
-            @test KronTrav(a,c) == DiagTrav(c*a')
-            @test KronTrav(c,a) == DiagTrav(a*c')
+            @test KronTrav(a,c) == [7,8,14,16,21]
+            @test KronTrav(c,a) == [7,14,8,21,16]
         end
 
         @testset "matrix" begin

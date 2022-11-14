@@ -21,7 +21,8 @@ bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
-
+_allisequal(a) = true
+_allisequal(a, b, c...) = a == b && _allisequal(b, c...)
 
 """
     DiagTrav(A::AbstractMatrix)
@@ -31,7 +32,7 @@ converts a matrix to a block vector by traversing the anti-diagonals.
 struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
     array::AA
     function DiagTrav{T, N, AA}(array::AA) where {T, N, AA<:AbstractArray{T,N}}
-        ==(size(array)...) || error("array must be square")
+        _allisequal(size(array)...) || error("array must be square")
         new{T,N,AA}(array)
     end
 end
