@@ -42,6 +42,9 @@ DiagTrav(A::AbstractArray{T}) where T = DiagTrav{T}(A)
 axes(A::DiagTrav{<:Any,2}) = (blockedrange(oneto(size(A.array,1))),)
 axes(A::DiagTrav{<:Any,3}) = (blockedrange(cumsum(oneto(size(A.array,1)))),)
 
+struct DiagTravLayout{Lay} <: AbstractBlockLayout end
+MemoryLayout(::Type{<:DiagTrav{T, N, AA}}) where {T,N,AA} = DiagTravLayout{typeof(MemoryLayout(AA))}()
+
 function blockcolsupport(A::DiagTrav{<:Any,2}, _)
     cs = colsupport(A.array)
     rs = rowsupport(A.array)
@@ -69,6 +72,12 @@ function _diagtravgetindex(::AbstractStridedLayout, A::AbstractMatrix, K::Block{
     k = Int(K)
     st = stride(A,2)
     A[range(k; step=st-1, length=k)]
+end
+
+function Base.view(A::DiagTrav{<:Any,2,<:Matrix}, K::Block{1})
+    k = Int(K)
+    st = stride(A.array,2)
+    view(A.array,range(k; step=st-1, length=k))
 end
 
 function _diagtravgetindex(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
@@ -101,6 +110,16 @@ getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
 function resize!(A::DiagTrav{<:Any,2}, K::Block{1})
     k = Int(K)
     DiagTrav(A.array[1:k, 1:k])
+end
+
+function Base._maximum(f, a::DiagTrav, ::Colon; kws...)
+    # avoid zeros
+    KR = blockaxes(a,1)
+    ret = maximum(f, view(a,KR[1]))
+    for K = KR[2]:KR[end]
+        ret = max(ret, maximum(f, view(a,K)))
+    end
+    ret
 end
 
 struct InvDiagTrav{T, AA<:AbstractVector{T}} <: LayoutMatrix{T}
