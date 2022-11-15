@@ -88,6 +88,7 @@ import BandedMatrices: BandedColumns
         A = [1 2 3; 4 5 6; 7 8 9]
         @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
         @test resize!(DiagTrav(A), Block(2)) == [1, 4,2]
+        @test maximum(abs, DiagTrav(A)) == 7
 
         A = DiagTrav(randn(3,3,3))
         @test A[Block(1)] == A[1:1,1,1]
@@ -95,6 +96,13 @@ import BandedMatrices: BandedColumns
         @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[2,1,2],
                             A.array[1,3,1], A.array[1,2,2], A.array[1,1,3]]
         @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
+
+        A = reshape(1:9,3,3)'
+        @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
+
+        C = cache(Zeros(10,10));
+        C[1:3,1:3] .= [1 2 3; 4 5 6; 7 8 9];
+        @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 0; 0; 0; 9; zeros(42)]
     end
 
     @testset "BlockKron" begin
