@@ -242,7 +242,7 @@ blockrowsupport(::PaddedLayout, A, k) = Block.(OneTo(blocksize(paddeddata(A),2))
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
-    PseudoBlockVector(Vcat(dat, Zeros{T}(length(v) - length(dat))), ax)
+    PseudoBlockVector(Vcat(sub_materialize(dat), Zeros{T}(length(v) - length(dat))), ax)
 end
 
 function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{BlockedUnitRange,AbstractUnitRange}) where T
