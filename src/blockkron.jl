@@ -21,9 +21,6 @@ bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
 bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
-_allisequal(a) = true
-_allisequal(a, b, c...) = a == b && _allisequal(b, c...)
-
 """
     DiagTrav(A::AbstractMatrix)
 
@@ -32,7 +29,6 @@ converts a matrix to a block vector by traversing the anti-diagonals.
 struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
     array::AA
     function DiagTrav{T, N, AA}(array::AA) where {T, N, AA<:AbstractArray{T,N}}
-        _allisequal(size(array)...) || error("array must be square")
         new{T,N,AA}(array)
     end
 end
@@ -40,8 +36,19 @@ DiagTrav{T,N}(A::AbstractArray) where {T,N} = DiagTrav{T,N,typeof(A)}(A)
 DiagTrav{T}(A::AbstractArray{<:Any,N}) where {T,N} = DiagTrav{T,N}(A)
 DiagTrav(A::AbstractArray{T}) where T = DiagTrav{T}(A)
 
-axes(A::DiagTrav{<:Any,2}) = (blockedrange(oneto(size(A.array,1))),)
-axes(A::DiagTrav{<:Any,3}) = (blockedrange(cumsum(oneto(size(A.array,1)))),)
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
+    m,n = length(A), length(B)
+    mn = min(m,n)
+    blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
+end
+
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int}, C::OneTo{Int})
+    m,n,ν = length(A), length(B), length(C)
+    @assert m == n == ν
+    blockedrange(RangeCumsum(oneto(m)))
+end
+
+axes(A::DiagTrav) = (_krontrav_axes(axes(A.array)...),)
 
 struct DiagTravLayout{Lay} <: AbstractBlockLayout end
 MemoryLayout(::Type{<:DiagTrav{T, N, AA}}) where {T,N,AA} = DiagTravLayout{typeof(MemoryLayout(AA))}()
@@ -58,10 +65,10 @@ function colsupport(A::DiagTrav{<:Any,2}, _)
 end
 
 
-function getindex(A::DiagTrav{<:Any,2}, K::Block{1})
-    @boundscheck checkbounds(A, K)
-    _diagtravgetindex(MemoryLayout(A.array), A.array, K)
-end
+# function getindex(A::DiagTrav{<:Any,2}, K::Block{1})
+#     @boundscheck checkbounds(A, K)
+#     _diagtravgetindex(MemoryLayout(A.array), A.array, K)
+# end
 
 function _diagtravgetindex(_, A::AbstractMatrix, K::Block{1})
     k = Int(K)
@@ -69,28 +76,27 @@ function _diagtravgetindex(_, A::AbstractMatrix, K::Block{1})
 end
 
 
-function _diagtravgetindex(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1})
+function _diagtravview(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1})
     k = Int(K)
     st = stride(A,2)
-    A[range(k; step=st-1, length=k)]
+    m,n = size(A)
+    mn = min(m,n)
+    if k ≤ m
+        view(A,range(k; step=st-1, length=min(k,mn)))
+    else
+        view(A,range(m+(k-m)*st; step=st-1, length=min(k,mn)))
+    end
 end
 
-function Base.view(A::DiagTrav{<:Any,2,<:Matrix}, K::Block{1})
-    k = Int(K)
-    st = stride(A.array,2)
-    view(A.array,range(k; step=st-1, length=k))
-end
+Base.view(A::DiagTrav, K::Block{1}) = _diagtravview(MemoryLayout(A.array), A.array, K)
 
-function _diagtravgetindex(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
+function _diagtravview(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
     k = Int(K)
     P = paddeddata(A)
-    m,_ = size(P)
+    m,n = size(P)
+    mn = min(m,n)
     st = stride(P,2)
-    if k ≤ m
-        P[range(k; step=st-1, length=k)]
-    else
-        [Zeros{T}(k-m); P[range(m+(k-m)*st; step=st-1, length=2m-k)]; Zeros{T}(k-m)]
-    end
+    Vcat(Zeros{T}(k-m), view(P,range(k; step=st-1, length=min(k,mn))), Zeros{T}(k-n))
 end
 
 function getindex(A::DiagTrav{T,3}, K::Block{1}) where T
@@ -145,17 +151,7 @@ end
 KronTrav(A::AbstractArray{T,N}...) where {T,N} =
     KronTrav(A, map(_krontrav_axes, map(axes,A)...))
 
-function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
-    m,n = length(A), length(B)
-    mn = min(m,n)
-    blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
-end
 
-function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int}, C::OneTo{Int})
-    m,n,ν = length(A), length(B), length(C)
-    @assert m == n == ν
-    blockedrange(RangeCumsum(OneTo(m)))
-end
 copy(K::KronTrav) = KronTrav(map(copy,K.args), K.axes)
 axes(A::KronTrav) = A.axes
 

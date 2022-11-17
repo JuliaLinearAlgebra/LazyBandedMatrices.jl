@@ -89,6 +89,13 @@ import BandedMatrices: BandedColumns
         @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
         @test resize!(DiagTrav(A), Block(2)) == [1, 4,2]
 
+        A = [1 2 3; 4 5 6]
+        @test DiagTrav(A) == [1, 4, 2, 5, 3]
+        A = [1 2; 3 4; 5 6]
+        @test DiagTrav(A) == [1, 3, 2, 5, 4]
+
+        @test resize!(DiagTrav(A), Block(2)) == [1, 3,2]
+
         A = DiagTrav(randn(3,3,3))
         @test A[Block(1)] == A[1:1,1,1]
         @test A[Block(2)] == [A.array[2,1,1], A.array[1,2,1], A.array[1,1,2]]
