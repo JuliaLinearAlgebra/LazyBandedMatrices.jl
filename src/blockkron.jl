@@ -56,7 +56,7 @@ MemoryLayout(::Type{<:DiagTrav{T, N, AA}}) where {T,N,AA} = DiagTravLayout{typeo
 function blockcolsupport(A::DiagTrav{<:Any,2}, _)
     cs = colsupport(A.array)
     rs = rowsupport(A.array)
-    Block.(max(first(cs),first(rs)):max(last(cs),last(rs)))
+    Block.(max(first(cs),first(rs)):(last(cs)+last(rs)-1))
 end
 
 function colsupport(A::DiagTrav{<:Any,2}, _)
