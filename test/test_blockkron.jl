@@ -110,6 +110,12 @@ import BandedMatrices: BandedColumns
         C = cache(Zeros(10,10));
         C[1:3,1:3] .= [1 2 3; 4 5 6; 7 8 9];
         @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 0; 0; 0; 9; zeros(42)]
+        C = cache(Zeros(5,6));
+        C[1:3,1:4] .= [1 2 3 4; 4 5 6 4; 7 8 9 4];
+        @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 4; 0; 0; 9; 4; 0; 0; 0; 4; 0; 0]
+        C = cache(Zeros(6,5));
+        C[1:3,1:4] .= [1 2 3 4; 4 5 6 4; 7 8 9 4];
+        @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 4; 0; 0; 9; 4; 0; 0; 0; 0; 4; 0]
     end
 
     @testset "BlockKron" begin

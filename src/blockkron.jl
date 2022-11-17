@@ -94,9 +94,15 @@ function _diagtravview(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatri
     k = Int(K)
     P = paddeddata(A)
     m,n = size(P)
+    M,N = size(A)
     mn = min(m,n)
     st = stride(P,2)
-    Vcat(Zeros{T}(k-m), view(P,range(k; step=st-1, length=min(k,mn))), Zeros{T}(k-n))
+    # TODO: not really a view...
+    if k ≤ m
+        [Zeros{T}(k-m); view(P,range(k; step=st-1, length=min(k,n))); Zeros{T}(max(0,k-n))]
+    else
+        [Zeros{T}(min(k,M)-m); view(P,range(m+(k-m)*st; step=st-1, length=m+n-k)); Zeros{T}(max(0,k-n))]
+    end
 end
 
 function getindex(A::DiagTrav{T,3}, K::Block{1}) where T
