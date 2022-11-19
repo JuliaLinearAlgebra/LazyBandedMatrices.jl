@@ -65,16 +65,19 @@ function colsupport(A::DiagTrav{<:Any,2}, _)
 end
 
 
-# function getindex(A::DiagTrav{<:Any,2}, K::Block{1})
-#     @boundscheck checkbounds(A, K)
-#     _diagtravgetindex(MemoryLayout(A.array), A.array, K)
-# end
+function getindex(A::DiagTrav, K::Block{1})
+    @boundscheck checkbounds(A, K)
+    _diagtravgetindex(MemoryLayout(A.array), A.array, K)
+end
 
 function _diagtravgetindex(_, A::AbstractMatrix, K::Block{1})
     k = Int(K)
-    [A[k-j+1,j] for j = 1:k]
+    m,n = size(A)
+    [A[k-j+1,j] for j = max(1,k-m+1):min(k,n)]
 end
 
+
+_diagtravgetindex(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1}) = layout_getindex(DiagTrav(A), K)
 
 function _diagtravview(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1})
     k = Int(K)
@@ -90,7 +93,9 @@ end
 
 Base.view(A::DiagTrav, K::Block{1}) = _diagtravview(MemoryLayout(A.array), A.array, K)
 
-function _diagtravview(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
+_diagtravview(_, A::AbstractArray, K::Block{1}) = Base.invoke(view, Tuple{AbstractArray, Any}, DiagTrav(A), K)
+
+function _diagtravgetindex(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
     k = Int(K)
     P = paddeddata(A)
     m,n = size(P)
@@ -105,15 +110,15 @@ function _diagtravview(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatri
     end
 end
 
-function getindex(A::DiagTrav{T,3}, K::Block{1}) where T
+function _diagtravgetindex(::AbstractStridedLayout, A::AbstractArray{T,3}, K::Block{1}) where T
     k = Int(K)
-    m,n,p = size(A.array)
+    m,n,p = size(A)
     @assert m == n == p
-    st = stride(A.array,2)
-    st3 = stride(A.array,3)
+    st = stride(A,2)
+    st3 = stride(A,3)
     ret = T[]
     for j = 0:k-1
-        append!(ret, view(A.array, range(j*st + k-j; step=st3-st, length=j+1)))
+        append!(ret, view(A, range(j*st + k-j; step=st3-st, length=j+1)))
     end
     ret
 end

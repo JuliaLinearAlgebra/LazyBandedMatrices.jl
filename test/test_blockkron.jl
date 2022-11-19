@@ -106,6 +106,10 @@ import BandedMatrices: BandedColumns
 
         A = reshape(1:9,3,3)'
         @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
+        A = reshape(1:12,3,4)'
+        @test DiagTrav(A) == [1, 4, 2, 7, 5, 3, 10, 8, 6]
+        A = reshape(1:12,3,4)
+        @test DiagTrav(A) == [1, 2, 4, 3, 5, 7, 6, 8, 10]
 
         C = cache(Zeros(10,10));
         C[1:3,1:3] .= [1 2 3; 4 5 6; 7 8 9];
