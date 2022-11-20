@@ -8,7 +8,7 @@ import LinearAlgebra
 import MatrixFactorizations: ql, ql!, QLPackedQ, QRPackedQ, reflector!, reflectorApply!,
             QLPackedQLayout, QRPackedQLayout, AdjQLPackedQLayout, AdjQRPackedQLayout
 
-import Base: BroadcastStyle, similar, OneTo, copy, *, axes, size, getindex, tail, convert, resize!, tuple_type_tail
+import Base: BroadcastStyle, similar, OneTo, oneto, copy, *, axes, size, getindex, tail, convert, resize!, tuple_type_tail
 import Base.Broadcast: Broadcasted, broadcasted, instantiate
 import LinearAlgebra: kron, hcat, vcat, AdjOrTrans, AbstractTriangular, BlasFloat, BlasComplex, BlasReal,
                         lmul!, rmul!, checksquare, StructuredMatrixStyle, adjoint, transpose,
@@ -242,7 +242,7 @@ blockrowsupport(::PaddedLayout, A, k) = Block.(OneTo(blocksize(paddeddata(A),2))
 
 function sub_materialize(::PaddedLayout, v::AbstractVector{T}, ax::Tuple{<:BlockedUnitRange}) where T
     dat = paddeddata(v)
-    PseudoBlockVector(Vcat(dat, Zeros{T}(length(v) - length(dat))), ax)
+    PseudoBlockVector(Vcat(sub_materialize(dat), Zeros{T}(length(v) - length(dat))), ax)
 end
 
 function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{BlockedUnitRange,AbstractUnitRange}) where T

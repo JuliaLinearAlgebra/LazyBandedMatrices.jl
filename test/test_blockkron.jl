@@ -1,6 +1,6 @@
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 import BlockBandedMatrices: isbandedblockbanded, BandedBlockBandedStyle, BandedLayout
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call, blockcolsupport
 import LazyArrays: resizedata!
 import BandedMatrices: BandedColumns
 
@@ -86,7 +86,10 @@ import BandedMatrices: BandedColumns
 
     @testset "DiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
-        @test DiagTrav(A) == [1, 4, 2, 7, 5, 3]
+        @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
+        @test resize!(DiagTrav(A), Block(2)) == [1, 4,2]
+        @test maximum(abs, DiagTrav(A)) == 7
+
         A = [1 2 3; 4 5 6]
         @test DiagTrav(A) == [1, 4, 2, 5, 3]
         A = [1 2; 3 4; 5 6]
@@ -100,6 +103,29 @@ import BandedMatrices: BandedColumns
         @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[2,1,2],
                             A.array[1,3,1], A.array[1,2,2], A.array[1,1,3]]
         @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
+
+        A = reshape(1:9,3,3)'
+        @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
+        A = reshape(1:12,3,4)'
+        @test DiagTrav(A) == [1, 4, 2, 7, 5, 3, 10, 8, 6]
+        A = reshape(1:12,3,4)
+        @test DiagTrav(A) == [1, 2, 4, 3, 5, 7, 6, 8, 10]
+
+        C = cache(Zeros(10,10));
+        C[1:3,1:3] .= [1 2 3; 4 5 6; 7 8 9];
+        @test blockcolsupport(DiagTrav(C)) == Block.(1:5)
+        @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 0; 0; 0; 9; zeros(42)]
+        C = cache(Zeros(5,6));
+        C[1:3,1:4] .= [1 2 3 4; 4 5 6 4; 7 8 9 4];
+        @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 4; 0; 0; 9; 4; 0; 0; 0; 4; 0; 0]
+        C = cache(Zeros(6,5));
+        C[1:3,1:4] .= [1 2 3 4; 4 5 6 4; 7 8 9 4];
+        @test DiagTrav(C) == [1; 4; 2; 7; 5; 3; 0; 8; 6; 4; 0; 0; 9; 4; 0; 0; 0; 0; 4; 0]
+
+        a = DiagTrav(ones(1,1))
+        @test a == [1]
+        a = DiagTrav(ones(1,3))
+        @test a == ones(3)
     end
 
     @testset "BlockKron" begin
@@ -130,8 +156,8 @@ import BandedMatrices: BandedColumns
             b = [4,5,6]
             c = [7,8]
             @test KronTrav(a,b) == DiagTrav(b*a')
-            @test KronTrav(a,c) == DiagTrav(c*a')
-            @test KronTrav(c,a) == DiagTrav(a*c')
+            @test KronTrav(a,c) == [7,8,14,16,21]
+            @test KronTrav(c,a) == [7,14,8,21,16]
         end
 
         @testset "matrix" begin
