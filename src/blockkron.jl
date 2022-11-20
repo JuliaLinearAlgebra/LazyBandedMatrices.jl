@@ -85,9 +85,9 @@ function _diagtravview(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1})
     m,n = size(A)
     mn = min(m,n)
     if k ≤ m
-        view(A,range(k; step=st-1, length=min(k,mn)))
+        view(A,range(k; step=max(1,st-1), length=min(k,mn)))
     else
-        view(A,range(m+(k-m)*st; step=st-1, length=min(k,mn)))
+        view(A,range(m+(k-m)*st; step=max(1,st-1), length=min(k,mn)))
     end
 end
 
