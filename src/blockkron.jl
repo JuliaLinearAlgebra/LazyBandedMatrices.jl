@@ -36,13 +36,13 @@ DiagTrav{T,N}(A::AbstractArray) where {T,N} = DiagTrav{T,N,typeof(A)}(A)
 DiagTrav{T}(A::AbstractArray{<:Any,N}) where {T,N} = DiagTrav{T,N}(A)
 DiagTrav(A::AbstractArray{T}) where T = DiagTrav{T}(A)
 
-function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
+function _krontrav_axes(A, B)
     m,n = length(A), length(B)
     mn = min(m,n)
-    blockedrange(Vcat(OneTo(mn), Fill(mn,max(m,n)-mn)))
+    blockedrange(Vcat(oneto(mn), Fill(mn,max(m,n)-mn)))
 end
 
-function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int}, C::OneTo{Int})
+function _krontrav_axes(A, B, C)
     m,n,ν = length(A), length(B), length(C)
     @assert m == n == ν
     blockedrange(RangeCumsum(oneto(m)))
