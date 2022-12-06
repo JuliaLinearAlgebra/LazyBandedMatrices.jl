@@ -601,6 +601,7 @@ arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_argu
 
 call(b::BroadcastBandedLayout, a) = call(BroadcastLayout(b), a)
 call(b::BroadcastBandedLayout, a::SubArray) = call(BroadcastLayout(b), a)
+call(lay::BroadcastLayout, a::PseudoBlockArray) = call(lay, a.blocks)
 
 sublayout(M::ApplyBandedLayout{typeof(*)}, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
 sublayout(M::BroadcastBandedLayout, ::Type{<:NTuple{2,AbstractUnitRange}}) = M
