@@ -71,6 +71,11 @@ include("test_block.jl")
     #     @test paddeddata(v) isa Vcat
     #     paddeddata(v) == B[:,4]
     # end
+
+    @testset "Block broadcast" begin
+        a = PseudoBlockArray(BroadcastArray(exp, randn(5)), [3,2])
+        @test call(a) == exp
+    end
 end
 
 
