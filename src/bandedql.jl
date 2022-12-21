@@ -69,7 +69,7 @@ end
 function materialize!(M::Lmul{<:AdjQLPackedQLayout{<:AbstractBandedLayout}})
     adjA,B = M.A,M.B
     require_one_based_indexing(B)
-    A = adjA.parent
+    A = parent(adjA)
     mA, nA = size(A.factors)
     mB, nB = size(B,1), size(B,2)
     if mA != mB
@@ -130,7 +130,7 @@ end
 ### AQc
 function materialize!(M::Rmul{<:AdjQLPackedQLayout{<:AbstractBandedLayout}})
     A,adjQ = M.A,M.B
-    Q = adjQ.parent
+    Q = parent(adjQ)
     mQ, nQ = size(Q.factors)
     mA, nA = size(A,1), size(A,2)
     if nA != mQ

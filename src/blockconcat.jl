@@ -483,8 +483,8 @@ LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = view(dat.blocks,kr
 ###
 # block col/rowsupport
 ###
-blockcolsupport(M::BlockVcat, j) = first(blockcolsupport(first(M.arrays),j)):(Block(blocksize(BlockVcat(most(M.arrays)...),1))+last(blockcolsupport(last(M.arrays),j)))
-blockrowsupport(M::BlockHcat, k) = first(blockrowsupport(first(M.arrays),k)):(Block(blocksize(BlockHcat(most(M.arrays)...),1))+last(blockrowsupport(last(M.arrays),k)))
+blockcolsupport(M::BlockVcat, j) = first(blockcolsupport(first(M.arrays),j)):(Block(blocksize(BlockVcat(Base.front(M.arrays)...),1))+last(blockcolsupport(last(M.arrays),j)))
+blockrowsupport(M::BlockHcat, k) = first(blockrowsupport(first(M.arrays),k)):(Block(blocksize(BlockHcat(Base.front(M.arrays)...),1))+last(blockrowsupport(last(M.arrays),k)))
 function blockcolsupport(H::BlockHcat, J::Block{1})
     j = Integer(J)
     for A in arguments(H)
