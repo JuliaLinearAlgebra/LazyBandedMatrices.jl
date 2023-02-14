@@ -259,7 +259,6 @@ getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k),
 is a block array corresponding to `f.(blocks(A), blocks(B), ...)`,
 except if `A` is scalar.
 """
-
 struct BlockBroadcastArray{T, N, FF, Args} <: AbstractBlockArray{T, N}
     f::FF
     args::Args
