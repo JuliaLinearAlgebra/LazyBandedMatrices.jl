@@ -1,5 +1,5 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!
+import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
 import LinearAlgebra: Adjoint, Transpose
 import LazyArrays: PaddedArray
 
@@ -141,7 +141,6 @@ end
         @test a' .+ 1 isa BroadcastArray
     end
 end
-
 
 @testset "BlockHcat" begin
     @testset "vec hcat" begin
@@ -405,4 +404,18 @@ end
         @test blockbandwidths(C) == (2,2)
         @test subblockbandwidths(C) == (0,0)
     end
+end
+
+@testset "BlockVec" begin
+    X = randn(5,4)
+    b = BlockVec(X)
+    @test b == vec(X)
+    @test view(b, Block(3)) ≡ view(X, :, 3)
+    @test b[Block(3)] isa Vector
+    b[5] = 6
+    @test X[5] == 6
+
+    c = BlockVec(X')
+    @test c == vec(X')
+    @test view(c, Block(3)) ≡ view(X', :, 3)
 end

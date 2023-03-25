@@ -523,3 +523,18 @@ end
 MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blockbroadcastlayout(FF, tuple_type_memorylayouts(Args)...)
 
 resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBroadcastVector{T}(vcat, resize!.(c.args, N)...)
+
+
+####
+# BlockVec
+####
+
+struct BlockVec{T, M<:AbstractMatrix{T}} <: AbstractBlockVector{T}
+    array::M
+end
+
+axes(b::BlockVec) = (blockedrange(Fill(size(b.array)...)),)
+
+viewblock(b::BlockVec, K::Block{1}) = view(b.array, :, Int(K))
+Base.@propagate_inbounds getindex(b::BlockVec, k::Int) = b.array[k]
+Base.@propagate_inbounds setindex!(b::BlockVec, v, k::Int) = setindex!(b.array, v, k)
