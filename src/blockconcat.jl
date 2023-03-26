@@ -259,7 +259,6 @@ getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k),
 is a block array corresponding to `f.(blocks(A), blocks(B), ...)`,
 except if `A` is scalar.
 """
-
 struct BlockBroadcastArray{T, N, FF, Args} <: AbstractBlockArray{T, N}
     f::FF
     args::Args
@@ -523,7 +522,6 @@ end
 MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blockbroadcastlayout(FF, tuple_type_memorylayouts(Args)...)
 
 resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBroadcastVector{T}(vcat, resize!.(c.args, N)...)
-
 
 ####
 # BlockVec
