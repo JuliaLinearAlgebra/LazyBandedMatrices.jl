@@ -529,26 +529,20 @@ resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBro
 # BlockVec
 ####
 
-struct BlockVec{T, M<:AbstractMatrix{T}} <: AbstractBlockVector{T}
-    array::M
-end
+const BlockVec{T, M<:AbstractMatrix{T}} = ApplyVector{T, typeof(blockvec), <:Tuple{M}}
 
-axes(b::BlockVec) = (blockedrange(Fill(size(b.array)...)),)
+BlockVec{T}(M::AbstractMatrix{T}) where T = ApplyVector{T}(blockvec, M)
+BlockVec(M::AbstractMatrix{T}) where T = BlockVec{T}(M)
+axes(b::BlockVec) = (blockedrange(Fill(size(b.args[1])...)),)
 
-viewblock(b::BlockVec, K::Block{1}) = view(b.array, :, Int(K))
-Base.@propagate_inbounds getindex(b::BlockVec, k::Int) = b.array[k]
-Base.@propagate_inbounds setindex!(b::BlockVec, v, k::Int) = setindex!(b.array, v, k)
+view(b::BlockVec, K::Block{1}) = view(b.args[1], :, Int(K))
+Base.@propagate_inbounds getindex(b::BlockVec, k::Int) = b.args[1][k]
+Base.@propagate_inbounds setindex!(b::BlockVec, v, k::Int) = setindex!(b.args[1], v, k)
 
 _resize!(A::AbstractMatrix, m, n) = A[1:m, 1:n]
 _resize!(At::Transpose, m, n) = transpose(transpose(At)[1:n, 1:m])
 _resize!(Ac::Adjoint, m, n) = (Ac')[1:n, 1:m]'
-resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.array, size(b.array,1), Int(K)))
+resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.args[1], size(b.args[1],1), Int(K)))
 
-struct BlockVecLayout <: MemoryLayout end
-
-blockveclayout(_) = BlockVecLayout()
-blockveclayout(::PaddedLayout) = PaddedLayout{BlockVecLayout}()
-
-paddeddata(b::BlockVec) = BlockVec(paddeddata(b.array))
-
-MemoryLayout(::Type{<:BlockVec{T,M}}) where {T,M} = blockveclayout(MemoryLayout(M))
+applylayout(::Type{typeof(blockvec)}, ::PaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
+paddeddata(b::BlockVec) = BlockVec(paddeddata(b.args[1]))
