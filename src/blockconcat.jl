@@ -538,3 +538,17 @@ axes(b::BlockVec) = (blockedrange(Fill(size(b.array)...)),)
 viewblock(b::BlockVec, K::Block{1}) = view(b.array, :, Int(K))
 Base.@propagate_inbounds getindex(b::BlockVec, k::Int) = b.array[k]
 Base.@propagate_inbounds setindex!(b::BlockVec, v, k::Int) = setindex!(b.array, v, k)
+
+_resize!(A::AbstractMatrix, m, n) = A[1:m, 1:n]
+_resize!(At::Transpose, m, n) = transpose(transpose(At)[1:n, 1:m])
+_resize!(Ac::Adjoint, m, n) = (Ac')[1:n, 1:m]'
+resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.array, size(b.array,1), Int(K)))
+
+struct BlockVecLayout <: MemoryLayout end
+
+blockveclayout(_) = BlockVecLayout()
+blockveclayout(::PaddedLayout) = PaddedLayout{BlockVecLayout}()
+
+paddeddata(b::BlockVec) = BlockVec(paddeddata(b.array))
+
+MemoryLayout(::Type{<:BlockVec{T,M}}) where {T,M} = blockveclayout(MemoryLayout(M))

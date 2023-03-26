@@ -418,4 +418,11 @@ end
     c = BlockVec(X')
     @test c == vec(X')
     @test view(c, Block(3)) ≡ view(X', :, 3)
+
+    X = cache(Zeros(5,6));
+    X[1,1] = 2
+    c = BlockVec(X);
+    @test MemoryLayout(c) isa PaddedLayout
+    @test paddeddata(c) isa BlockVec
+    @test paddeddata(c) == [2]
 end
