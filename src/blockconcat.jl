@@ -522,3 +522,25 @@ end
 MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blockbroadcastlayout(FF, tuple_type_memorylayouts(Args)...)
 
 resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBroadcastVector{T}(vcat, resize!.(c.args, N)...)
+
+####
+# BlockVec
+####
+
+const BlockVec{T, M<:AbstractMatrix{T}} = ApplyVector{T, typeof(blockvec), <:Tuple{M}}
+
+BlockVec{T}(M::AbstractMatrix{T}) where T = ApplyVector{T}(blockvec, M)
+BlockVec(M::AbstractMatrix{T}) where T = BlockVec{T}(M)
+axes(b::BlockVec) = (blockedrange(Fill(size(b.args[1])...)),)
+
+view(b::BlockVec, K::Block{1}) = view(b.args[1], :, Int(K))
+Base.@propagate_inbounds getindex(b::BlockVec, k::Int) = b.args[1][k]
+Base.@propagate_inbounds setindex!(b::BlockVec, v, k::Int) = setindex!(b.args[1], v, k)
+
+_resize!(A::AbstractMatrix, m, n) = A[1:m, 1:n]
+_resize!(At::Transpose, m, n) = transpose(transpose(At)[1:n, 1:m])
+_resize!(Ac::Adjoint, m, n) = (Ac')[1:n, 1:m]'
+resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.args[1], size(b.args[1],1), Int(K)))
+
+applylayout(::Type{typeof(blockvec)}, ::PaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
+paddeddata(b::BlockVec) = BlockVec(paddeddata(b.args[1]))
