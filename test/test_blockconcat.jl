@@ -1,5 +1,5 @@
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec, BlockVecLayout
+import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
 import BlockArrays: blockvec
 import LinearAlgebra: Adjoint, Transpose
 import LazyArrays: PaddedArray, PaddedLayout
