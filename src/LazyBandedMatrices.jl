@@ -41,7 +41,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle, BlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1,
-                        BlockBandedColumnMajor
+                        BlockBandedColumnMajor, blockbanded_copyto!
 import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks, BlockSlices, AbstractBlockLayout, blockvec
 
 # for bidiag/tridiag
@@ -582,15 +582,15 @@ _mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b,
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b, c, d...) where T = _mulbanded_copyto!(dest, mul(a,b), c, d...)
 
 _mulbanded_BandedMatrix(A, _) = A
-_mulbanded_BandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedMatrix(A)
-_mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, axes(A))
+_mulbanded_BandedMatrix(A, ::NTuple{2,Int}) = BandedMatrix(A)
+_mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, size(A))
 
 _copyto!(::AbstractBandedLayout, ::ApplyBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedMatrix,arguments(src))...)
 
 _mulbanded_BandedBlockBandedMatrix(A, _) = A
-_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedBlockBandedMatrix(A)
-_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, axes(A))
+_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,Int}) = BandedBlockBandedMatrix(A)
+_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, size(A))
 
 _copyto!(::AbstractBandedBlockBandedLayout, ::ApplyBandedBlockBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedBlockBandedMatrix,arguments(src))...)

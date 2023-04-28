@@ -223,6 +223,7 @@ isbandedblockbanded(A::KronTrav) = isblockbanded(A) && length(A.args) == 2
 convert(::Type{B}, A::KronTrav{<:Any,2}) where B<:BandedBlockBandedMatrix = convert(B, BandedBlockBandedMatrix(A))
 
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
+struct SubKronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 struct KronTravLayout{M} <: AbstractBlockLayout end
 
 
@@ -241,6 +242,16 @@ sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{<:BlockRange1}}}) = 
 sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravBandedBlockBandedLayout()
 
 sub_materialize(::Union{KronTravLayout,KronTravBandedBlockBandedLayout}, V) = KronTrav(map(sub_materialize, krontravargs(V))...)
+
+
+_copyto!(_, ::KronTravBandedBlockBandedLayout, dest::AbstractMatrix, src::AbstractMatrix) = blockbanded_copyto!(dest, sub_materialize(src))
+function _copyto!(_, ::SubKronTravBandedBlockBandedLayout, dest::AbstractMatrix, src::AbstractMatrix)
+    KR, JR = parentindices(src)
+    # use Base.OneTo range which is a Kron Trav
+    KR2,JR2 = Block.(Base.OneTo(Int(KR.block[end]))),Block.(Base.OneTo(Int(JR.block[end])))
+    # materialize parent with KR2,JR2 ranges then copyto!
+    copyto!(dest, view(BandedBlockBandedMatrix(view(parent(src),KR2, JR2)), KR, JR))
+end
 
 
 krontravargs(K::KronTrav) = K.args
