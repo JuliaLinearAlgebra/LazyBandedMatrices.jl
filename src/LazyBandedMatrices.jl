@@ -958,9 +958,13 @@ copy(M::Mul{BroadcastLayout{typeof(*)}, <:StructuredLazyLayouts}) = lazymaterial
 ## padded copy
 mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
 mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
+mulreduce(M::Mul{<:PaddedLayout, <:StructuredLazyLayouts}) = MulAdd(M)
+mulreduce(M::Mul{D, <:StructuredApplyLayouts{F}}) where {F,D<:PaddedLayout} = Mul{D,ApplyLayout{F}}(M.A, M.B)
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
+copy(M::Mul{<:PaddedLayout, <:StructuredLazyLayouts}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
+simplifiable(::Mul{<:PaddedLayout, <:StructuredLazyLayouts}) = Val(true)
 
 
 copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))
