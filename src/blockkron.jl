@@ -201,6 +201,7 @@ function _krontrav_getindex(Kin::Block{2}, A, B, C)
 end
 
 getindex(M::KronTrav{<:Any,2}, K::Block{2}) = _krontrav_getindex(K, M.args...)
+# getindex(M::KronTrav{<:Any,2}, K::BlockIndex{2}) = _krontrav_getindex(K, M.args...)
 
 
 getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N =

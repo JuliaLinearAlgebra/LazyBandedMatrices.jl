@@ -881,7 +881,8 @@ BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, B
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
                 SymTridiagonalLayout{LazyLayout}, BidiagonalLayout{LazyLayout}, TridiagonalLayout{LazyLayout},
-                SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}}}
+                SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}},
+                BidiagonalLayout{LazyLayout,LazyLayout}}
 
 StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout},
