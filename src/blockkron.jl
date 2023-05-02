@@ -64,6 +64,9 @@ function colsupport(A::DiagTrav{<:Any,2}, _)
     axes(A,1)[bs]
 end
 
+copy(A::DiagTrav) = DiagTrav(copy(A.array))
+==(A::DiagTrav, B::PseudoBlockVector) = PseudoBlockVector(A) == B
+==(A::PseudoBlockVector, B::DiagTrav) = A == PseudoBlockVector(B)
 
 function getindex(A::DiagTrav, K::Block{1})
     @boundscheck checkbounds(A, K)
@@ -201,6 +204,7 @@ function _krontrav_getindex(Kin::Block{2}, A, B, C)
 end
 
 getindex(M::KronTrav{<:Any,2}, K::Block{2}) = _krontrav_getindex(K, M.args...)
+# getindex(M::KronTrav{<:Any,2}, K::BlockIndex{2}) = _krontrav_getindex(K, M.args...)
 
 
 getindex(A::KronTrav{<:Any,N}, kj::Vararg{Int,N}) where N =
@@ -223,6 +227,7 @@ isbandedblockbanded(A::KronTrav) = isblockbanded(A) && length(A.args) == 2
 convert(::Type{B}, A::KronTrav{<:Any,2}) where B<:BandedBlockBandedMatrix = convert(B, BandedBlockBandedMatrix(A))
 
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
+struct SubKronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 struct KronTravLayout{M} <: AbstractBlockLayout end
 
 
@@ -241,6 +246,16 @@ sublayout(::KronTravLayout{2}, ::Type{<:NTuple{2,BlockSlice{<:BlockRange1}}}) = 
 sublayout(::KronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravBandedBlockBandedLayout()
 
 sub_materialize(::Union{KronTravLayout,KronTravBandedBlockBandedLayout}, V) = KronTrav(map(sub_materialize, krontravargs(V))...)
+
+
+_copyto!(_, ::KronTravBandedBlockBandedLayout, dest::AbstractMatrix, src::AbstractMatrix) = blockbanded_copyto!(dest, sub_materialize(src))
+function _copyto!(_, ::SubKronTravBandedBlockBandedLayout, dest::AbstractMatrix, src::AbstractMatrix)
+    KR, JR = parentindices(src)
+    # use Base.OneTo range which is a Kron Trav
+    KR2,JR2 = Block.(Base.OneTo(Int(last(KR.block)))),Block.(Base.OneTo(Int(last(JR.block))))
+    # materialize parent with KR2,JR2 ranges then copyto!
+    copyto!(dest, view(BandedBlockBandedMatrix(view(parent(src),KR2, JR2)), KR, JR))
+end
 
 
 krontravargs(K::KronTrav) = K.args

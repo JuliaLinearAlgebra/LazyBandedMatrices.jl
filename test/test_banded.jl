@@ -1,4 +1,4 @@
-
+using LazyBandedMatrices, LazyArrays, BandedMatrices, Test
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -67,12 +67,19 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         b = Vcat(randn(2), Zeros(3))
         @test A*b ≈ Matrix(A)b
         @test B*b ≈ Matrix(B)b
+
+        P = Vcat(randn(2,5), Zeros(3,5))
+        @test A*P ≈ Matrix(A)P
+        @test P*A ≈ P*Matrix(A)
     end
 
     @testset "Apply * Banded" begin
         B = brand(5,5,2,1)
         A = ApplyArray(*, B, B)
         @test A * Vcat([1,2], Zeros(3)) ≈ B*B*[1,2,0,0,0]
+        P = Vcat(randn(2,5), Zeros(3,5))
+        @test A*P ≈ Matrix(A)P
+        @test P*A ≈ P*Matrix(A)
     end
 
     @testset "Banded Perturbed" begin

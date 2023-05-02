@@ -41,7 +41,7 @@ import BlockBandedMatrices: BlockSlice, Block1, AbstractBlockBandedLayout,
                         subblockbandwidths, BandedBlockBandedMatrix, BlockBandedMatrix, BlockBandedLayout,
                         AbstractBandedBlockBandedLayout, BandedBlockBandedLayout, BandedBlockBandedStyle, BlockBandedStyle,
                         blockcolsupport, BlockRange1, blockrowsupport, BlockIndexRange1,
-                        BlockBandedColumnMajor
+                        BlockBandedColumnMajor, blockbanded_copyto!
 import BlockArrays: BlockSlice1, BlockLayout, AbstractBlockStyle, block, blockindex, BlockKron, viewblock, blocks, BlockSlices, AbstractBlockLayout, blockvec
 
 # for bidiag/tridiag
@@ -533,10 +533,10 @@ _broadcastarray2broadcasted(::StructuredBroadcastLayouts{F}, A) where F = _broad
 _broadcastarray2broadcasted(::StructuredBroadcastLayouts{F}, A::BroadcastArray) where F = _broadcastarray2broadcasted(BroadcastLayout{F}(), A)
 
 _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
-    copyto!(dest, _broadcastarray2broadcasted(bc))
+    copyto!(dest, _broadcastarray2broadcasted(MemoryLayout(bc), bc))
 
 _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
-    copyto!(dest, _broadcastarray2broadcasted(bc))
+    copyto!(dest, _broadcastarray2broadcasted(MemoryLayout(bc), bc))
 
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
@@ -582,15 +582,15 @@ _mulbanded_copyto!(dest::AbstractArray{T}, a, b) where T = muladd!(one(T), a, b,
 _mulbanded_copyto!(dest::AbstractArray{T}, a, b, c, d...) where T = _mulbanded_copyto!(dest, mul(a,b), c, d...)
 
 _mulbanded_BandedMatrix(A, _) = A
-_mulbanded_BandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedMatrix(A)
-_mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, axes(A))
+_mulbanded_BandedMatrix(A, ::NTuple{2,Int}) = BandedMatrix(A)
+_mulbanded_BandedMatrix(A) = _mulbanded_BandedMatrix(A, size(A))
 
 _copyto!(::AbstractBandedLayout, ::ApplyBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedMatrix,arguments(src))...)
 
 _mulbanded_BandedBlockBandedMatrix(A, _) = A
-_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedBlockBandedMatrix(A)
-_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, axes(A))
+_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,Int}) = BandedBlockBandedMatrix(A)
+_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, size(A))
 
 _copyto!(::AbstractBandedBlockBandedLayout, ::ApplyBandedBlockBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedBlockBandedMatrix,arguments(src))...)
@@ -881,7 +881,8 @@ BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, B
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
                 SymTridiagonalLayout{LazyLayout}, BidiagonalLayout{LazyLayout}, TridiagonalLayout{LazyLayout},
-                SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}}}
+                SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}},
+                BidiagonalLayout{LazyLayout,LazyLayout}}
 
 StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout},
@@ -958,9 +959,13 @@ copy(M::Mul{BroadcastLayout{typeof(*)}, <:StructuredLazyLayouts}) = lazymaterial
 ## padded copy
 mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
 mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
+mulreduce(M::Mul{<:PaddedLayout, <:StructuredLazyLayouts}) = MulAdd(M)
+mulreduce(M::Mul{D, <:StructuredApplyLayouts{F}}) where {F,D<:PaddedLayout} = Mul{D,ApplyLayout{F}}(M.A, M.B)
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
+copy(M::Mul{<:PaddedLayout, <:StructuredLazyLayouts}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
+simplifiable(::Mul{<:PaddedLayout, <:StructuredLazyLayouts}) = Val(true)
 
 
 copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))
