@@ -64,6 +64,9 @@ function colsupport(A::DiagTrav{<:Any,2}, _)
     axes(A,1)[bs]
 end
 
+copy(A::DiagTrav) = DiagTrav(copy(A.array))
+==(A::DiagTrav, B::PseudoBlockVector) = PseudoBlockVector(A) == B
+==(A::PseudoBlockVector, B::DiagTrav) = A == PseudoBlockVector(B)
 
 function getindex(A::DiagTrav, K::Block{1})
     @boundscheck checkbounds(A, K)
@@ -249,7 +252,7 @@ _copyto!(_, ::KronTravBandedBlockBandedLayout, dest::AbstractMatrix, src::Abstra
 function _copyto!(_, ::SubKronTravBandedBlockBandedLayout, dest::AbstractMatrix, src::AbstractMatrix)
     KR, JR = parentindices(src)
     # use Base.OneTo range which is a Kron Trav
-    KR2,JR2 = Block.(Base.OneTo(Int(KR.block[end]))),Block.(Base.OneTo(Int(JR.block[end])))
+    KR2,JR2 = Block.(Base.OneTo(Int(last(KR.block)))),Block.(Base.OneTo(Int(last(JR.block))))
     # materialize parent with KR2,JR2 ranges then copyto!
     copyto!(dest, view(BandedBlockBandedMatrix(view(parent(src),KR2, JR2)), KR, JR))
 end

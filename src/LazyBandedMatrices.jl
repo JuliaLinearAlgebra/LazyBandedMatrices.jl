@@ -533,10 +533,10 @@ _broadcastarray2broadcasted(::StructuredBroadcastLayouts{F}, A) where F = _broad
 _broadcastarray2broadcasted(::StructuredBroadcastLayouts{F}, A::BroadcastArray) where F = _broadcastarray2broadcasted(BroadcastLayout{F}(), A)
 
 _copyto!(::AbstractBandedLayout, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
-    copyto!(dest, _broadcastarray2broadcasted(bc))
+    copyto!(dest, _broadcastarray2broadcasted(MemoryLayout(bc), bc))
 
 _copyto!(_, ::BroadcastBandedLayout, dest::AbstractMatrix, bc::AbstractMatrix) =
-    copyto!(dest, _broadcastarray2broadcasted(bc))
+    copyto!(dest, _broadcastarray2broadcasted(MemoryLayout(bc), bc))
 
 _banded_broadcast!(dest::AbstractMatrix, f, (A,B)::Tuple{AbstractMatrix{T},AbstractMatrix{V}}, _, ::Tuple{<:Any,ApplyBandedLayout{typeof(*)}}) where {T,V} =
     broadcast!(f, dest, BandedMatrix(A), BandedMatrix(B))
