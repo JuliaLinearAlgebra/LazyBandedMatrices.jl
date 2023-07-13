@@ -51,6 +51,15 @@ import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, 
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling,
                         LowerTriangular, UpperTriangular, UnitLowerTriangular, UnitUpperTriangular, char_uplo
 
+if VERSION ≥ v"1.11.0-DEV.21"
+    using LinearAlgebra: UpperOrLowerTriangular
+else
+    const UpperOrLowerTriangular{T,S} = Union{LinearAlgebra.UpperTriangular{T,S},
+                                              LinearAlgebra.UnitUpperTriangular{T,S},
+                                              LinearAlgebra.LowerTriangular{T,S},
+                                              LinearAlgebra.UnitLowerTriangular{T,S}}
+end
+
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
 
 include("tridiag.jl")
@@ -151,7 +160,7 @@ function bandwidths(K::Kron{<:Any,2})
 end
 
 const BandedMatrixTypes = (:AbstractBandedMatrix, :(AdjOrTrans{<:Any,<:AbstractBandedMatrix}),
-                                    :(AbstractTriangular{<:Any, <:AbstractBandedMatrix}),
+                                    :(UpperOrLowerTriangular{<:Any, <:AbstractBandedMatrix}),
                                     :(Symmetric{<:Any, <:AbstractBandedMatrix}))
 
 const OtherBandedMatrixTypes = (:Zeros, :Eye, :Diagonal, :(LinearAlgebra.SymTridiagonal))
