@@ -193,4 +193,8 @@ using LazyBandedMatrices, LazyArrays, BlockBandedMatrices, BlockArrays, Test
         @test exp.(view(A,Block.(1:3),2)) == exp.(A)[Block.(1:3),2]
         @test exp.(view(A,2,Block.(1:3))) == exp.(A)[2,Block.(1:3)]
     end
+
+    @testset "Blockbandwidths" begin
+        @test blockbandwidths(unitblocks(Diagonal(1:5))) == (0,0)
+    end
 end
