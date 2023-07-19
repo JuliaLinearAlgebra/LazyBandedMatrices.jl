@@ -330,9 +330,11 @@ end
 _broadcast_banded_padded_mul((A1,A2)::Tuple{<:AbstractVector,<:AbstractMatrix}, B) = A1 .* mul(A2, B)
 _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aargs...), B)))
 
-const AllBandedLayout = Union{AbstractBandedLayout,SymmetricLayout{<:AbstractBandedLayout},HermitianLayout{<:AbstractBandedLayout},DualOrPaddedLayout}
-const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
-const AllBandedBlockBandedLayout = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:BlockLayout}}
+const StructuredLayoutTypes{Lay} = Union{SymmetricLayout{Lay}, HermitianLayout{Lay}, TriangularLayout{'L','N',Lay}, TriangularLayout{'U','N',Lay}, TriangularLayout{'L','U',Lay}, TriangularLayout{'U','U',Lay}}
+
+const AllBandedLayout = Union{AbstractBandedLayout, StructuredLayoutTypes{<:AbstractBandedLayout}, DualOrPaddedLayout}
+const AllBlockBandedLayout = Union{AbstractBlockBandedLayout, BlockLayout{<:AbstractBandedLayout}, StructuredLayoutTypes{<:AbstractBlockBandedLayout}}
+const AllBandedBlockBandedLayout = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:AbstractBlockLayout}, StructuredLayoutTypes{<:AbstractBandedBlockBandedLayout}}
 
 _block_last(b::Block) = b
 _block_last(b::AbstractVector{<:Block}) = last(b)
@@ -890,7 +892,8 @@ BandedLazyLayouts = Union{AbstractLazyBandedLayout, BandedColumns{LazyLayout}, B
                 TriangularLayout{UPLO,UNIT,BandedRows{LazyLayout}} where {UPLO,UNIT},
                 TriangularLayout{UPLO,UNIT,BandedColumns{LazyLayout}} where {UPLO,UNIT},
                 SymTridiagonalLayout{LazyLayout}, BidiagonalLayout{LazyLayout}, TridiagonalLayout{LazyLayout},
-                SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}}}
+                SymmetricLayout{BandedColumns{LazyLayout}}, HermitianLayout{BandedColumns{LazyLayout}},
+                DiagonalLayout{LazyLayout}}
 
 StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockBandedColumns{LazyLayout}, BandedBlockBandedColumns{LazyLayout},
