@@ -450,11 +450,6 @@ prodsubblockbandwidths(A...) = broadcast(+, subblockbandwidths.(A)...)
 blockbandwidths(M::MulMatrix) = prodblockbandwidths(M.args...)
 subblockbandwidths(M::MulMatrix) = prodsubblockbandwidths(M.args...)
 
-mulreduce(M::Mul{<:StructuredApplyLayouts{F},<:StructuredApplyLayouts{G}}) where {F,G} = Mul{ApplyLayout{F},ApplyLayout{G}}(M.A, M.B)
-mulreduce(M::Mul{<:StructuredApplyLayouts{F},D}) where {F,D} = Mul{ApplyLayout{F},D}(M.A, M.B)
-mulreduce(M::Mul{D,<:StructuredApplyLayouts{F}}) where {F,D} = Mul{D,ApplyLayout{F}}(M.A, M.B)
-mulreduce(M::Mul{<:StructuredApplyLayouts{F},<:DiagonalLayout}) where F = Rmul(M)
-mulreduce(M::Mul{<:DiagonalLayout,<:StructuredApplyLayouts{F}}) where F = Lmul(M)
 
 
 ###

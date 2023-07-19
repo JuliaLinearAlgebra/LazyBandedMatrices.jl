@@ -10,6 +10,7 @@ import BandedMatrices: BandedColumns
         @testset "2D" begin
             A = brand(5,5,2,2)
             B = brand(2,2,1,0)
+            @test isbanded(Kron(A,B))
             K = kron(A,B)
             @test K isa BandedMatrix
             @test bandwidths(K) == (5,4)
