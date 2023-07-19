@@ -269,15 +269,23 @@ function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{AbstractU
     ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
 end
 
+const StructuredLayoutTypes{Lay} = Union{SymmetricLayout{Lay}, HermitianLayout{Lay}, TriangularLayout{'L','N',Lay}, TriangularLayout{'U','N',Lay}, TriangularLayout{'L','U',Lay}, TriangularLayout{'U','U',Lay}}
 
-function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T
+const BandedLayouts = Union{AbstractBandedLayout, StructuredLayoutTypes{<:AbstractBandedLayout}, DualOrPaddedLayout}
+const BlockBandedLayouts = Union{AbstractBlockBandedLayout, BlockLayout{<:AbstractBandedLayout}, StructuredLayoutTypes{<:AbstractBlockBandedLayout}}
+const BandedBlockBandedLayouts = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:AbstractBlockLayout}, StructuredLayoutTypes{<:AbstractBandedBlockBandedLayout}}
+
+
+function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
     n = max(0,min(length(xf) + bandwidth(A,1),length(M)))
     Vcat(Vector{T}(undef, n), Zeros{T}(size(A,1)-n))
 end
 
-function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T
+similar(M::MulAdd{<:DiagonalLayout,<:PaddedLayout}, ::Type{T}, axes) where T = similar(M.B, T, axes)
+
+function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
     m = max(0,min(size(xf,1) + bandwidth(A,1),size(M,1)))
@@ -285,7 +293,7 @@ function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, ax
     PaddedArray(Matrix{T}(undef, m, n), size(A,1), size(x,2))
 end
 
-function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:PaddedLayout})
+function materialize!(M::MatMulVecAdd{<:BandedLayouts,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
@@ -305,7 +313,7 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
     y
 end
 
-function materialize!(M::MatMulMatAdd{<:AbstractBandedLayout,<:PaddedLayout,<:PaddedLayout})
+function materialize!(M::MatMulMatAdd{<:BandedLayouts,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     size(y) == (size(A,1),size(x,2)) || throw(DimensionMismatch())
     size(x,1) == size(A,2) || throw(DimensionMismatch())
@@ -329,12 +337,6 @@ end
 # (vec .* mat) * B is typically faster as vec .* (mat * b)
 _broadcast_banded_padded_mul((A1,A2)::Tuple{<:AbstractVector,<:AbstractMatrix}, B) = A1 .* mul(A2, B)
 _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aargs...), B)))
-
-const StructuredLayoutTypes{Lay} = Union{SymmetricLayout{Lay}, HermitianLayout{Lay}, TriangularLayout{'L','N',Lay}, TriangularLayout{'U','N',Lay}, TriangularLayout{'L','U',Lay}, TriangularLayout{'U','U',Lay}}
-
-const BandedLayouts = Union{AbstractBandedLayout, StructuredLayoutTypes{<:AbstractBandedLayout}, DualOrPaddedLayout}
-const BlockBandedLayouts = Union{AbstractBlockBandedLayout, BlockLayout{<:AbstractBandedLayout}, StructuredLayoutTypes{<:AbstractBlockBandedLayout}}
-const BandedBlockBandedLayouts = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:AbstractBlockLayout}, StructuredLayoutTypes{<:AbstractBandedBlockBandedLayout}}
 
 _block_last(b::Block) = b
 _block_last(b::AbstractVector{<:Block}) = last(b)
