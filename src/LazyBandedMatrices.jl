@@ -911,7 +911,6 @@ copy(M::Mul{<:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:Any, <:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts, <:AbstractLazyLayout}) = simplify(M)
 copy(M::Mul{<:AbstractLazyLayout, <:StructuredLazyLayouts}) = simplify(M)
-copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout}) = simplify(M)
 copy(M::Mul{<:DiagonalLayout, <:StructuredLazyLayouts}) = simplify(M)
 
@@ -937,6 +936,7 @@ copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = simplify(M)
 copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
 copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
 
 copy(L::Ldiv{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = lazymaterialize(\, L.A, L.B)
@@ -972,6 +972,7 @@ mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
 mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
+copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts}, <:PaddedLayout}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
 copy(M::Mul{<:BandedLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
 
