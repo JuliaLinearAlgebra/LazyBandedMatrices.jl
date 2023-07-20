@@ -269,15 +269,21 @@ function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{AbstractU
     ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
 end
 
+const StructuredLayoutTypes{Lay} = Union{SymmetricLayout{Lay}, HermitianLayout{Lay}, TriangularLayout{'L','N',Lay}, TriangularLayout{'U','N',Lay}, TriangularLayout{'L','U',Lay}, TriangularLayout{'U','U',Lay}}
 
-function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T
+const BandedLayouts = Union{AbstractBandedLayout, StructuredLayoutTypes{<:AbstractBandedLayout}, DualOrPaddedLayout}
+const BlockBandedLayouts = Union{AbstractBlockBandedLayout, BlockLayout{<:AbstractBandedLayout}, StructuredLayoutTypes{<:AbstractBlockBandedLayout}}
+const BandedBlockBandedLayouts = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:AbstractBlockLayout}, StructuredLayoutTypes{<:AbstractBandedBlockBandedLayout}}
+
+
+function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
     n = max(0,min(length(xf) + bandwidth(A,1),length(M)))
     Vcat(Vector{T}(undef, n), Zeros{T}(size(A,1)-n))
 end
 
-function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T
+function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
     m = max(0,min(size(xf,1) + bandwidth(A,1),size(M,1)))
@@ -285,7 +291,7 @@ function similar(M::MulAdd{<:AbstractBandedLayout,<:PaddedLayout}, ::Type{T}, ax
     PaddedArray(Matrix{T}(undef, m, n), size(A,1), size(x,2))
 end
 
-function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:PaddedLayout})
+function materialize!(M::MatMulVecAdd{<:BandedLayouts,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
@@ -305,7 +311,7 @@ function materialize!(M::MatMulVecAdd{<:AbstractBandedLayout,<:PaddedLayout,<:Pa
     y
 end
 
-function materialize!(M::MatMulMatAdd{<:AbstractBandedLayout,<:PaddedLayout,<:PaddedLayout})
+function materialize!(M::MatMulMatAdd{<:BandedLayouts,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     size(y) == (size(A,1),size(x,2)) || throw(DimensionMismatch())
     size(x,1) == size(A,2) || throw(DimensionMismatch())
@@ -330,13 +336,9 @@ end
 _broadcast_banded_padded_mul((A1,A2)::Tuple{<:AbstractVector,<:AbstractMatrix}, B) = A1 .* mul(A2, B)
 _broadcast_banded_padded_mul(Aargs, B) = copy(mulreduce(Mul(BroadcastArray(*, Aargs...), B)))
 
-const AllBandedLayout = Union{AbstractBandedLayout,SymmetricLayout{<:AbstractBandedLayout},HermitianLayout{<:AbstractBandedLayout},DualOrPaddedLayout}
-const AllBlockBandedLayout = Union{AbstractBlockBandedLayout,BlockLayout{<:AbstractBandedLayout}}
-const AllBandedBlockBandedLayout = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:BlockLayout}}
-
 _block_last(b::Block) = b
 _block_last(b::AbstractVector{<:Block}) = last(b)
-function similar(Ml::MulAdd{<:AllBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _) where T
+function similar(Ml::MulAdd{<:BlockBandedLayouts,<:PaddedLayout}, ::Type{T}, _) where T
     A,x = Ml.A,Ml.B
     xf = paddeddata(x)
     ax1,ax2 = axes(A)
@@ -348,7 +350,7 @@ function similar(Ml::MulAdd{<:AllBlockBandedLayout,<:PaddedLayout}, ::Type{T}, _
     PseudoBlockVector(c, (ax1,))
 end
 
-function materialize!(M::MatMulVecAdd{<:AllBlockBandedLayout,<:PaddedLayout,<:PaddedLayout})
+function materialize!(M::MatMulVecAdd{<:BlockBandedLayouts,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
@@ -418,9 +420,9 @@ sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRa
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:BlockIndexRange1}}}) where F = BandedBlockBandedLayout()
 sublayout(::ApplyBandedBlockBandedLayout{F}, ::Type{<:Tuple{BlockSlice{<:BlockIndexRange1},BlockSlice{<:BlockRange1}}}) where F = BandedBlockBandedLayout()
 
-applylayout(::Type{typeof(*)}, ::AllBandedLayout...) = ApplyBandedLayout{typeof(*)}()
-applylayout(::Type{typeof(*)}, ::AllBlockBandedLayout...) = ApplyBlockBandedLayout{typeof(*)}()
-applylayout(::Type{typeof(*)}, ::AllBandedBlockBandedLayout...) = ApplyBandedBlockBandedLayout{typeof(*)}()
+applylayout(::Type{typeof(*)}, ::BandedLayouts...) = ApplyBandedLayout{typeof(*)}()
+applylayout(::Type{typeof(*)}, ::BlockBandedLayouts...) = ApplyBlockBandedLayout{typeof(*)}()
+applylayout(::Type{typeof(*)}, ::BandedBlockBandedLayouts...) = ApplyBandedBlockBandedLayout{typeof(*)}()
 
 
 applybroadcaststyle(::Type{<:AbstractMatrix}, ::ApplyBandedLayout) = LazyArrayStyle{2}()
@@ -448,11 +450,6 @@ prodsubblockbandwidths(A...) = broadcast(+, subblockbandwidths.(A)...)
 blockbandwidths(M::MulMatrix) = prodblockbandwidths(M.args...)
 subblockbandwidths(M::MulMatrix) = prodsubblockbandwidths(M.args...)
 
-mulreduce(M::Mul{<:StructuredApplyLayouts{F},<:StructuredApplyLayouts{G}}) where {F,G} = Mul{ApplyLayout{F},ApplyLayout{G}}(M.A, M.B)
-mulreduce(M::Mul{<:StructuredApplyLayouts{F},D}) where {F,D} = Mul{ApplyLayout{F},D}(M.A, M.B)
-mulreduce(M::Mul{D,<:StructuredApplyLayouts{F}}) where {F,D} = Mul{D,ApplyLayout{F}}(M.A, M.B)
-mulreduce(M::Mul{<:StructuredApplyLayouts{F},<:DiagonalLayout}) where F = Rmul(M)
-mulreduce(M::Mul{<:DiagonalLayout,<:StructuredApplyLayouts{F}}) where F = Lmul(M)
 
 
 ###
@@ -507,8 +504,8 @@ end
 for op in (:*, :/, :\, :+, :-)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::BlockBandedLayouts, ::BlockBandedLayouts) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::BandedBlockBandedLayouts, ::BandedBlockBandedLayouts) = BroadcastBandedBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::DiagonalLayout, ::AbstractBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
         broadcastlayout(::Type{typeof($op)}, ::AbstractBlockBandedLayout, ::DiagonalLayout) = BroadcastBlockBandedLayout{typeof($op)}()
     end
@@ -516,17 +513,17 @@ end
 for op in (:*, :/)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::AbstractBandedLayout, ::Any) = BroadcastBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AllBlockBandedLayout, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::AllBandedBlockBandedLayout, ::DiagonalLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::BlockBandedLayouts, ::Any) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::BandedBlockBandedLayouts, ::Any) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::BandedBlockBandedLayouts, ::DiagonalLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 for op in (:*, :\)
     @eval begin
         broadcastlayout(::Type{typeof($op)}, ::Any, ::AbstractBandedLayout) = BroadcastBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBlockBandedLayout) = BroadcastBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::Any, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
-        broadcastlayout(::Type{typeof($op)}, ::DiagonalLayout, ::AllBandedBlockBandedLayout) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::BlockBandedLayouts) = BroadcastBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::Any, ::BandedBlockBandedLayouts) = BroadcastBandedBlockBandedLayout{typeof($op)}()
+        broadcastlayout(::Type{typeof($op)}, ::DiagonalLayout, ::BandedBlockBandedLayouts) = BroadcastBandedBlockBandedLayout{typeof($op)}()
     end
 end
 
@@ -558,7 +555,7 @@ broadcasted(::LazyArrayStyle, ::typeof(/), A::BandedMatrix, c::Number) = _Banded
 
 copy(M::Mul{BroadcastBandedLayout{typeof(*)}, <:PaddedLayout}) = _broadcast_banded_padded_mul(arguments(BroadcastBandedLayout{typeof(*)}(), M.A), M.B)
 
-function _cache(::AllBlockBandedLayout, A::AbstractMatrix{T}) where T
+function _cache(::BlockBandedLayouts, A::AbstractMatrix{T}) where T
     kr,jr = axes(A)
     CachedArray(BlockBandedMatrix{T}(undef, (kr[Block.(1:0)], jr[Block.(1:0)]), blockbandwidths(A)), A)
 end
@@ -630,7 +627,7 @@ sublayout(M::ApplyBandedBlockBandedLayout{typeof(*)}, ::Type{<:Tuple{BlockSlice{
 
 const ZerosLayouts = Union{ZerosLayout,DualLayout{ZerosLayout}}
 const ScalarOrZerosLayouts = Union{ScalarLayout,ZerosLayouts}
-const ScalarOrBandedLayouts = Union{ScalarOrZerosLayouts,AllBandedLayout}
+const ScalarOrBandedLayouts = Union{ScalarOrZerosLayouts,BandedLayouts}
 
 for op in (:hcat, :vcat)
     @eval begin
@@ -899,8 +896,7 @@ StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockLayout{TridiagonalLayout{LazyLayout,LazyLayout,LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout,LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout,LazyLayout}},
                 BlockLayout{LazyBandedLayout},
-                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout,
-                AbstractInvLayout{<:BandedLazyLayouts}}
+                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
@@ -912,6 +908,7 @@ copy(M::Mul{<:StructuredLazyLayouts, <:AbstractLazyLayout}) = simplify(M)
 copy(M::Mul{<:AbstractLazyLayout, <:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts, <:DiagonalLayout}) = simplify(M)
 copy(M::Mul{<:DiagonalLayout, <:StructuredLazyLayouts}) = simplify(M)
+
 
 copy(M::Mul{<:Union{ZerosLayout,DualLayout{ZerosLayout}}, <:StructuredLazyLayouts}) = copy(mulreduce(M))
 copy(M::Mul{<:StructuredLazyLayouts, <:Union{ZerosLayout,DualLayout{ZerosLayout}}}) = copy(mulreduce(M))
@@ -934,7 +931,11 @@ copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = simplify(M)
 copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
-copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+
+copy(M::Mul{<:AbstractInvLayout, <:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+simplifiable(::Mul{<:AbstractInvLayout, <:StructuredLazyLayouts}) = Val(false)
+copy(M::Mul{<:AbstractInvLayout, <:StructuredLazyLayouts}) = simplify(M)
+
 
 copy(L::Ldiv{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = lazymaterialize(\, L.A, L.B)
 
@@ -969,6 +970,8 @@ mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
 mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
 # need to overload copy due to above
 copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
+copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts}, <:PaddedLayout}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+copy(M::Mul{<:BandedLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
 
 
