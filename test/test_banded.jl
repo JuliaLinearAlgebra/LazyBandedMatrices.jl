@@ -1,4 +1,4 @@
-
+using LazyBandedMatrices, LazyArrays, Test
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -228,45 +228,45 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         L = brand(5,5,2,0)
         U = brand(5,5,0,2)
         B = brand(5,5,1,2)
-    
+
         @test bandwidths(ApplyMatrix(inv,D)) == (0,0)
         @test bandwidths(ApplyMatrix(inv,L)) == (4,0)
         @test bandwidths(ApplyMatrix(inv,U)) == (0,4)
         @test bandwidths(ApplyMatrix(inv,B)) == (4,4)
-    
+
         @test colsupport(ApplyMatrix(inv,D) ,3) == 3:3
         @test colsupport(ApplyMatrix(inv,L), 3) == 3:5
         @test colsupport(ApplyMatrix(inv,U), 3) == 1:3
         @test colsupport(ApplyMatrix(inv,B), 3) == 1:5
-    
+
         @test rowsupport(ApplyMatrix(inv,D) ,3) == 3:3
         @test rowsupport(ApplyMatrix(inv,L), 3) == 1:3
         @test rowsupport(ApplyMatrix(inv,U), 3) == 3:5
         @test rowsupport(ApplyMatrix(inv,B), 3) == 1:5
-    
+
         @test bandwidths(ApplyMatrix(\,D,B)) == (1,2)
         @test bandwidths(ApplyMatrix(\,L,B)) == (4,2)
         @test bandwidths(ApplyMatrix(\,U,B)) == (1,4)
         @test bandwidths(ApplyMatrix(\,B,B)) == (4,4)
-    
+
         @test colsupport(ApplyMatrix(\,D,B), 3) == 1:4
         @test colsupport(ApplyMatrix(\,L,B), 4) == 2:5
         @test colsupport(ApplyMatrix(\,U,B), 3) == 1:4
         @test colsupport(ApplyMatrix(\,B,B), 3) == 1:5
-    
+
         @test rowsupport(ApplyMatrix(\,D,B), 3) == 2:5
         @test rowsupport(ApplyMatrix(\,L,B), 2) == 1:4
         @test rowsupport(ApplyMatrix(\,U,B), 3) == 2:5
         @test rowsupport(ApplyMatrix(\,B,B), 3) == 1:5
     end
-    
+
     @testset "Cat" begin
         A = brand(6,5,2,1)
         H = Hcat(A,A)
         @test H[1,1] == applied(hcat,A,A)[1,1] == A[1,1]
         @test isbanded(H)
         @test bandwidths(H) == (2,6)
-        @test BandedMatrix(H) == BandedMatrix(H,(2,6)) == hcat(A,A) == hcat(A,Matrix(A)) == 
+        @test BandedMatrix(H) == BandedMatrix(H,(2,6)) == hcat(A,A) == hcat(A,Matrix(A)) ==
                 hcat(Matrix(A),A) == hcat(Matrix(A),Matrix(A))
         @test hcat(A,A) isa BandedMatrix
         @test hcat(A,Matrix(A)) isa Matrix
@@ -275,16 +275,16 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test bandwidths(isone.(H)) == (2,6)
         @test @inferred(colsupport(H,1)) == 1:3
         @test Base.replace_in_print_matrix(H,4,1,"0") == "⋅"
-    
+
         H = Hcat(A,A,A)
         @test isbanded(H)
         @test bandwidths(H) == (2,11)
-        @test BandedMatrix(H) == hcat(A,A,A) == hcat(A,Matrix(A),A) == hcat(Matrix(A),A,A) == 
+        @test BandedMatrix(H) == hcat(A,A,A) == hcat(A,Matrix(A),A) == hcat(Matrix(A),A,A) ==
                 hcat(Matrix(A),Matrix(A),A) == hcat(Matrix(A),Matrix(A),Matrix(A))
-        @test hcat(A,A,A) isa BandedMatrix 
+        @test hcat(A,A,A) isa BandedMatrix
         @test isone.(H) isa BandedMatrix
         @test bandwidths(isone.(H)) == (2,11)
-        
+
         V = Vcat(A,A)
         @test V isa VcatBandedMatrix
         @test isbanded(V)
@@ -296,12 +296,12 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test isone.(V) isa BandedMatrix
         @test bandwidths(isone.(V)) == (8,1)
         @test Base.replace_in_print_matrix(V,1,3,"0") == "⋅"
-    
+
         V = Vcat(A,A,A)
         @test bandwidths(V) == (14,1)
-        @test BandedMatrix(V) == vcat(A,A,A) == vcat(A,Matrix(A),A) == vcat(Matrix(A),A,A) == 
+        @test BandedMatrix(V) == vcat(A,A,A) == vcat(A,Matrix(A),A) == vcat(Matrix(A),A,A) ==
                 vcat(Matrix(A),Matrix(A),A) == vcat(Matrix(A),Matrix(A),Matrix(A))
-        @test vcat(A,A,A) isa BandedMatrix 
+        @test vcat(A,A,A) isa BandedMatrix
         @test isone.(V) isa BandedMatrix
         @test bandwidths(isone.(V)) == (14,1)
     end
@@ -373,24 +373,24 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test C.data isa BandedMatrix{Int,Matrix{Int},Base.OneTo{Int}}
         @test colsupport(C,1) == rowsupport(C,1) == 1:2
         @test bandwidths(C) == bandwidths(A) == (1,1)
-        @test isbanded(C) 
+        @test isbanded(C)
         resizedata!(C,1,1);
         @test C[1:10,1:10] == A[1:10,1:10]
         @test C[1:10,1:10] isa BandedMatrix
     end
-    
+
     @testset "NaN Bug" begin
         C = BandedMatrix{Float64}(undef, (1,2), (0,2)); C.data .= NaN;
         A = brand(1,1,0,1)
         B = brand(1,2,0,2)
         C .= applied(*, A,B)
         @test C == A*B
-    
+
         C.data .= NaN
         C .= @~ 1.0 * A*B + 0.0 * C
         @test C == A*B
     end
-    
+
     @testset "Applied" begin
         A = brand(5,5,1,2)
         @test applied(*,Symmetric(A),A) isa Applied{MulStyle}
@@ -399,7 +399,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test all(B .=== (A*A)*A)
         @test bandwidths(B) == (3,4)
     end
-    
+
     @testset "QL tests" begin
         for T in (Float64,ComplexF64,Float32,ComplexF32)
             A=brand(T,10,10,3,2)
@@ -412,37 +412,37 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
             for j=1:size(A,2)
                 @test Q' * A[:,j] ≈ L[:,j]
             end
-    
+
             A=brand(T,14,10,3,2)
             Q,L=ql(A)
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
             @test_broken Matrix(Q)*Matrix(L) ≈ A
-    
+
             for k=1:size(A,1),j=1:size(A,2)
                 @test Q[k,j] ≈ Matrix(Q)[k,j]
             end
-    
+
             A=brand(T,10,14,3,2)
             Q,L=ql(A)
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
             @test Matrix(Q)*Matrix(L) ≈ A
-    
+
             for k=1:size(Q,1),j=1:size(Q,2)
                 @test Q[k,j] ≈ Matrix(Q)[k,j]
             end
-    
+
             A=brand(T,10,14,3,6)
             Q,L=ql(A)
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
             @test Matrix(Q)*Matrix(L) ≈ A
-    
+
             for k=1:size(Q,1),j=1:size(Q,2)
                 @test Q[k,j] ≈ Matrix(Q)[k,j]
             end
-    
+
             A=brand(T,100,100,3,4)
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
@@ -452,7 +452,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
             @test ql(A)\b ≈ Matrix(A)\b
             @test_throws DimensionMismatch ql(A) \ randn(3)
             @test_throws DimensionMismatch ql(A).Q'randn(3)
-    
+
             A=brand(T,102,100,3,4)
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
@@ -462,13 +462,13 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
             @test_broken ql(A)\b ≈ Matrix(A)\b
             @test_throws DimensionMismatch ql(A) \ randn(3)
             @test_throws DimensionMismatch ql(A).Q'randn(3)
-    
+
             A=brand(T,100,102,3,4)
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
             b=rand(T,100)
             @test_broken ql(A)\b ≈ Matrix(A)\b
-    
+
             A = LinearAlgebra.Tridiagonal(randn(T,99), randn(T,100), randn(T,99))
             @test ql(A).factors ≈ ql!(Matrix(A)).factors
             @test ql(A).τ ≈ ql!(Matrix(A)).τ
@@ -479,7 +479,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
             @test_throws DimensionMismatch ql(A) \ randn(3)
             @test_throws DimensionMismatch ql(A).Q'randn(3)
         end
-    
+
         @testset "lmul!/rmul!" begin
             for T in (Float32, Float64, ComplexF32, ComplexF64)
                 A = brand(T,100,100,3,4)
@@ -493,7 +493,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
                 c = randn(T,2,100)
                 @test rmul!(copy(c), Q) ≈ c*Matrix(Q)
                 @test rmul!(copy(c), Q') ≈ c*Matrix(Q')
-    
+
                 A = brand(T,100,100,3,4)
                 Q,L = ql(A)
                 x = randn(T,100)
@@ -507,20 +507,20 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
                 @test rmul!(copy(c), Q') ≈ c*Matrix(Q')
             end
         end
-    
+
         @testset "Mixed types" begin
             A=brand(10,10,3,2)
             b=rand(ComplexF64,10)
             Q,L=ql(A)
             @test L\(Q'*b) ≈ ql(A)\b ≈ Matrix(A)\b
             @test Q*L ≈ A
-    
+
             A=brand(ComplexF64,10,10,3,2)
             b=rand(10)
             Q,L=ql(A)
             @test Q*L ≈ A
             @test L\(Q'*b) ≈ ql(A)\b ≈ Matrix(A)\b
-    
+
             A = BandedMatrix{Int}(undef, (2,1), (4,4))
             A.data .= 1:length(A.data)
             Q, L = ql(A)
@@ -609,7 +609,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test M*C̃ isa MulMatrix
         @test C̃*M̃ isa MulMatrix
         @test M̃*C̃ isa MulMatrix
-        
+
         L = _BandedMatrix(MyLazyArray(randn(3,10)),10,1,1)
         @test Base.BroadcastStyle(typeof(L)) isa LazyArrayStyle{2}
 
@@ -631,7 +631,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test MemoryLayout(R) isa BandedColumns{StridedLayout}
         @test bandwidths(R) == (3,0)
         @test BandedMatrix(R) == R == rot180(Matrix(A)) == rot180(A)
-        
+
         A = brand(5,6,1,-1)
         R = ApplyArray(rot180, A)
         @test MemoryLayout(R) isa BandedColumns{StridedLayout}
@@ -700,5 +700,20 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         F = qr(A)
         b = Vcat([1,2,3],Zeros(size(A,1)-3))
         @test F.Q'b == apply(*,F.Q',b)
+    end
+
+    @testset "Mul ambiguities (#103)" begin
+        B = _BandedMatrix(reshape(1:30, 3, 10),10,1,1)
+        L = _BandedMatrix(MyLazyArray(randn(3,10)),10,1,1)
+        Bi = ApplyArray(inv,B)
+        Li = ApplyArray(inv,L)
+        M = ApplyArray(*,L,L)
+        @test Bi * M ≈ inv(B) * L *L
+        @test M* Bi ≈ L *L * inv(B)
+        @test Li * M ≈ M * Li ≈ L 
+
+        x = Vcat([1,2], Zeros(8))
+        @test Li * x ≈ L \ x
+        @test Bi * x ≈ B \ x
     end
 end

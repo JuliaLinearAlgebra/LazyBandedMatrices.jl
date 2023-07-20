@@ -283,8 +283,6 @@ function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tup
     Vcat(Vector{T}(undef, n), Zeros{T}(size(A,1)-n))
 end
 
-similar(M::MulAdd{<:DiagonalLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T = similar(M.B, T, axes)
-
 function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T
     A,x = M.A,M.B
     xf = paddeddata(x)
@@ -292,8 +290,6 @@ function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tup
     n = size(xf,2)
     PaddedArray(Matrix{T}(undef, m, n), size(A,1), size(x,2))
 end
-
-similar(M::MulAdd{<:DiagonalLayout,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any,Any}) where T = similar(M.B, T, axes)
 
 function materialize!(M::MatMulVecAdd{<:BandedLayouts,<:PaddedLayout,<:PaddedLayout})
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
@@ -940,6 +936,7 @@ copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredLazyLayouts}) =
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
 copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+copy(M::Mul{<:AbstractInvLayout, <:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 
 
 copy(L::Ldiv{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = lazymaterialize(\, L.A, L.B)
