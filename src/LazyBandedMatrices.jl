@@ -896,8 +896,7 @@ StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockLayout{TridiagonalLayout{LazyLayout,LazyLayout,LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout,LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout,LazyLayout}},
                 BlockLayout{LazyBandedLayout},
-                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout,
-                AbstractInvLayout{<:BandedLazyLayouts}}
+                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
@@ -932,11 +931,7 @@ copy(M::Mul{ApplyLayout{typeof(*)},<:StructuredLazyLayouts}) = simplify(M)
 copy(M::Mul{<:StructuredLazyLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:BroadcastLayouts}) = simplify(M)
 copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
-copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
-copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
-copy(M::Mul{ApplyLayout{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
 
-copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 copy(M::Mul{<:AbstractInvLayout, <:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 simplifiable(::Mul{<:AbstractInvLayout, <:StructuredLazyLayouts}) = Val(false)
 copy(M::Mul{<:AbstractInvLayout, <:StructuredLazyLayouts}) = simplify(M)

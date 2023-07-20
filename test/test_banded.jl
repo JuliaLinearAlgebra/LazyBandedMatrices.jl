@@ -704,14 +704,26 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
     end
 
     @testset "Mul ambiguities (#103)" begin
+        A = randn(10,10)
         B = _BandedMatrix(reshape(1:30, 3, 10),10,1,1)
         L = _BandedMatrix(MyLazyArray(randn(3,10)),10,1,1)
+        MA = ApplyArray(*,A,A)
         Bi = ApplyArray(inv,B)
         Li = ApplyArray(inv,L)
         M = ApplyArray(*,L,L)
+
+        @test MA * Bi ≈ A*A*Bi
+        @test MA * Li ≈ A*A*Li
+        @test Bi * MA ≈ Bi*A*A
+        @test Li * MA ≈ Li*A*A
+
         @test Bi * M ≈ inv(B) * L *L
         @test M* Bi ≈ L *L * inv(B)
         @test Li * M ≈ M * Li ≈ L
+
+        @test Li * MA isa Matrix
+        @test Li * M isa ApplyArray
+        @test M * Li isa ApplyArray
 
         x = Vcat([1,2], Zeros(8))
         @test Li * x ≈ L \ x
