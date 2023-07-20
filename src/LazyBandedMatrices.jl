@@ -935,8 +935,11 @@ copy(M::Mul{<:BroadcastLayouts,ApplyLayout{typeof(*)}}) = simplify(M)
 copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredLazyLayouts}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
 copy(M::Mul{<:StructuredApplyLayouts{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
 copy(M::Mul{ApplyLayout{typeof(*)},<:AbstractInvLayout{<:BandedLazyLayouts}}) = simplify(M)
+
 copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts},<:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
 copy(M::Mul{<:AbstractInvLayout, <:StructuredApplyLayouts{typeof(*)}}) = simplify(M)
+simplifiable(::Mul{<:AbstractInvLayout, <:StructuredLazyLayouts}) = Val(false)
+copy(M::Mul{<:AbstractInvLayout, <:StructuredLazyLayouts}) = simplify(M)
 
 
 copy(L::Ldiv{<:StructuredLazyLayouts, <:StructuredLazyLayouts}) = lazymaterialize(\, L.A, L.B)

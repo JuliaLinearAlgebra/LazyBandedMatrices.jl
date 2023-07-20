@@ -1,4 +1,5 @@
 using LazyBandedMatrices, LazyArrays, Test
+using BandedMatrices: _BandedMatrix
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -710,7 +711,7 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         M = ApplyArray(*,L,L)
         @test Bi * M ≈ inv(B) * L *L
         @test M* Bi ≈ L *L * inv(B)
-        @test Li * M ≈ M * Li ≈ L 
+        @test Li * M ≈ M * Li ≈ L
 
         x = Vcat([1,2], Zeros(8))
         @test Li * x ≈ L \ x
