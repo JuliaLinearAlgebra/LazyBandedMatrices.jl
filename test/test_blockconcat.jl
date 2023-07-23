@@ -410,7 +410,8 @@ end
 @testset "BlockVec" begin
     X = randn(5,4)
     b = BlockVec(X)
-    @test size(b) == 20
+    @test size(b) == (20,)
+    @test length(b) == 20
     @test MemoryLayout(b) isa ApplyLayout{typeof(blockvec)}
     @test b == vec(X)
     @test view(b, Block(3)) ≡ view(X, :, 3)
