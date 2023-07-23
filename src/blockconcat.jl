@@ -533,6 +533,7 @@ const BlockVec{T, M<:AbstractMatrix{T}} = ApplyVector{T, typeof(blockvec), <:Tup
 BlockVec{T}(M::AbstractMatrix{T}) where T = ApplyVector{T}(blockvec, M)
 BlockVec(M::AbstractMatrix{T}) where T = BlockVec{T}(M)
 axes(b::BlockVec) = (blockedrange(Fill(size(b.args[1])...)),)
+size(b::BlockVec) = (length(b.args[1]),)
 
 view(b::BlockVec, K::Block{1}) = view(b.args[1], :, Int(K))
 Base.@propagate_inbounds getindex(b::BlockVec, k::Int) = b.args[1][k]

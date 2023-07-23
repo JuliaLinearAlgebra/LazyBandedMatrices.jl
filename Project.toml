@@ -1,7 +1,7 @@
 name = "LazyBandedMatrices"
 uuid = "d7e5e226-e90b-4449-9968-0f923699bf6f"
 authors = ["Sheehan Olver <solver@mac.com>"]
-version = "0.8.13"
+version = "0.8.14"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
