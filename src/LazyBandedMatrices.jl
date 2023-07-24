@@ -23,7 +23,7 @@ import LazyArrays: LazyArrayStyle, combine_mul_styles, PaddedLayout,
                         broadcastlayout, applylayout, arguments, _mul_arguments, call,
                         LazyArrayApplyStyle, ApplyArrayBroadcastStyle, ApplyStyle,
                         LazyLayout, AbstractLazyLayout, ApplyLayout, BroadcastLayout, CachedVector, AbstractInvLayout,
-                        _mat_mul_arguments, paddeddata, sub_paddeddata, sub_materialize, lazymaterialize,
+                        _mat_mul_arguments, paddeddata, paddeddata_axes, sub_paddeddata, sub_materialize, lazymaterialize,
                         MulMatrix, Mul, CachedMatrix, CachedArray, AbstractCachedMatrix, AbstractCachedArray, cachedlayout, _cache,
                         resizedata!, applybroadcaststyle, _broadcastarray2broadcasted,
                         LazyMatrix, LazyVector, LazyArray, MulAddStyle, _broadcast_sub_arguments,
@@ -242,6 +242,12 @@ function paddeddata(P::PseudoBlockVector)
     PseudoBlockVector(_block_paddeddata(C, data, n), (ax[Block(1):N],))
 end
 
+function paddeddata_axes((ax,)::Tuple{BlockedUnitRange}, A)
+    data = A.args[2]
+    N = findblock(ax,max(length(data),1))
+    n = last(ax[N])
+    PseudoBlockVector(_block_paddeddata(nothing, data, n), (ax[Block(1):N],))
+end
 
 function paddeddata(P::PseudoBlockMatrix)
     C = P.blocks
@@ -344,6 +350,7 @@ function similar(Ml::MulAdd{<:BlockBandedLayouts,<:PaddedLayout}, ::Type{T}, _) 
     ax1,ax2 = axes(A)
     N = findblock(ax2,length(xf))
     M = _block_last(blockcolsupport(A,N))
+    isfinite(Integer(M)) || error("cannot multiply matrix with infinite block support")
     m = last(ax1[M]) # number of non-zero entries
     c = cache(Zeros{T}(length(ax1)))
     resizedata!(c, m)
@@ -354,10 +361,10 @@ function materialize!(M::MatMulVecAdd{<:BlockBandedLayouts,<:PaddedLayout,<:Padd
     α,A,x,β,y = M.α,M.A,M.B,M.β,M.C
     length(y) == size(A,1) || throw(DimensionMismatch())
     length(x) == size(A,2) || throw(DimensionMismatch())
+    
     ỹ = paddeddata(y)
 
     if !blockisequal(axes(A,2), axes(x,1))
-        x2 = PseudoBlockVector(x, (axes(A,2),))
         x̃2 = paddeddata(x)
         muladd!(α, view(A, axes(ỹ,1), axes(x̃2,1)), x̃2, β, ỹ)
     else
