@@ -93,7 +93,14 @@ abstract type AbstractLazyBandedBlockBandedLayout <: AbstractBandedBlockBandedLa
 struct LazyBlockBandedLayout <: AbstractLazyBlockBandedLayout end
 struct LazyBandedBlockBandedLayout <: AbstractLazyBandedBlockBandedLayout end
 
-const LazyBandedBlockBandedLayouts = Union{AbstractLazyBandedBlockBandedLayout,BandedBlockBandedColumns{<:AbstractLazyLayout}, BandedBlockBandedRows{<:AbstractLazyLayout}}
+const StructuredLayoutTypes{Lay} = Union{SymmetricLayout{Lay}, HermitianLayout{Lay}, TriangularLayout{'L','N',Lay}, TriangularLayout{'U','N',Lay}, TriangularLayout{'L','U',Lay}, TriangularLayout{'U','U',Lay}}
+
+const BandedLayouts = Union{AbstractBandedLayout, StructuredLayoutTypes{<:AbstractBandedLayout}, DualOrPaddedLayout}
+const BlockBandedLayouts = Union{AbstractBlockBandedLayout, BlockLayout{<:AbstractBandedLayout}, StructuredLayoutTypes{<:AbstractBlockBandedLayout}}
+const BandedBlockBandedLayouts = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:AbstractBlockLayout}, StructuredLayoutTypes{<:AbstractBandedBlockBandedLayout}}
+
+
+const LazyBandedBlockBandedLayouts = Union{AbstractLazyBandedBlockBandedLayout,BandedBlockBandedColumns{<:AbstractLazyLayout}, BandedBlockBandedRows{<:AbstractLazyLayout}, StructuredLayoutTypes{<:AbstractLazyBandedBlockBandedLayout}}
 
 
 BroadcastStyle(M::ApplyArrayBroadcastStyle{2}, ::BandedStyle) = M
@@ -268,13 +275,6 @@ function sub_materialize(::PaddedLayout, V::AbstractMatrix{T}, ::Tuple{AbstractU
     dat = paddeddata(V)
     ApplyMatrix{T}(setindex, Zeros{T}(axes(V)), sub_materialize(dat), axes(dat)...)
 end
-
-const StructuredLayoutTypes{Lay} = Union{SymmetricLayout{Lay}, HermitianLayout{Lay}, TriangularLayout{'L','N',Lay}, TriangularLayout{'U','N',Lay}, TriangularLayout{'L','U',Lay}, TriangularLayout{'U','U',Lay}}
-
-const BandedLayouts = Union{AbstractBandedLayout, StructuredLayoutTypes{<:AbstractBandedLayout}, DualOrPaddedLayout}
-const BlockBandedLayouts = Union{AbstractBlockBandedLayout, BlockLayout{<:AbstractBandedLayout}, StructuredLayoutTypes{<:AbstractBlockBandedLayout}}
-const BandedBlockBandedLayouts = Union{AbstractBandedBlockBandedLayout,DiagonalLayout{<:AbstractBlockLayout}, StructuredLayoutTypes{<:AbstractBandedBlockBandedLayout}}
-
 
 function similar(M::MulAdd{<:BandedLayouts,<:PaddedLayout}, ::Type{T}, axes::Tuple{Any}) where T
     A,x = M.A,M.B
@@ -896,7 +896,7 @@ StructuredLazyLayouts = Union{BandedLazyLayouts,
                 BlockLayout{TridiagonalLayout{LazyLayout,LazyLayout,LazyLayout}}, BlockLayout{DiagonalLayout{LazyLayout}}, 
                 BlockLayout{BidiagonalLayout{LazyLayout,LazyLayout}}, BlockLayout{SymTridiagonalLayout{LazyLayout,LazyLayout}},
                 BlockLayout{LazyBandedLayout},
-                AbstractLazyBlockBandedLayout, AbstractLazyBandedBlockBandedLayout}
+                AbstractLazyBlockBandedLayout, LazyBandedBlockBandedLayouts}
 
 
 @inline _islazy(::StructuredLazyLayouts) = Val(true)
