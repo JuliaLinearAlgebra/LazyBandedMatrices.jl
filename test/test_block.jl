@@ -1,4 +1,5 @@
 using LazyBandedMatrices, LazyArrays, BlockBandedMatrices, BlockArrays, Test
+using LazyArrays: paddeddata
 
 @testset "Block" begin
     @testset "LazyBlock" begin
@@ -196,5 +197,11 @@ using LazyBandedMatrices, LazyArrays, BlockBandedMatrices, BlockArrays, Test
 
     @testset "Blockbandwidths" begin
         @test blockbandwidths(unitblocks(Diagonal(1:5))) == (0,0)
+    end
+
+    @testset "PaddedArray" begin
+        p = PaddedArray(1:5, (blockedrange(1:4),))
+        @test paddeddata(p) == [1:5; 0]
+        @test blocksize(paddeddata(p),1) == 3
     end
 end
