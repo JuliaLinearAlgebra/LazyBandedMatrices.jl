@@ -28,9 +28,9 @@ blockvcat(a, b...) = BlockVcat(a, b...)
 _blocklengths(ax::OneTo) = length(ax)
 _blocklengths(ax) = blocklengths(ax)
 
-__vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
-__vcat_axes(bls...) = blockedrange(Vcat(bls...))
-_vcat_axes(ax...) = __vcat_axes(map(_blocklengths,ax)...)
+@inline __vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
+@inline __vcat_axes(bls...) = blockedrange(Vcat{Int}(bls...))
+@inline _vcat_axes(ax...) = __vcat_axes(map(_blocklengths,ax)...)
 axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
 axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
 
@@ -81,9 +81,9 @@ MemoryLayout(::Type{<:BlockVcat}) = ApplyLayout{typeof(vcat)}()
 arguments(::ApplyLayout{typeof(vcat)}, b::BlockVcat) = b.arrays
 
 
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) = blockvcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockvcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockvcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
 
 LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSlice{<:BlockRange{1}}) =
     arguments(lay, A)[Int.(kr.block)]

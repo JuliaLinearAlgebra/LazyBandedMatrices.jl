@@ -104,9 +104,9 @@ function _diagtravgetindex(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractM
     st = stride(P,2)
     # TODO: not really a view...
     if k ≤ m
-        [Zeros{T}(k-m); view(P,range(k; step=st-1, length=min(k,n))); Zeros{T}(max(0,k-n))]
+        [Zeros{T}(k-m); view(P,StepRangeLen(k, st-1, max(0, min(k,n)))); Zeros{T}(max(0,k-n))]
     else
-        [Zeros{T}(min(k,M)-m); view(P,range(m+(k-m)*st; step=st-1, length=m+n-k)); Zeros{T}(max(0,k-n))]
+        [Zeros{T}(min(k,M)-m); view(P,StepRangeLen(m+(k-m)*st, st-1, max(0,m+n-k))); Zeros{T}(max(0,k-n))]
     end
 end
 
@@ -153,6 +153,9 @@ function getindex(A::InvDiagTrav{T}, k::Int, j::Int)  where T
         zero(T)
     end
 end
+
+invdiagtrav(a) = InvDiagTrav(a)
+invdiagtrav(a::DiagTrav) = a.array
 
 struct KronTrav{T, N, AA<:Tuple{Vararg{AbstractArray{T,N}}}, AXES} <: AbstractBlockArray{T, N}
     args::AA
