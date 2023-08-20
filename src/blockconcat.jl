@@ -25,14 +25,15 @@ blockvcat(a, b...) = BlockVcat(a, b...)
 
 
 # use integers if possible
-_blocklengths(ax::OneTo) = length(ax)
-_blocklengths(ax) = blocklengths(ax)
+@inline _blocklengths(ax::OneTo) = length(ax)
+@inline _blocklengths(ax) = blocklengths(ax)
 
 @inline __vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
 @inline __vcat_axes(bls...) = blockedrange(Vcat{Int}(bls...))
-@inline _vcat_axes(ax...) = __vcat_axes(map(_blocklengths,ax)...)
-axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
-axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
+@inline _vcat_axes_args_1() = ()
+@inline _vcat_axes_args_1(a, arrys...) = (_blocklengths(axes(a,1)), _vcat_axes_args_1(arrys...)...)
+@inline axes(b::BlockVcat{<:Any,1}) = (__vcat_axes(_vcat_axes_args_1(b.arrays...)...),)
+@inline axes(b::BlockVcat{<:Any,2}) = (__vcat_axes(_vcat_axes_args_1(b.arrays...)...),axes(b.arrays[1],2))
 
 copy(b::BlockVcat{T,N}) where {T,N} = BlockVcat{T,N}(map(copy, b.arrays)...)
 copy(b::AdjOrTrans{<:Any,<:BlockVcat}) = copy(parent(b))'
