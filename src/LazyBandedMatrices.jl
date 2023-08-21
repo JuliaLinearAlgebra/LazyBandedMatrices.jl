@@ -721,6 +721,7 @@ Base.typed_vcat(::Type{T}, A::BandedMatrix, B::AbstractVecOrMat...) where T = Ma
 # layout_broadcasted(::ApplyBandedLayout{typeof(vcat)}, lay, op, A::AbstractVector, B::AbstractVector) = layout_broadcasted(ApplyLayout{typeof(vcat)}(), lay, op,A, B)
 
 LazyArrays._vcat_sub_arguments(::ApplyBandedLayout{typeof(vcat)}, A, V) = LazyArrays._vcat_sub_arguments(ApplyLayout{typeof(vcat)}(), A, V)
+LazyArrays._vcat_sub_arguments(::ApplyBandedLayout{typeof(hcat)}, A, V) = LazyArrays._vcat_sub_arguments(ApplyLayout{typeof(hcat)}(), A, V)
 
 #######
 # CachedArray
@@ -987,6 +988,7 @@ mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:Union{PaddedLayout
 copy(M::Mul{<:StructuredLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = copy(mulreduce(M))
 copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts}, <:Union{PaddedLayout,AbstractStridedLayout}}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
 copy(M::Mul{<:BandedLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = copy(mulreduce(M))
+copy(M::Mul{<:Union{PaddedLayout,AbstractStridedLayout}, <:BandedLazyLayouts}) = copy(mulreduce(M))
 simplifiable(::Mul{<:StructuredLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = Val(true)
 
 
