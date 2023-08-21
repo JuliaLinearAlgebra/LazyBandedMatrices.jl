@@ -32,8 +32,12 @@ blockvcat(a, b...) = BlockVcat(a, b...)
 @inline __vcat_axes(bls...) = blockedrange(Vcat{Int}(bls...))
 @inline _vcat_axes_args_1() = ()
 @inline _vcat_axes_args_1(a, arrys...) = (_blocklengths(axes(a,1)), _vcat_axes_args_1(arrys...)...)
-@inline axes(b::BlockVcat{<:Any,1}) = (__vcat_axes(_vcat_axes_args_1(b.arrays...)...),)
-@inline axes(b::BlockVcat{<:Any,2}) = (__vcat_axes(_vcat_axes_args_1(b.arrays...)...),axes(b.arrays[1],2))
+@inline _vcat_axes_args_2() = ()
+@inline _vcat_axes_args_2(a, arrys...) = (_blocklengths(axes(a,2)), _vcat_axes_args_1(arrys...)...)
+_vcat_axes_1(a...) = __vcat_axes(_vcat_axes_args_1(a...)...)
+_vcat_axes_2(a...) = __vcat_axes(_vcat_axes_args_2(a...)...)
+@inline axes(b::BlockVcat{<:Any,1}) = (_vcat_axes_1(b.arrays...),)
+@inline axes(b::BlockVcat{<:Any,2}) = (_vcat_axes_1(b.arrays...),axes(b.arrays[1],2))
 
 copy(b::BlockVcat{T,N}) where {T,N} = BlockVcat{T,N}(map(copy, b.arrays)...)
 copy(b::AdjOrTrans{<:Any,<:BlockVcat}) = copy(parent(b))'
@@ -146,7 +150,7 @@ BlockHcat(arrays::AbstractArray...) = BlockHcat{mapreduce(eltype, promote_type, 
 blockhcat(a) = a
 blockhcat(a, b...) = BlockHcat(a, b...)
 
-axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes(axes.(b.arrays,2)...))
+axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes_2(axes.(b.arrays,2)...))
 axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
 
 copy(b::BlockHcat{T}) where T = BlockHcat{T}(map(copy, b.arrays)...)
@@ -218,7 +222,7 @@ end
 BlockHvcat{T}(n::Int, args...) where T = BlockHvcat{T,typeof(args)}(n, args)
 BlockHvcat(n::Int, args...) = BlockHvcat{mapreduce(eltype, promote_type, args)}(n, args...)
 
-axes(b::BlockHvcat) = (_vcat_axes(axes.(b.args[1:b.n:end],1)...),_vcat_axes(axes.(b.args[1:b.n],2)...))
+axes(b::BlockHvcat) = (_vcat_axes_1(b.args[1:b.n:end]...),_vcat_axes_2(b.args[1:b.n]...))
 
 copy(b::BlockHvcat{T}) where T = BlockHvcat{T}(b.n, map(copy, b.args)...)
 copy(b::AdjOrTrans{<:Any,<:BlockHvcat}) = copy(parent(b))'
