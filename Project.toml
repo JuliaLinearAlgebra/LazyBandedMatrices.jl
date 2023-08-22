@@ -21,10 +21,10 @@ BandedMatrices = "0.17.3"
 BlockArrays = "0.16.9"
 BlockBandedMatrices = "0.12"
 FillArrays = "1.0"
-LazyArrays = "1.5.1"
+LazyArrays = "1.6"
 MatrixFactorizations = "1, 2"
 StaticArrays = "1"
-julia = "1.6"
+julia = "1.9"
 
 [extras]
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
