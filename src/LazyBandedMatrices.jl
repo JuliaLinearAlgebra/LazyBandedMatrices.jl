@@ -644,12 +644,17 @@ const ScalarOrBandedLayouts = Union{ScalarOrZerosLayouts,BandedLayouts}
 
 for op in (:hcat, :vcat)
     @eval begin
+        # TODO: following is broken when we have something whose columns are padded. 
+        # We probably need to separate a `PaddedColumnsLayout`, `PaddedRowsLayout`, and `PaddedLayout`.
         applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{A}()
         applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrZerosLayouts = PaddedLayout{A}()
         applylayout(::Type{typeof($op)}, ::A, ::PaddedLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{ApplyLayout{typeof($op)}}()
         applylayout(::Type{typeof($op)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof($op)}()
         applylayout(::Type{typeof($op)}, ::ScalarOrZerosLayouts...) = ApplyLayout{typeof($op)}()
         sublayout(::ApplyBandedLayout{typeof($op)}, ::Type{<:NTuple{2,AbstractUnitRange}}) = ApplyBandedLayout{typeof($op)}()
+
+        # if both are padded we don't know how to deal with this
+        applylayout(::Type{typeof($op)}, ::PaddedLayout, ::PaddedLayout) = ApplyLayout{typeof($op)}()
     end
 end
 

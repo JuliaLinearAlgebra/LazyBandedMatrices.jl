@@ -16,7 +16,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-ArrayLayouts = "1"
+ArrayLayouts = "1.2.1"
 BandedMatrices = "0.17.3"
 BlockArrays = "0.16.9"
 BlockBandedMatrices = "0.12"
