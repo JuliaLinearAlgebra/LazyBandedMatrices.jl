@@ -1,5 +1,6 @@
 using LazyBandedMatrices, LazyArrays, BlockBandedMatrices, BlockArrays, Test
 using LazyArrays: paddeddata
+using BlockArrays: blockcolsupport
 
 @testset "Block" begin
     @testset "LazyBlock" begin
@@ -57,7 +58,7 @@ using LazyArrays: paddeddata
         @test paddeddata(c) == [1]
         @test paddeddata(c) isa PseudoBlockVector
         @test blockcolsupport(c) == Block.(1:1)
-        C = PseudoBlockArray(Vcat(randn(2,3), Zeros(4)), 1:3, [1,2])
+        C = PseudoBlockArray(Vcat(randn(2,3), Zeros(4,3)), 1:3, [1,2])
         @test blockcolsupport(C) == Block.(1:2)
         @test blockrowsupport(C) == Block.(1:2)
 

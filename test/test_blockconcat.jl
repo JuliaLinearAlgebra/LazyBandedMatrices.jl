@@ -141,6 +141,15 @@ end
         a = BlockVcat(randn(2), randn(3))
         @test a' .+ 1 isa BroadcastArray
     end
+
+    @testset "padded different sizes" begin
+        @test MemoryLayout(Vcat(Hcat([1,2], Zeros(5)), Hcat([1,2,3], Zeros(4)))) isa ApplyLayout{typeof(vcat)}
+    end
+
+    @testset "show" begin
+        a = BlockVcat(1:2, 1:3)
+        @test summary(a) == "2-blocked 5-element BlockVcat{$Int}"
+    end
 end
 
 @testset "BlockHcat" begin
@@ -269,6 +278,11 @@ end
         A = BlockHcat(randn(3,2), randn(3,1))
         @test A + I isa BroadcastArray
         @test Adjoint(A) + I isa BroadcastArray
+    end
+
+    @testset "show" begin
+        a = BlockHcat(1:3, 1:3)
+        @test summary(a) == "1×2-blocked 3×2 BlockHcat{$Int}"
     end
 end
 

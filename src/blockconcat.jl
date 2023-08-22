@@ -9,12 +9,15 @@ arguments(LAY::MemoryLayout, A::PseudoBlockArray) = arguments(LAY, A.blocks)
 # BlockVcat
 ##########
 
-struct BlockVcat{T, N, Arrays} <: AbstractBlockArray{T,N}
+struct BlockVcat{T, N, Arrays, Axes} <: AbstractBlockArray{T,N}
     arrays::Arrays
-    function BlockVcat{T,N,Arrays}(arrays::Arrays) where {T,N,Arrays}
-        length(arrays) == 1 || blockisequal(axes.(arrays,2)...) || throw(ArgumentError("Blocks must match"))
-        new{T,N,Arrays}(arrays)
-    end
+    axes::Axes
+end
+
+function BlockVcat{T,N,Arrays}(arrays::Arrays) where {T,N,Arrays}
+    length(arrays) == 1 || blockisequal(axes.(arrays,2)...) || throw(ArgumentError("Blocks must match"))
+    ax = _block_vcat_axes(Val{N}(), arrays...)
+    BlockVcat{T,N,Arrays, typeof(ax)}(arrays, ax)
 end
 
 BlockVcat{T,N}(arrays::AbstractArray...) where {T,N} = BlockVcat{T,N,typeof(arrays)}(arrays)
@@ -25,14 +28,21 @@ blockvcat(a, b...) = BlockVcat(a, b...)
 
 
 # use integers if possible
-_blocklengths(ax::OneTo) = length(ax)
-_blocklengths(ax) = blocklengths(ax)
+@inline _blocklengths(ax::OneTo) = length(ax)
+@inline _blocklengths(ax) = blocklengths(ax)
 
-__vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
-__vcat_axes(bls...) = blockedrange(Vcat(bls...))
-_vcat_axes(ax...) = __vcat_axes(map(_blocklengths,ax)...)
-axes(b::BlockVcat{<:Any,1}) = (_vcat_axes(axes.(b.arrays,1)...),)
-axes(b::BlockVcat{<:Any,2}) = (_vcat_axes(axes.(b.arrays,1)...),axes(b.arrays[1],2))
+@inline __vcat_axes(bls::Integer...) = blockedrange(SVector(bls...))
+@inline __vcat_axes(bls...) = blockedrange(Vcat{Int}(bls...))
+@inline _vcat_axes_args_1() = ()
+@inline _vcat_axes_args_1(a, arrys...) = (_blocklengths(axes(a,1)), _vcat_axes_args_1(arrys...)...)
+@inline _vcat_axes_args_2() = ()
+@inline _vcat_axes_args_2(a, arrys...) = (_blocklengths(axes(a,2)), _vcat_axes_args_2(arrys...)...)
+_vcat_axes_1(a...) = __vcat_axes(_vcat_axes_args_1(a...)...)
+_vcat_axes_2(a...) = __vcat_axes(_vcat_axes_args_2(a...)...)
+@inline _block_vcat_axes(::Val{1}, a...) = (_vcat_axes_1(a...),)
+@inline _block_vcat_axes(::Val{2}, a, b...) = (_vcat_axes_1(a, b...),axes(a,2))
+
+axes(b::BlockVcat) = b.axes
 
 copy(b::BlockVcat{T,N}) where {T,N} = BlockVcat{T,N}(map(copy, b.arrays)...)
 copy(b::AdjOrTrans{<:Any,<:BlockVcat}) = copy(parent(b))'
@@ -81,9 +91,9 @@ MemoryLayout(::Type{<:BlockVcat}) = ApplyLayout{typeof(vcat)}()
 arguments(::ApplyLayout{typeof(vcat)}, b::BlockVcat) = b.arrays
 
 
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) = blockvcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockvcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockvcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
 
 LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSlice{<:BlockRange{1}}) =
     arguments(lay, A)[Int.(kr.block)]
@@ -132,12 +142,15 @@ end
 # BlockHcat
 ##########
 
-struct BlockHcat{T, Arrays} <: AbstractBlockMatrix{T}
+struct BlockHcat{T, Arrays, Axes} <: AbstractBlockMatrix{T}
     arrays::Arrays
-    function BlockHcat{T,Arrays}(arrays::Arrays) where {T,Arrays}
-        length(arrays) == 1 || blockisequal(axes.(arrays,1)...) || throw(ArgumentError("Blocks must match"))
-        new{T,Arrays}(arrays)
-    end
+    axes::Axes
+end
+
+function BlockHcat{T,Arrays}(arrays::Arrays) where {T,Arrays}
+    length(arrays) == 1 || blockisequal(axes.(arrays,1)...) || throw(ArgumentError("Blocks must match"))
+    ax = _block_hcat_axes(arrays...)
+    BlockHcat{T,Arrays,typeof(ax)}(arrays, ax)
 end
 
 BlockHcat{T}(arrays::AbstractArray...) where T = BlockHcat{T,typeof(arrays)}(arrays)
@@ -145,8 +158,9 @@ BlockHcat(arrays::AbstractArray...) = BlockHcat{mapreduce(eltype, promote_type, 
 blockhcat(a) = a
 blockhcat(a, b...) = BlockHcat(a, b...)
 
-axes(b::BlockHcat) = (axes(b.arrays[1],1),_vcat_axes(axes.(b.arrays,2)...))
-axes(b::BlockHcat{<:Any, <:Tuple{Vararg{AbstractVector}}}) = (axes(b.arrays[1],1),blockedrange(Ones{Int}(length(b.arrays))))
+_block_hcat_axes(a, b...) = (axes(a,1),_vcat_axes_2(a, b...))
+_block_hcat_axes(a::AbstractVector, b::AbstractVector...) = (axes(a,1),blockedrange(Ones{Int}(length(b)+1)))
+axes(b::BlockHcat) = b.axes
 
 copy(b::BlockHcat{T}) where T = BlockHcat{T}(map(copy, b.arrays)...)
 copy(b::AdjOrTrans{<:Any,<:BlockHcat}) = copy(parent(b))'
@@ -217,7 +231,7 @@ end
 BlockHvcat{T}(n::Int, args...) where T = BlockHvcat{T,typeof(args)}(n, args)
 BlockHvcat(n::Int, args...) = BlockHvcat{mapreduce(eltype, promote_type, args)}(n, args...)
 
-axes(b::BlockHvcat) = (_vcat_axes(axes.(b.args[1:b.n:end],1)...),_vcat_axes(axes.(b.args[1:b.n],2)...))
+axes(b::BlockHvcat) = (_vcat_axes_1(b.args[1:b.n:end]...),_vcat_axes_2(b.args[1:b.n]...))
 
 copy(b::BlockHvcat{T}) where T = BlockHvcat{T}(b.n, map(copy, b.args)...)
 copy(b::AdjOrTrans{<:Any,<:BlockHvcat}) = copy(parent(b))'
@@ -437,7 +451,7 @@ sublayout(::BlockBandedInterlaceLayout, ::Type{<:NTuple{2,BlockSlices}}) = Block
 
 arguments(::BlockBandedInterlaceLayout, A::BlockBroadcastMatrix{<:Any,typeof(vcat)}) = A.args
 
-# avoid extra types, since we are using int indexing for now... 
+# avoid extra types, since we are using int indexing for now...
 # TODO: rewrite when other block sizes are allowed
 deblock(A::PseudoBlockArray) = A.blocks
 deblock(A::Zeros{T}) where T = Zeros{T}(size(A)...)
@@ -546,3 +560,17 @@ resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.args[1], size(b.args[1],
 
 applylayout(::Type{typeof(blockvec)}, ::PaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
 paddeddata(b::BlockVec) = BlockVec(paddeddata(b.args[1]))
+
+
+
+####
+# summary
+####
+
+function BlockArrays._show_typeof(io::IO, B::BlockHcat{T}) where T
+    print(io, "BlockHcat{$T}")
+end
+
+function BlockArrays._show_typeof(io::IO, B::BlockVcat{T}) where T
+    print(io, "BlockVcat{$T}")
+end

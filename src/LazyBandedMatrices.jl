@@ -602,12 +602,18 @@ _copyto!(::AbstractBandedLayout, ::ApplyBandedLayout{typeof(*)}, dest::AbstractM
     _mulbanded_copyto!(dest, map(_mulbanded_BandedMatrix,arguments(src))...)
 
 _mulbanded_BandedBlockBandedMatrix(A, _) = A
-_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,OneTo{Int}}) = BandedBlockBandedMatrix(A)
-_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, axes(A))
+_mulbanded_BandedBlockBandedMatrix(A, ::NTuple{2,Int}) = BandedBlockBandedMatrix(A)
+_mulbanded_BandedBlockBandedMatrix(A) = _mulbanded_BandedBlockBandedMatrix(A, size(A))
 
 _copyto!(::AbstractBandedBlockBandedLayout, ::ApplyBandedBlockBandedLayout{typeof(*)}, dest::AbstractMatrix, src::AbstractMatrix) =
     _mulbanded_copyto!(dest, map(_mulbanded_BandedBlockBandedMatrix,arguments(src))...)
 
+
+function getindex(A::ApplyMatrix{<:Any,typeof(*)}, kr::BlockRange{1}, jr::BlockRange{1})
+    args = A.args
+    kjr = intersect.(LazyArrays._mul_args_rows(kr, args...), LazyArrays._mul_args_cols(jr, reverse(args)...))
+    *(map(getindex, args, (kr, kjr...), (kjr..., jr))...)
+end
 
 arguments(::BroadcastBandedLayout{F}, V::SubArray) where F = _broadcast_sub_arguments(V)
 arguments(::BroadcastBandedBlockBandedLayout, V::SubArray) = _broadcast_sub_arguments(V)
@@ -638,12 +644,17 @@ const ScalarOrBandedLayouts = Union{ScalarOrZerosLayouts,BandedLayouts}
 
 for op in (:hcat, :vcat)
     @eval begin
+        # TODO: following is broken when we have something whose columns are padded. 
+        # We probably need to separate a `PaddedColumnsLayout`, `PaddedRowsLayout`, and `PaddedLayout`.
         applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{A}()
         applylayout(::Type{typeof($op)}, ::A, ::ZerosLayout) where A<:ScalarOrZerosLayouts = PaddedLayout{A}()
         applylayout(::Type{typeof($op)}, ::A, ::PaddedLayout) where A<:ScalarOrBandedLayouts = PaddedLayout{ApplyLayout{typeof($op)}}()
         applylayout(::Type{typeof($op)}, ::ScalarOrBandedLayouts...) = ApplyBandedLayout{typeof($op)}()
         applylayout(::Type{typeof($op)}, ::ScalarOrZerosLayouts...) = ApplyLayout{typeof($op)}()
         sublayout(::ApplyBandedLayout{typeof($op)}, ::Type{<:NTuple{2,AbstractUnitRange}}) = ApplyBandedLayout{typeof($op)}()
+
+        # if both are padded we don't know how to deal with this
+        applylayout(::Type{typeof($op)}, ::PaddedLayout, ::PaddedLayout) = ApplyLayout{typeof($op)}()
     end
 end
 
@@ -715,6 +726,7 @@ Base.typed_vcat(::Type{T}, A::BandedMatrix, B::AbstractVecOrMat...) where T = Ma
 # layout_broadcasted(::ApplyBandedLayout{typeof(vcat)}, lay, op, A::AbstractVector, B::AbstractVector) = layout_broadcasted(ApplyLayout{typeof(vcat)}(), lay, op,A, B)
 
 LazyArrays._vcat_sub_arguments(::ApplyBandedLayout{typeof(vcat)}, A, V) = LazyArrays._vcat_sub_arguments(ApplyLayout{typeof(vcat)}(), A, V)
+LazyArrays._vcat_sub_arguments(::ApplyBandedLayout{typeof(hcat)}, A, V) = LazyArrays._vcat_sub_arguments(ApplyLayout{typeof(hcat)}(), A, V)
 
 #######
 # CachedArray
@@ -788,8 +800,10 @@ function resizedata!(::BandedColumns{DenseColumnMajor}, _, B::AbstractMatrix{T},
     B
 end
 
-resizedata!(laydat::BlockBandedColumns{<:AbstractColumnMajor}, layarr, B::AbstractMatrix, n::Integer, m::Integer) =
-    resizedata!(laydat, layarr, B, findblock.(axes(B), (n,m))...)
+function resizedata!(laydat::BlockBandedColumns{<:AbstractColumnMajor}, layarr, B::AbstractMatrix, n::Integer, m::Integer)
+    ν,μ = B.datasize
+    n ≤ ν && m ≤ μ || resizedata!(laydat, layarr, B, findblock.(axes(B), (n,m))...)
+end
 
 resizedata!(lay1, lay2, B::AbstractMatrix, N::Block{2}) = resizedata!(lay1, lay2, B, Block.(N.n)...)
 
@@ -973,13 +987,14 @@ copy(M::Mul{ApplyLayout{typeof(\)}, <:StructuredLazyLayouts}) = lazymaterialize(
 copy(M::Mul{BroadcastLayout{typeof(*)}, <:StructuredLazyLayouts}) = lazymaterialize(*, M.A, M.B)
 
 ## padded copy
-mulreduce(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = MulAdd(M)
-mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:PaddedLayout} = Mul{ApplyLayout{F},D}(M.A, M.B)
+mulreduce(M::Mul{<:StructuredLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = MulAdd(M)
+mulreduce(M::Mul{<:StructuredApplyLayouts{F}, D}) where {F,D<:Union{PaddedLayout,AbstractStridedLayout}} = Mul{ApplyLayout{F},D}(M.A, M.B)
 # need to overload copy due to above
-copy(M::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
-copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts}, <:PaddedLayout}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
-copy(M::Mul{<:BandedLazyLayouts, <:PaddedLayout}) = copy(mulreduce(M))
-simplifiable(::Mul{<:StructuredLazyLayouts, <:PaddedLayout}) = Val(true)
+copy(M::Mul{<:StructuredLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = copy(mulreduce(M))
+copy(M::Mul{<:AbstractInvLayout{<:BandedLazyLayouts}, <:Union{PaddedLayout,AbstractStridedLayout}}) = ArrayLayouts.ldiv(pinv(M.A), M.B)
+copy(M::Mul{<:BandedLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = copy(mulreduce(M))
+copy(M::Mul{<:Union{PaddedLayout,AbstractStridedLayout}, <:BandedLazyLayouts}) = copy(mulreduce(M))
+simplifiable(::Mul{<:StructuredLazyLayouts, <:Union{PaddedLayout,AbstractStridedLayout}}) = Val(true)
 
 
 copy(L::Ldiv{ApplyBandedLayout{typeof(*)}, Lay}) where Lay = copy(Ldiv{ApplyLayout{typeof(*)},Lay}(L.A, L.B))

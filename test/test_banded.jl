@@ -1,5 +1,6 @@
-using LazyBandedMatrices, LazyArrays, Test
+using LazyBandedMatrices, BandedMatrices, LazyArrays, Test
 using BandedMatrices: _BandedMatrix
+using LazyBandedMatrices: ApplyBandedLayout
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -608,8 +609,8 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test D*C̃ isa MulMatrix
         @test C̃*M isa MulMatrix
         @test M*C̃ isa MulMatrix
-        @test C̃*M̃ isa MulMatrix
-        @test M̃*C̃ isa MulMatrix
+        @test C̃*M̃ isa Matrix
+        @test M̃*C̃ isa Matrix
 
         L = _BandedMatrix(MyLazyArray(randn(3,10)),10,1,1)
         @test Base.BroadcastStyle(typeof(L)) isa LazyArrayStyle{2}
