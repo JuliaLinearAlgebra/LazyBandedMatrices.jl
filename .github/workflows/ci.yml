@@ -37,7 +37,6 @@ jobs:
       matrix:
         version:
           - '1.9'
-          - '~1.10.0-0'
         os:
           - ubuntu-latest
           - macOS-latest
