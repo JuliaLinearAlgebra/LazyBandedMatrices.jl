@@ -1,6 +1,6 @@
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 import BlockBandedMatrices: isbandedblockbanded, BandedBlockBandedStyle, BandedLayout
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call, blockcolsupport
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call, blockcolsupport, InvDiagTrav, invdiagtrav
 import LazyArrays: resizedata!
 import BandedMatrices: BandedColumns
 
@@ -127,6 +127,12 @@ import BandedMatrices: BandedColumns
         @test a == [1]
         a = DiagTrav(ones(1,3))
         @test a == ones(3)
+    end
+
+    @testset "InvDiagTrav" begin
+        A = [1 2 3; 4 5 6; 7 8 9]
+        @test invdiagtrav(PseudoBlockVector(DiagTrav(A))) == [1 2 3; 4 5 0; 7 0 0]
+        @test invdiagtrav(DiagTrav(A)) == A
     end
 
     @testset "BlockKron" begin
