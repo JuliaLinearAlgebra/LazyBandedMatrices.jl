@@ -193,7 +193,7 @@ _blockhcat_getindex_args(::Tuple{}, _, ::Colon) = ()
 function _blockhcat_blockrange_getindex(A, KR, JR)
     args = A.arrays
     sz = blocksize.(args,2)
-    sjr = intersect.(LazyArrays._argsindices(Int.(sz)), Ref(Int.(JR)))
+    sjr = intersect.(LazyArrays._argsindices(sz), Ref(Int.(JR)))
     sjr2 = broadcast((a,b) -> a .- b .+ 1, sjr, LazyArrays._vcat_firstinds(sz))
     BlockHcat(_blockhcat_getindex_args(args, KR, broadcast(jr -> Block.(jr), sjr2))...)
 end
