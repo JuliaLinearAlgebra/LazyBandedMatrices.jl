@@ -186,7 +186,6 @@ getindex(b::BlockHcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk),
 getindex(b::BlockHcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
 _blockhcat_getindex_args(::Tuple{}, _, ::Tuple{}) = ()
-_blockhcat_getindex_args(::Tuple{}, _, ::Colon) = ()
 @inline _blockhcat_getindex_args(args::Tuple, kr, jrs::Tuple) = (args[1][kr, jrs[1]], _blockhcat_getindex_args(tail(args), kr, tail(jrs))...)
 
 
