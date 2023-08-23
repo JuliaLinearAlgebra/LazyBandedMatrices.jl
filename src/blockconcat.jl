@@ -185,6 +185,22 @@ viewblock(b::BlockHcat, kj::Block{2}) = _findhcatblock(kj, b.arrays...)
 getindex(b::BlockHcat, Kk::BlockIndex{1}, Jj::BlockIndex{1}) = view(b,block(Kk), block(Jj))[blockindex(Kk), blockindex(Jj)]
 getindex(b::BlockHcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k), findblockindex(axes(b,2),j)]
 
+_blockhcat_getindex_args(::Tuple{}, _, ::Tuple{}) = ()
+_blockhcat_getindex_args(::Tuple{}, _, ::Colon) = ()
+@inline _blockhcat_getindex_args(args::Tuple, kr, jrs::Tuple) = (args[1][kr, jrs[1]], _blockhcat_getindex_args(tail(args), kr, tail(jrs))...)
+
+
+function _blockhcat_blockrange_getindex(A, KR, JR)
+    args = A.arrays
+    sz = blocksize.(args,2)
+    sjr = intersect.(LazyArrays._argsindices(Int.(sz)), Ref(Int.(JR)))
+    sjr2 = broadcast((a,b) -> a .- b .+ 1, sjr, LazyArrays._vcat_firstinds(sz))
+    BlockHcat(_blockhcat_getindex_args(args, KR, broadcast(jr -> Block.(jr), sjr2))...)
+end
+
+getindex(A::BlockHcat, ::Colon, JR::BlockRange{1}) = _blockhcat_blockrange_getindex(A, :, JR)
+getindex(A::BlockHcat, KR::BlockRange{1}, JR::BlockRange{1}) = _blockhcat_blockrange_getindex(A, KR, JR)
+
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
 sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
