@@ -203,6 +203,8 @@ end
 
         @test H[Block(2),Block.(2:3)] == H[Block.(2:2),Block.(2:3)]  == [A[Block(2,2)] B[Block(2,1)]]
         @test H[Block.(2:2),Block(3)] == H[Block(2,3)]
+        @test H[:, Block.(1:4)] == H[Block.(1:2), Block.(1:4)] == H[Block.(1:2), :] == H[:,:] == H
+        @test blocksize(H[:, Block.(1:4)])  == blocksize(H[Block.(1:2), Block.(1:4)]) == blocksize(H[Block.(1:2), :]) == blocksize(H[:,:]) == blocksize(H)
         @test convert(AbstractArray{Float64},H) ≡ convert(AbstractMatrix{Float64},H) ≡ H
         @test copy(H) == AbstractArray{Float64}(H) == AbstractMatrix{Float64}(H) == H
         @test copy(H') == H'
