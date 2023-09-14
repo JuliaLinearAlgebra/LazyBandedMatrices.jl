@@ -120,6 +120,9 @@ using BlockArrays: blockcolsupport
             @test BandedBlockBandedMatrix(B) == B == copyto!(BandedBlockBandedMatrix(B), B) == 2*B.args[2]
             @test MemoryLayout(B') isa LazyBandedMatrices.LazyBlockBandedLayout
             @test BlockBandedMatrix(B') == B'
+
+            x = randn(size(B,2))
+            @test B*x ≈ 2A*x
     
             C = BroadcastMatrix(*, 2, im*A)
             @test MemoryLayout(C') isa LazyBandedMatrices.LazyBlockBandedLayout

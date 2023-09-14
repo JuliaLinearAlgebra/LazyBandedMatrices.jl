@@ -193,6 +193,8 @@ import BandedMatrices: BandedColumns
                         1*7*2 1*7*4 1*8*2 2*7*2;
                         3*5*2 3*5*4 3*6*2 4*5*2]
 
+            @test K == KronTrav(A, B, 1.0C)
+
             @test K == K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2),Block.(1:2)]
 
             n = 2
@@ -217,6 +219,8 @@ import BandedMatrices: BandedColumns
             for k = 1:n, j=1:n Y[k,:,j] = B*Y[k,:,j] end
             for k = 1:n, j=1:n Y[:,k,j] = C*Y[:,k,j] end
             @test K*DiagTrav(X) ≈ DiagTrav(Y)
+
+            @test_throws ErrorException KronTrav(randn(3), randn(3,2))
         end
 
         @testset "banded" begin
@@ -304,6 +308,15 @@ import BandedMatrices: BandedColumns
             Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
             A = KronTrav(Δ, Eye(n))
             @test A^2 == Matrix(A)^2
+        end
+
+        @testset "algebra" begin
+            n = 4
+            Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+            A = KronTrav(Δ, Eye(n))
+            @test 2A == A*2 == 2Matrix(A)
+            @test 2A isa KronTrav
+            @test A*2 isa KronTrav
         end
     end
 
