@@ -162,8 +162,11 @@ struct KronTrav{T, N, AA<:Tuple{Vararg{AbstractArray{T,N}}}, AXES} <: AbstractBl
     axes::AXES
 end
 
-KronTrav(A::AbstractArray{T,N}...) where {T,N} =
-    KronTrav(A, map(_krontrav_axes, map(axes,A)...))
+KronTrav{T}(A::AbstractArray{T,N}...) where {T,N} = KronTrav(A, map(_krontrav_axes, map(axes,A)...))
+KronTrav{T}(A::AbstractArray{T}...) where T = error("All arrays must have same dimensions")
+KronTrav(A::AbstractArray{T}...) where T = KronTrav{T}(A...)    
+KronTrav{T}(A::AbstractArray...) where T = KronTrav{T}(convert.(AbstractArray{T}, A)...)
+KronTrav(A::AbstractArray...) = KronTrav{mapreduce(eltype, promote_type, A)}(A...)
 
 
 copy(K::KronTrav) = KronTrav(map(copy,K.args), K.axes)
@@ -265,19 +268,26 @@ function _broadcast_sub_arguments(::Union{KronTravLayout{2},KronTravBandedBlockB
     view(A,1:k,1:j), ApplyMatrix(rot180,view(B,1:k,1:j))
 end
 
+const BandedStyles = Union{BandedStyle, StructuredMatrixStyle{<:Diagonal}, StructuredMatrixStyle{<:Tridiagonal}, StructuredMatrixStyle{<:LinearAlgebra.Tridiagonal}}
 
-krontavbroadcaststyle(::BandedStyle, ::BandedStyle) = BandedBlockBandedStyle()
-krontavbroadcaststyle(::BandedStyle, ::StructuredMatrixStyle{<:Diagonal}) = BandedBlockBandedStyle()
-krontavbroadcaststyle(::StructuredMatrixStyle{<:Diagonal}, ::BandedStyle) = BandedBlockBandedStyle()
-krontavbroadcaststyle(::Union{BandedStyle,StructuredMatrixStyle{<:Diagonal}}...) = BlockBandedStyle()
-krontavbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyle, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
-krontavbroadcaststyle(::BandedStyle, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
-krontavbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontravbroadcaststyle(::BandedStyles, ::BandedStyles) = BandedBlockBandedStyle()
+krontravbroadcaststyle(::BandedStyles...) = BlockBandedStyle()
+krontravbroadcaststyle(::LazyArrayStyle{2}, ::BandedStyles, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontravbroadcaststyle(::BandedStyles, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
+krontravbroadcaststyle(::LazyArrayStyle{2}, ::LazyArrayStyle{2}, ::LazyArrayStyle{2}...) = LazyArrayStyle{2}()
 
 tuple_type_broadcaststyle(::Type{Tuple{}}) = ()
 tuple_type_broadcaststyle(T::Type{<:Tuple{A,Vararg{Any}}}) where A = 
     tuple(BroadcastStyle(A), tuple_type_broadcaststyle(tuple_type_tail(T))...)
 BroadcastStyle(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} =
-    krontavbroadcaststyle(tuple_type_broadcaststyle(AA)...)
+    krontravbroadcaststyle(tuple_type_broadcaststyle(AA)...)
 
 # mul(L::KronTrav, M::KronTrav) = KronTrav((L.args .* M.args)...)
+
+
+###
+# algebra
+###
+
+*(a::Number, b::KronTrav) = KronTrav(a*first(b.args), tail(b.args)...)
+*(a::KronTrav, b::Number) = KronTrav(first(a.args)*b, tail(a.args)...)
