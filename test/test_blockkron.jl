@@ -1,5 +1,5 @@
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
-import BlockBandedMatrices: isbandedblockbanded, BandedBlockBandedStyle, BandedLayout
+import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout
 import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call, blockcolsupport, InvDiagTrav, invdiagtrav
 import LazyArrays: resizedata!
 import BandedMatrices: BandedColumns
