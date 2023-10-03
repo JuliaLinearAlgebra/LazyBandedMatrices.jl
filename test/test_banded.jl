@@ -1,5 +1,5 @@
 using LazyBandedMatrices, BandedMatrices, LazyArrays, Test
-using BandedMatrices: _BandedMatrix
+using BandedMatrices: _BandedMatrix, isbanded
 using LazyBandedMatrices: ApplyBandedLayout
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
