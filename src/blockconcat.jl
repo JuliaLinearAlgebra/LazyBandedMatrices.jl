@@ -302,7 +302,11 @@ _blocks(A::Number) = A
 
 BlockBroadcastArray{T,N}(f, args...) where {T,N} = BlockBroadcastArray{T,N,typeof(f),typeof(args)}(f, args)
 BlockBroadcastArray{T}(bc::Broadcasted) where T = BlockBroadcastArray{T}(bc.f, bc.args...)
-BlockBroadcastArray(bc::Broadcasted) = BlockBroadcastArray{eltype(Base.Broadcast.combine_eltypes(bc.f, bc.args))}(bc)
+
+
+blockbroadcast_eltype(f, args...) = eltype(Base.Broadcast.combine_eltypes(f, args))
+
+BlockBroadcastArray(bc::Broadcasted) = BlockBroadcastArray{blockbroadcast_eltype(bc.f, bc.args...)}(bc)
 BlockBroadcastArray(f, args...) = BlockBroadcastArray(instantiate(broadcasted(f, args...)))
 
 BlockBroadcastArray{T}(::typeof(hcat), args...) where T = BlockBroadcastMatrix{T}(hcat, args...)
@@ -320,6 +324,8 @@ function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedUnitRange{OneTo{Int
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
+
+blockbroadcast_eltype(::typeof(hvcat), ::Integer, args::AbstractArray...) = promote_type(map(eltype, args)...)
 
 axes(A::BlockBroadcastVector{<:Any,typeof(vcat)}) = (_block_vcat_axes(axes.(A.args,1)...),)
 axes(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}) = (axes(A.args[1],1), _block_vcat_axes(axes.(A.args,2)...))
