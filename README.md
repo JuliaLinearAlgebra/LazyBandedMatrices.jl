@@ -1,9 +1,9 @@
 # LazyBandedMatrices.jl
 A Julia package for lazy banded matrices
 
-[![Build Status](https://github.com/JuliaMatrices/LazyBandedMatrices.jl/workflows/CI/badge.svg)](https://github.com/JuliaMatrices/LazyBandedMatrices.jl/actions)
+[![Build Status](https://github.com/JuliaLinearAlgebra/LazyBandedMatrices.jl/workflows/CI/badge.svg)](https://github.com/JuliaLinearAlgebra/LazyBandedMatrices.jl/actions)
 
-[![codecov](https://codecov.io/gh/JuliaMatrices/LazyBandedMatrices.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaMatrices/LazyBandedMatrices.jl)
+[![codecov](https://codecov.io/gh/JuliaLinearAlgebra/LazyBandedMatrices.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaLinearAlgebra/LazyBandedMatrices.jl)
 
 This package supports lazy banded and block-banded matrices, for example, a lazy multiplication of banded matrices:
 
