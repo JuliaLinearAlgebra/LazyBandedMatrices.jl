@@ -1,6 +1,16 @@
+module TestBlock
+
 using LazyBandedMatrices, LazyArrays, BlockBandedMatrices, BlockArrays, Test
+using LinearAlgebra
+using ArrayLayouts
+using BandedMatrices
 using LazyArrays: paddeddata
-using BlockArrays: blockcolsupport
+import BlockArrays: blockcolsupport, blockrowsupport
+import LazyArrays: arguments, colsupport, rowsupport,
+                    PaddedLayout, paddeddata, ApplyLayout, LazyArrayStyle
+import LazyBandedMatrices: BroadcastBlockBandedLayout, BroadcastBandedBlockBandedLayout,
+                    ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout
+
 
 @testset "Block" begin
     @testset "LazyBlock" begin
@@ -18,7 +28,7 @@ using BlockArrays: blockcolsupport
         @test view(n, Block(5)) ≡ Fill(5,5)
         @test view(k,Block(5)) ≡ Base.OneTo(5)
         a = b = c = 0.0
-        # for some reason the following was causing major slowdown. I think it 
+        # for some reason the following was causing major slowdown. I think it
         # went pass a limit to Base.Broadcast.flatten which caused `bc.f` to have a strange type.
         # bc = Base.Broadcast.instantiate(Base.broadcasted(/, Base.broadcasted(*, k, Base.broadcasted(-, Base.broadcasted(-, k, n), a)), Base.broadcasted(+, 2k, b+c-1)))
 
@@ -27,7 +37,7 @@ using BlockArrays: blockcolsupport
         u = (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))
         @test u == (Vector(k) .* (Vector(k) .- Vector(n) .- a) ./ (2Vector(k) .+ (b+c-1)))
         @test copyto!(u, bc) == (k .* (k .- n .- a) ./ (2k .+ (b+c-1)))
-        @test @allocated(copyto!(u, bc)) ≤ 1000 
+        @test @allocated(copyto!(u, bc)) ≤ 1000
         # not clear why allocatinos so high: all allocations are coming from checking
         # axes
 
@@ -52,7 +62,7 @@ using BlockArrays: blockcolsupport
         @test b[Block.(2:3)] == b[2:6]
     end
 
-     
+
     @testset "block padded" begin
         c = PseudoBlockVector(Vcat(1, Zeros(5)), 1:3)
         @test paddeddata(c) == [1]
@@ -123,25 +133,25 @@ using BlockArrays: blockcolsupport
 
             x = randn(size(B,2))
             @test B*x ≈ 2A*x
-    
+
             C = BroadcastMatrix(*, 2, im*A)
             @test MemoryLayout(C') isa LazyBandedMatrices.LazyBlockBandedLayout
             @test MemoryLayout(transpose(C)) isa LazyBandedMatrices.LazyBlockBandedLayout
-    
+
             E = BroadcastMatrix(*, A, 2)
             @test MemoryLayout(E) == BroadcastBlockBandedLayout{typeof(*)}()
-    
-            
+
+
             D = Diagonal(PseudoBlockArray(randn(6),1:3))
             @test MemoryLayout(BroadcastMatrix(*, A, D)) isa BroadcastBlockBandedLayout{typeof(*)}
             @test MemoryLayout(BroadcastMatrix(*, D, A)) isa BroadcastBlockBandedLayout{typeof(*)}
-    
+
             F = BroadcastMatrix(*, A, A)
             @test MemoryLayout(F) == BroadcastBlockBandedLayout{typeof(*)}()
         end
         @testset "BroadcastBandedBlockBanded" begin
             A = BandedBlockBandedMatrix(randn(6,6),1:3,1:3,(1,1),(1,1))
-    
+
             B = BroadcastMatrix(*, 2, A)
             @test blockbandwidths(B) == (1,1)
             @test subblockbandwidths(B) == (1,1)
@@ -151,18 +161,18 @@ using BlockArrays: blockcolsupport
             @test BandedBlockBandedMatrix(B') == B'
             @test MemoryLayout(Symmetric(B)) isa LazyBandedMatrices.LazyBandedBlockBandedLayout
             @test MemoryLayout(Hermitian(B)) isa LazyBandedMatrices.LazyBandedBlockBandedLayout
-    
+
             C = BroadcastMatrix(*, 2, im*A)
             @test MemoryLayout(C') isa LazyBandedMatrices.LazyBandedBlockBandedLayout
             @test MemoryLayout(transpose(C)) isa LazyBandedMatrices.LazyBandedBlockBandedLayout
-    
+
             E = BroadcastMatrix(*, A, 2)
             @test MemoryLayout(E) == BroadcastBandedBlockBandedLayout{typeof(*)}()
-    
+
             D = Diagonal(PseudoBlockArray(randn(6),1:3))
             @test MemoryLayout(BroadcastMatrix(*, A, D)) isa BroadcastBandedBlockBandedLayout{typeof(*)}
             @test MemoryLayout(BroadcastMatrix(*, D, A)) isa BroadcastBandedBlockBandedLayout{typeof(*)}
-    
+
             F = BroadcastMatrix(*, Ones(axes(A,1)), A)
             @test blockbandwidths(F) == (1,1)
             @test subblockbandwidths(F) == (1,1)
@@ -209,3 +219,5 @@ using BlockArrays: blockcolsupport
         @test blocksize(paddeddata(p),1) == 3
     end
 end
+
+end # module

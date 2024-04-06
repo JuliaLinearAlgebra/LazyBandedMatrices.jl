@@ -1,9 +1,13 @@
+module TestBlockKron
+
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
+using LinearAlgebra
 import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout
 import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call, blockcolsupport, InvDiagTrav, invdiagtrav
-import LazyArrays: resizedata!
+import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
 import BandedMatrices: BandedColumns
 
+include("mylazyarray.jl")
 
 @testset "Kron" begin
     @testset "Banded kron" begin
@@ -362,3 +366,5 @@ import BandedMatrices: BandedColumns
         end
     end
 end
+
+end # module

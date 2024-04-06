@@ -1,8 +1,11 @@
 # This file is based on LinearAlgebra/test/special.jl a part of Julia. License is MIT: https://julialang.org/license
 
+module TestSpecial
+
 using Test, SparseArrays, Random, LazyBandedMatrices
 import LazyBandedMatrices: Bidiagonal, Tridiagonal, SymTridiagonal
 import LinearAlgebra
+import LinearAlgebra: Diagonal, UpperTriangular, LowerTriangular, triu, Symmetric
 import LinearAlgebra: UniformScaling
 
 @testset "Tri/Bidiagonal special" begin
@@ -272,5 +275,6 @@ import LinearAlgebra: UniformScaling
             end
         end
     end
+end # testset
 
 end # module TestSpecial
