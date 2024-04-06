@@ -1,8 +1,12 @@
+module TestBlockConcat
+
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, ApplyLayout, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
+import LazyBandedMatrices: BlockBroadcastArray, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
 import BlockArrays: blockvec
-import LinearAlgebra: Adjoint, Transpose
-import LazyArrays: PaddedArray, PaddedLayout
+using LinearAlgebra
+import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
+                    PaddedLayout, paddeddata, ApplyLayout, PaddedArray
+
 
 @testset "unitblocks" begin
     a = unitblocks(Base.OneTo(5))
@@ -137,7 +141,7 @@ end
     @testset "broadcast" begin
         A = BlockVcat(randn(2,3), randn(1,3))
         @test A + I isa BroadcastArray
-        
+
         a = BlockVcat(randn(2), randn(3))
         @test a' .+ 1 isa BroadcastArray
     end
@@ -403,7 +407,7 @@ end
             @test blockcolsupport(A, Block(2)) == Block.(1:3)
             @test blockrowsupport(A, Block(3)) == Block.(2:4)
 
-            
+
             V = view(A, Block.(1:3),Block.(1:3))
             @test MemoryLayout(V) isa LazyBandedMatrices.BlockBandedInterlaceLayout
             @test arguments(V) == (2,a[1:3,1:3],z[1:3,1:3],z[1:3,1:3],a[1:3,1:3])
@@ -453,3 +457,5 @@ end
     @test paddeddata(c) isa BlockVec
     @test paddeddata(c) == [2]
 end
+
+end # module

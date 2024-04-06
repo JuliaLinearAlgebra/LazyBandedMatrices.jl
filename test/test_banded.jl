@@ -1,6 +1,22 @@
+module TestBanded
+
 using LazyBandedMatrices, BandedMatrices, LazyArrays, Test
+import LazyBandedMatrices: VcatBandedMatrix, BroadcastBlockBandedLayout, BroadcastBandedLayout,
+                    ApplyBandedLayout, ApplyBlockBandedLayout, ApplyBandedBlockBandedLayout,
+                    BlockKron, LazyBandedLayout, BroadcastBandedBlockBandedLayout
+
+import LazyArrays: Applied, resizedata!, MulStyle, arguments, colsupport, rowsupport, LazyLayout,
+                    PaddedLayout, call, ApplyLayout, LazyArrayStyle, simplifiable
+
+using ArrayLayouts
+import ArrayLayouts: StridedLayout, OnesLayout
+using LinearAlgebra
+import BandedMatrices: BandedStyle, BandedRows, BandedColumns
 using BandedMatrices: _BandedMatrix, isbanded
 using LazyBandedMatrices: ApplyBandedLayout
+using MatrixFactorizations
+
+include("mylazyarray.jl")
 
 struct PseudoBandedMatrix{T} <: AbstractMatrix{T}
     data::Array{T}
@@ -731,3 +747,5 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
         @test Bi * x ≈ B \ x
     end
 end
+
+end # module

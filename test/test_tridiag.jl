@@ -1,4 +1,7 @@
 # This file based on a part of Julia, LinearAlgebra/test/tridiag.jl. License is MIT: https://julialang.org/license
+
+module TestTridiagonal
+
 using Test, SparseArrays, Random, LazyBandedMatrices, FillArrays, LazyArrays
 import LinearAlgebra
 # need to avoid confusion with LinearAlgebra.Tridiagonal
@@ -458,4 +461,6 @@ import LazyBandedMatrices: SymTridiagonal, Tridiagonal
         B = randn(5,5)
         @test SymTridiagonal(ApplyArray(*, A, B)) ≈ SymTridiagonal(A*B)
     end
+end # testset
+
 end # module TestTridiagonal

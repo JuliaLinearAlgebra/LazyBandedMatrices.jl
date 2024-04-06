@@ -1,6 +1,8 @@
+module TestBidiag
+
 # This file is based on a part of Julia LinearAlgebra/test/bidiag.jl. License is MIT: https://julialang.org/license
 using Test, LazyBandedMatrices, SparseArrays, Random, FillArrays
-import LinearAlgebra
+using LinearAlgebra
 import LazyBandedMatrices: Bidiagonal, SymTridiagonal, Tridiagonal
 import LinearAlgebra: mul!
 
@@ -482,4 +484,6 @@ import LinearAlgebra: mul!
         @test B.dv ≡ 1:5
         @test B.ev ≡ Ones{Int}(4)
     end
+end # testset
+
 end # module TestBidiagonal
