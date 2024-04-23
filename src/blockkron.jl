@@ -1,9 +1,4 @@
-const OneToCumsum = RangeCumsum{Int,OneTo{Int}}
-BlockArrays.sortedunion(a::OneToCumsum, ::OneToCumsum) = a
-function BlockArrays.sortedunion(a::RangeCumsum{<:Any,<:AbstractRange}, b::RangeCumsum{<:Any,<:AbstractRange})
-    @assert a == b
-    a
-end
+
 
 ###
 # Block
@@ -11,15 +6,6 @@ end
 
 Base.in(K::Block, B::BroadcastVector{<:Block,Type{Block}}) = Int(K) in B.args[1]
 
-
-###
-# BlockBanded
-###
-
-bandedblockbandedbroadcaststyle(::LazyArrayStyle{2}) = LazyArrayStyle{2}()
-bandedblockbandedcolumns(::LazyLayout) = BandedBlockBandedColumns{LazyLayout}()
-bandedblockbandedcolumns(::ApplyLayout) = BandedBlockBandedColumns{LazyLayout}()
-bandedblockbandedcolumns(::BroadcastLayout) = BandedBlockBandedColumns{LazyLayout}()
 
 """
     DiagTrav(A::AbstractMatrix)
