@@ -504,13 +504,13 @@ LinearAlgebra.lmul!(β::Number, A::PseudoBandedMatrix) = (lmul!(β, A.data); A)
                 Q,R = qr(A)
                 x = randn(T,100)
                 b = randn(T,100,2)
-                @test lmul!(Q, copy(x)) ≈ Matrix(Q)*x
-                @test lmul!(Q, copy(b)) ≈ Matrix(Q)*b
-                @test lmul!(Q', copy(x)) ≈ Matrix(Q)'*x
-                @test lmul!(Q', copy(b)) ≈ Matrix(Q)'*b
+                @test ArrayLayouts.lmul!(Q, copy(x)) == lmul!(Q, copy(x)) ≈ Matrix(Q)*x
+                @test ArrayLayouts.lmul!(Q, copy(b)) == lmul!(Q, copy(b)) ≈ Matrix(Q)*b
+                @test ArrayLayouts.lmul!(Q', copy(x)) == lmul!(Q', copy(x)) ≈ Matrix(Q)'*x
+                @test ArrayLayouts.lmul!(Q', copy(b)) == lmul!(Q', copy(b)) ≈ Matrix(Q)'*b
                 c = randn(T,2,100)
-                @test rmul!(copy(c), Q) ≈ c*Matrix(Q)
-                @test rmul!(copy(c), Q') ≈ c*Matrix(Q')
+                @test ArrayLayouts.rmul!(copy(c), Q) == rmul!(copy(c), Q) ≈ c*Matrix(Q)
+                @test ArrayLayouts.rmul!(copy(c), Q') == rmul!(copy(c), Q') ≈ c*Matrix(Q')
 
                 A = brand(T,100,100,3,4)
                 Q,L = ql(A)
