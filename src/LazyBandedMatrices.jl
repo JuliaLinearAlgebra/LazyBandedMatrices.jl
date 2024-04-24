@@ -66,6 +66,12 @@ include("tridiag.jl")
 include("bidiag.jl")
 include("special.jl")
 
+# useful for turning Array into block array
+unitblocks(a::AbstractArray) = PseudoBlockArray(a, Ones{Int}.(axes(a))...)
+unitblocks(a::OneTo) = blockedrange(Ones{Int}(length(a)))
+unitblocks(a::AbstractUnitRange) = BlockArrays._BlockedUnitRange(first(a),(first(a)-1) .+ BlockArrays._blocklengths2blocklasts(Ones{Int}(length(a))))
+
+
 
 include("blockconcat.jl")
 include("blockkron.jl")
