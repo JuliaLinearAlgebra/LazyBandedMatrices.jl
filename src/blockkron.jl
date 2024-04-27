@@ -4,9 +4,6 @@
 # Block
 ###
 
-Base.in(K::Block, B::BroadcastVector{<:Block,Type{Block}}) = Int(K) in B.args[1]
-
-
 """
     DiagTrav(A::AbstractMatrix)
 
