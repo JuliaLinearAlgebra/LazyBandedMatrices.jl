@@ -78,7 +78,7 @@ Base.view(A::DiagTrav, K::Block{1}) = _diagtravview(MemoryLayout(A.array), A.arr
 
 _diagtravview(_, A::AbstractArray, K::Block{1}) = Base.invoke(view, Tuple{AbstractArray, Any}, DiagTrav(A), K)
 
-function _diagtravgetindex(::PaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
+function _diagtravgetindex(::AbstractPaddedLayout{<:AbstractStridedLayout}, A::AbstractMatrix{T}, K::Block{1}) where T
     k = Int(K)
     P = paddeddata(A)
     m,n = size(P)

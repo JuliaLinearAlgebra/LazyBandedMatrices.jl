@@ -10,12 +10,16 @@ import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real,
 import Base.Broadcast: Broadcasted
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling, char_uplo,
-                        AbstractTriangular, AdjOrTrans
-import LazyArrays: ApplyLayout
-import BandedMatrices: AbstractBandedMatrix
-import BlockBandedMatrices: AbstractBlockBandedLayout
+                        AbstractTriangular, AdjOrTrans, StructuredMatrixStyle
+import LazyArrays: ApplyLayout, AbstractPaddedLayout, BroadcastLayout, LazyArrayStyle
+import BandedMatrices: AbstractBandedMatrix, BandedStyle
+import BlockBandedMatrices: AbstractBlockBandedLayout, AbstractBandedBlockBandedLayout, BlockRange1, Block1
+import BlockArrays: BlockSlices, BlockSlice1, BlockSlice, blockvec, AbstractBlockLayout
 
+LazyArraysBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBandedMatricesExt)
 LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
+
+BroadcastBandedLayout = LazyArraysBandedMatricesExt.BroadcastBandedLayout
 AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
 
 

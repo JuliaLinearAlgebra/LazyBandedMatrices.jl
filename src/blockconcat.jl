@@ -397,7 +397,7 @@ end
 # end
 
 blockinterlacelayout(_...) = LazyLayout()
-blockinterlacelayout(::Union{ZerosLayout,PaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
+blockinterlacelayout(::Union{ZerosLayout,AbstractPaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
 
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
@@ -440,7 +440,7 @@ blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convex
 blockcolsupport(A::BlockBroadcastVector{<:Any,typeof(vcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 
 blockbroadcastlayout(FF, args...) = UnknownLayout()
-blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedLayout...) = PaddedLayout{UnknownLayout}()
+blockbroadcastlayout(::Type{typeof(vcat)}, ::AbstractPaddedLayout...) = PaddedLayout{UnknownLayout}()
 
 function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
     dats = map(paddeddata,B.args)
@@ -473,7 +473,7 @@ _resize!(At::Transpose, m, n) = transpose(transpose(At)[1:n, 1:m])
 _resize!(Ac::Adjoint, m, n) = (Ac')[1:n, 1:m]'
 resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.args[1], size(b.args[1],1), Int(K)))
 
-applylayout(::Type{typeof(blockvec)}, ::PaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
+applylayout(::Type{typeof(blockvec)}, ::AbstractPaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
 paddeddata(b::BlockVec) = BlockVec(paddeddata(b.args[1]))
 
 
