@@ -155,22 +155,6 @@ sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:Blo
 sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
 
 
-function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice,BlockSlice{<:BlockRange1}}})
-    kr, jr = parentindices(V)
-    P = parent(V)
-    a = arguments(lay, P)
-    JR = _split2blocks(jr.block, axes.(a,2)...)
-    filter(!isempty,getindex.(a, Ref(kr.block), JR))
-end
-
-function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
-    kr, jr = parentindices(V)
-    J = jr.block
-    P = parent(V)
-    arguments(lay, view(P,kr,J:J))
-end
-
-
 for adj in (:adjoint, :transpose)
     @eval begin
         $adj(A::BlockHcat{T}) where T = BlockVcat{T}(map($adj,A.arrays)...)
@@ -387,32 +371,6 @@ blockhcatlayout(_...) = ApplyLayout{typeof(hcat)}()
 # This can be generalised later as needed
 blockhcatlayout(::AbstractBandedLayout, ::AbstractBlockBandedLayout) = ApplyBlockBandedLayout{typeof(hcat)}()
 MemoryLayout(::Type{<:BlockHcat{<:Any,Arrays}}) where Arrays = blockhcatlayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
-sublayout(::ApplyBlockBandedLayout{typeof(hcat)}, ::Type{<:Tuple{<:BlockSlice{<:BlockRange1}, <:BlockSlice{<:BlockRange1}}}) = ApplyBlockBandedLayout{typeof(hcat)}()
-
-_copyto!(_, LAY::ApplyBlockBandedLayout{typeof(hcat)}, dest::AbstractMatrix, H::AbstractMatrix) =
-    block_hcat_copyto!(dest, arguments(LAY,H)...)
-function block_hcat_copyto!(dest::AbstractMatrix, arrays...)
-    nrows = blocksize(dest, 1)
-    ncols = 0
-    dense = true
-    for a in arrays
-        dense &= isa(a,Array)
-        nd = ndims(a)
-        ncols += (nd==2 ? blocksize(a,2) : 1)
-    end
-
-    nrows == blocksize(first(arrays),1) || throw(DimensionMismatch("Destination rows must match"))
-    ncols == blocksize(dest,2) || throw(DimensionMismatch("Destination columns must match"))
-
-    pos = 1
-    for a in arrays
-        p1 = pos+(isa(a,AbstractMatrix) ? blocksize(a, 2) : 1)-1
-        copyto!(view(dest,:, Block.(pos:p1)), a)
-        pos = p1+1
-    end
-    return dest
-end
-
 
 struct BlockBandedInterlaceLayout <: AbstractLazyBlockBandedLayout end
 
@@ -447,12 +405,6 @@ MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where A
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hcat),Arrays}}) where Arrays = LazyLayout()
 
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(Diagonal),Arrays}}) where Arrays = LazyBandedBlockBandedLayout()
-
-##
-# special for unitblocks
-blockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = bandwidths(A.blocks)
-blockbandwidths(A::PseudoBlockMatrix{<:Any,<:Diagonal,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = bandwidths(A.blocks)
-subblockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = (0,0)
 
 
 
