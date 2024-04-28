@@ -7,11 +7,16 @@ using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays,
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
             iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix, permutedims,
             OneTo
+import Base.Broadcast: Broadcasted
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling, char_uplo,
                         AbstractTriangular, AdjOrTrans
 import LazyArrays: ApplyLayout
 import BandedMatrices: AbstractBandedMatrix
+import BlockBandedMatrices: AbstractBlockBandedLayout
+
+LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
+AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
 
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
