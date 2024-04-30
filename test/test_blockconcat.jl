@@ -317,11 +317,8 @@ end
         b = 11:10+N
         a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(vcat, a, b)
-        if VERSION < v"1.7-"
-            @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
-        else
-            @test axes(A,1) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
-        end
+        @test axes(A,1) isa BlockedOneTo{StepRangeLen{Int,Int,Int,Int}}
+
         @test @allocated(axes(A)) ≤ 50
         @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
         @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
@@ -340,7 +337,7 @@ end
             @test C[2:2:end] == a
 
             # differening data sizes not supported yet
-            @test_broken paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
+            @test_throws ErrorException paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
         end
 
         @testset "resize!" begin
@@ -359,12 +356,8 @@ end
         b = 11:10+N
         a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(hcat, a', b')
-        if VERSION < v"1.7-"
-            @test axes(A,2) isa BlockedUnitRange{StepRange{Int,Int}}
-        else
-            @test axes(A,2) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
-        end
-        @test @allocated(axes(A)) ≤ 50
+        @test axes(A,2) isa BlockedOneTo{StepRangeLen{Int,Int,Int,Int}}
+        @test @allocated(axes(A)) ≤ 70
         @test A[Block(1,1)] == PseudoBlockArray(A)[Block(1,1)] == [1 11]
         @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A

@@ -54,6 +54,10 @@ using LazyBandedMatrices
         a = PseudoBlockArray(BroadcastArray(exp, randn(5)), [3,2])
         @test call(a) == exp
     end
+
+    @testset "unitblocks" begin
+        @test blockbandwidths(unitblocks(Diagonal(1:5))) == (0,0)
+    end
 end
 
 end # module

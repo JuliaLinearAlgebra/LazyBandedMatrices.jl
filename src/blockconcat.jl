@@ -150,9 +150,14 @@ getindex(A::BlockHcat, KR::BlockRange{1}, JR::BlockRange{1}) = _blockhcat_blockr
 
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockhcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:AbstractBlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:AbstractBlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+
 
 
 for adj in (:adjoint, :transpose)
@@ -200,8 +205,8 @@ getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k),
 # MemoryLayout(::Type{<:BlockHvcat}) = ApplyLayout{typeof(hvcat)}()
 # arguments(::ApplyLayout{typeof(hvcat)}, b::BlockHvcat) = b.args
 
-# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
-# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
+# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
+# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:AbstractBlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
 
 # function arguments(lay::ApplyLayout{typeof(hvcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
 #     kr, jr = parentindices(V)
@@ -248,11 +253,11 @@ BlockBroadcastArray{T}(::typeof(hvcat), args...) where T = BlockBroadcastMatrix{
 BlockBroadcastArray{T}(::typeof(Diagonal), args...) where T = BlockBroadcastMatrix{T}(Diagonal, args...)
 
 
-_block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
+_block_vcat_axes(ax...) = BlockArrays.BlockedOneTo(+(map(blocklasts,ax)...))
 
-_block_interlace_axes(::Int, ax::Tuple{BlockedUnitRange{OneTo{Int}}}...) = _block_vcat_axes(ax...)
+_block_interlace_axes(::Int, ax::Tuple{BlockedOneTo{OneTo{Int}}}...) = _block_vcat_axes(ax...)
 
-function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedUnitRange{OneTo{Int}}}...)
+function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{OneTo{Int}}}...)
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
@@ -440,7 +445,7 @@ blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convex
 blockcolsupport(A::BlockBroadcastVector{<:Any,typeof(vcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 
 blockbroadcastlayout(FF, args...) = UnknownLayout()
-blockbroadcastlayout(::Type{typeof(vcat)}, ::AbstractPaddedLayout...) = PaddedLayout{UnknownLayout}()
+blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedColumns...) = PaddedColumns{UnknownLayout}()
 
 function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
     dats = map(paddeddata,B.args)
