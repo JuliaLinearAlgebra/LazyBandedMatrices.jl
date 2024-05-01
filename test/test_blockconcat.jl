@@ -317,7 +317,7 @@ end
         b = 11:10+N
         a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(vcat, a, b)
-        @test axes(A,1) isa BlockedOneTo{StepRangeLen{Int,Int,Int,Int}}
+        @test axes(A,1) isa BlockedOneTo{Int,StepRangeLen{Int,Int,Int,Int}}
 
         @test @allocated(axes(A)) ≤ 50
         @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
@@ -356,7 +356,7 @@ end
         b = 11:10+N
         a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(hcat, a', b')
-        @test axes(A,2) isa BlockedOneTo{StepRangeLen{Int,Int,Int,Int}}
+        @test axes(A,2) isa BlockedOneTo{Int,StepRangeLen{Int,Int,Int,Int}}
         @test @allocated(axes(A)) ≤ 70
         @test A[Block(1,1)] == PseudoBlockArray(A)[Block(1,1)] == [1 11]
         @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]

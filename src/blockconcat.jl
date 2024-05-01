@@ -255,9 +255,9 @@ BlockBroadcastArray{T}(::typeof(Diagonal), args...) where T = BlockBroadcastMatr
 
 _block_vcat_axes(ax...) = BlockArrays.BlockedOneTo(+(map(blocklasts,ax)...))
 
-_block_interlace_axes(::Int, ax::Tuple{BlockedOneTo{OneTo{Int}}}...) = _block_vcat_axes(ax...)
+_block_interlace_axes(::Int, ax::Tuple{BlockedOneTo{Int,OneTo{Int}}}...) = _block_vcat_axes(ax...)
 
-function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{OneTo{Int}}}...)
+function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneTo{Int}}}...)
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
@@ -478,7 +478,7 @@ _resize!(At::Transpose, m, n) = transpose(transpose(At)[1:n, 1:m])
 _resize!(Ac::Adjoint, m, n) = (Ac')[1:n, 1:m]'
 resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.args[1], size(b.args[1],1), Int(K)))
 
-applylayout(::Type{typeof(blockvec)}, ::AbstractPaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
+applylayout(::Type{typeof(blockvec)}, ::AbstractPaddedLayout) = PaddedColumns{ApplyLayout{typeof(blockvec)}}()
 paddeddata(b::BlockVec) = BlockVec(paddeddata(b.args[1]))
 
 
