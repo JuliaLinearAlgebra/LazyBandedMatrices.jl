@@ -5,7 +5,7 @@ import LazyBandedMatrices: BlockBroadcastArray, blockcolsupport, blockrowsupport
 import BlockArrays: blockvec
 using LinearAlgebra
 import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
-                    PaddedLayout, paddeddata, ApplyLayout, PaddedArray
+                    PaddedLayout, PaddedColumns, paddeddata, ApplyLayout, PaddedArray
 
 
 @testset "unitblocks" begin
@@ -446,7 +446,7 @@ end
     X = cache(Zeros(5,6));
     X[1,1] = 2
     c = BlockVec(X);
-    @test MemoryLayout(c) isa PaddedLayout
+    @test MemoryLayout(c) isa PaddedColumns
     @test paddeddata(c) isa BlockVec
     @test paddeddata(c) == [2]
 end
