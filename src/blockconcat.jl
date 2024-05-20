@@ -415,7 +415,7 @@ arguments(::BlockBandedInterlaceLayout, A::BlockBroadcastMatrix{<:Any,typeof(vca
 
 # avoid extra types, since we are using int indexing for now...
 # TODO: rewrite when other block sizes are allowed
-deblock(A::PseudoBlockArray) = A.blocks
+deblock(A::BlockedArray) = A.blocks
 deblock(A::Zeros{T}) where T = Zeros{T}(size(A)...)
 function arguments(::BlockBandedInterlaceLayout, A::SubArray)
     P = parent(A)

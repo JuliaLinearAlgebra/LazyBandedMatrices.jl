@@ -2,9 +2,10 @@ module TestBidiag
 
 # This file is based on a part of Julia LinearAlgebra/test/bidiag.jl. License is MIT: https://julialang.org/license
 using Test, LazyBandedMatrices, SparseArrays, Random, FillArrays
-using LinearAlgebra
 import LazyBandedMatrices: Bidiagonal, SymTridiagonal, Tridiagonal
-import LinearAlgebra: mul!
+import LinearAlgebra
+import LinearAlgebra: mul!, istril, istriu, diagm, isdiag, triu, tril, triu!, tril!, diag, UpperTriangular, LowerTriangular, UnitLowerTriangular, UnitUpperTriangular,
+                        dot, Diagonal
 
 @testset "Bidiagonal" begin
     n = 10 #Size of test matrix
@@ -284,14 +285,16 @@ import LinearAlgebra: mul!
         @test Matrix{ComplexF64}(BD) == BD
     end
 
-    # Issue 10742 and similar
-    let A = Bidiagonal([1,2,3], [0,0], :U)
-        @test istril(A)
-        @test isdiag(A)
+    @testset "Issue 10742 and similar" begin
+        let A = Bidiagonal([1,2,3], [0,0], :U)
+            @test istril(A)
+            @test isdiag(A)
+        end
     end
 
-    # test construct from range
-    @test Bidiagonal(1:3, 1:2, :U) == [1 1 0; 0 2 2; 0 0 3]
+    @testset "test construct from range" begin
+        @test Bidiagonal(1:3, 1:2, :U) == [1 1 0; 0 2 2; 0 0 3]
+    end
 
     @testset "promote_rule" begin
         A = Bidiagonal(fill(1f0,10),fill(1f0,9),:U)

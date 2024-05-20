@@ -67,7 +67,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
 
     @testset "InvDiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
-        @test invdiagtrav(PseudoBlockVector(DiagTrav(A))) == [1 2 3; 4 5 0; 7 0 0]
+        @test invdiagtrav(BlockedVector(DiagTrav(A))) == [1 2 3; 4 5 0; 7 0 0]
         @test invdiagtrav(DiagTrav(A)) == A
     end
 
