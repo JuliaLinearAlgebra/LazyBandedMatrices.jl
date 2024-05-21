@@ -13,7 +13,7 @@ import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, 
 
 import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldata, supdiagonaldata, subdiagonaldata,
                      symtridiagonallayout, tridiagonallayout, symmetriclayout,
-                     colsupport, rowsupport, sublayout, sub_materialize
+                     colsupport, rowsupport, sublayout, sub_materialize, _copyto!
 import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout,
                    arguments, call, tuple_type_memorylayouts, paddeddata, _broadcast_sub_arguments, resizedata!,
                    _cumsum, convexunion, applylayout
