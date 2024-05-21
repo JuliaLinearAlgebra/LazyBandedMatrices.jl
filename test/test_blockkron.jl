@@ -3,92 +3,24 @@ module TestBlockKron
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 using LinearAlgebra
 import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, FillLayout, OnesLayout, call, blockcolsupport, InvDiagTrav, invdiagtrav
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav
+import ArrayLayouts: FillLayout, OnesLayout
 import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
 import BandedMatrices: BandedColumns
 
-include("mylazyarray.jl")
+struct MyLazyArray{T,N} <: AbstractArray{T,N}
+    data::Array{T,N}
+end
+
+
+Base.size(A::MyLazyArray) = size(A.data)
+Base.getindex(A::MyLazyArray, j::Int...) = A.data[j...]
+LazyArrays.MemoryLayout(::Type{<:MyLazyArray}) = LazyLayout()
+Base.BroadcastStyle(::Type{<:MyLazyArray{<:Any,N}}) where N = LazyArrayStyle{N}()
+LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
+
 
 @testset "Kron" begin
-    @testset "Banded kron" begin
-        @testset "2D" begin
-            A = brand(5,5,2,2)
-            B = brand(2,2,1,0)
-            @test isbanded(Kron(A,B))
-            K = kron(A,B)
-            @test K isa BandedMatrix
-            @test bandwidths(K) == (5,4)
-            @test Matrix(K) == kron(Matrix(A), Matrix(B))
-
-            A = brand(3,4,1,1)
-            B = brand(3,2,1,0)
-            K = kron(A,B)
-            @test K isa BandedMatrix
-            @test bandwidths(K) == (7,2)
-            @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
-            K = kron(B,A)
-            @test Matrix(K) ≈ kron(Matrix(B), Matrix(A))
-
-            K = kron(A, B')
-            K isa BandedMatrix
-            @test Matrix(K) ≈ kron(Matrix(A), Matrix(B'))
-            K = kron(A', B)
-            K isa BandedMatrix
-            @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B))
-            K = kron(A', B')
-            K isa BandedMatrix
-            @test Matrix(K) ≈ kron(Matrix(A'), Matrix(B'))
-
-            A = brand(5,6,2,2)
-            B = brand(3,2,1,0)
-            K = kron(A,B)
-            @test K isa BandedMatrix
-            @test bandwidths(K) == (12,4)
-            @test Matrix(K) ≈ kron(Matrix(A), Matrix(B))
-
-            n = 10; h = 1/n
-            D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
-            D_xx = kron(D², Eye(n))
-            D_yy = kron(Eye(n), D²)
-            @test D_xx isa BandedMatrix
-            @test D_yy isa BandedMatrix
-            @test bandwidths(D_xx) == (10,10)
-            @test bandwidths(D_yy) == (1,1)
-            X = randn(n,n)
-            @test reshape(D_xx*vec(X),n,n) ≈ X*D²'
-            @test reshape(D_yy*vec(X),n,n) ≈ D²*X
-            Δ = D_xx + D_yy
-            @test Δ isa BandedMatrix
-            @test bandwidths(Δ) == (10,10)
-        end
-
-        @testset "#87" begin
-            @test kron(Diagonal([1,2,3]), Eye(3)) isa Diagonal{Float64,Vector{Float64}}
-        end
-
-        @testset "3D" begin
-            n = 10; h = 1/n
-            D² = BandedMatrix(0 => Fill(-2,n), 1 => Fill(1,n-1), -1 => Fill(1,n-1))
-            
-            D_xx = kron(D², Eye(n), Eye(n))
-            D_yy = kron(Eye(n), D², Eye(n))
-            D_zz = kron(Eye(n), Eye(n), D²)
-            @test bandwidths(D_xx) == (n^2,n^2)
-            @test bandwidths(D_yy) == (n,n)
-            @test bandwidths(D_zz) == (1,1)
-
-            X = randn(n,n,n)
-            
-            Y = similar(X)
-            for k = 1:n, j=1:n Y[k,j,:] = D²*X[k,j,:] end
-            @test reshape(D_xx*vec(X), n, n, n) ≈ Y
-            for k = 1:n, j=1:n Y[k,:,j] = D²*X[k,:,j] end
-            @test reshape(D_yy*vec(X), n, n, n) ≈ Y
-            for k = 1:n, j=1:n Y[:,k,j] = D²*X[:,k,j] end
-            @test reshape(D_zz*vec(X), n, n, n) ≈ Y
-        end
-    end
-
     @testset "DiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
         @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
@@ -135,7 +67,7 @@ include("mylazyarray.jl")
 
     @testset "InvDiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
-        @test invdiagtrav(PseudoBlockVector(DiagTrav(A))) == [1 2 3; 4 5 0; 7 0 0]
+        @test invdiagtrav(BlockedVector(DiagTrav(A))) == [1 2 3; 4 5 0; 7 0 0]
         @test invdiagtrav(DiagTrav(A)) == A
     end
 

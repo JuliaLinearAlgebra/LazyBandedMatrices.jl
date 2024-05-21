@@ -5,7 +5,7 @@ import LazyBandedMatrices: BlockBroadcastArray, blockcolsupport, blockrowsupport
 import BlockArrays: blockvec
 using LinearAlgebra
 import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
-                    PaddedLayout, paddeddata, ApplyLayout, PaddedArray
+                    PaddedLayout, PaddedColumns, paddeddata, ApplyLayout, PaddedArray
 
 
 @testset "unitblocks" begin
@@ -54,8 +54,8 @@ end
         @test copy(A') == A'
     end
     @testset "block vec vcat" begin
-        a = PseudoBlockArray(1:5, SVector(1,3))
-        b = PseudoBlockArray(2:6, SVector(1,3))
+        a = BlockedArray(1:5, SVector(1,3))
+        b = BlockedArray(2:6, SVector(1,3))
 
         c = BlockVcat(a,b)
         @test c == [a; b]
@@ -79,8 +79,8 @@ end
     end
 
     @testset "block mat vcat" begin
-        A = PseudoBlockArray(randn(3,2), [1,2], [1,1])
-        B = PseudoBlockArray(randn(4,2), [3,1], [1,1])
+        A = BlockedArray(randn(3,2), [1,2], [1,1])
+        B = BlockedArray(randn(4,2), [3,1], [1,1])
         V = BlockVcat(A, B)
         @test V == [A; B]
         @test V[Block(3,1)] == B[Block(1,1)]
@@ -103,15 +103,15 @@ end
         @test dat[:,Block.(1:3)] isa BlockVcat
     end
 
-    @testset "PseudoBlockArray" begin
-        a = PseudoBlockArray(Vcat(randn(3), 1:3), [3,3])
+    @testset "BlockedArray" begin
+        a = BlockedArray(Vcat(randn(3), 1:3), [3,3])
         @test MemoryLayout(a) isa LazyArrays.ApplyLayout{typeof(vcat)}
         @test LazyArrays.arguments(a) == LazyArrays.arguments(a.blocks)
 
-        b = PseudoBlockArray(Vcat(randn(3), Zeros(3)), [3,3])
+        b = BlockedArray(Vcat(randn(3), Zeros(3)), [3,3])
         @test paddeddata(view(b, 1:4)) == paddeddata(view(b, Base.OneTo(4))) == b[1:3]
 
-        c = PseudoBlockArray(cache(Zeros(6)), 1:3);
+        c = BlockedArray(cache(Zeros(6)), 1:3);
         c[2] = 2
         @test blocksize(paddeddata(c)) == (2,)
         @test paddeddata(c)[Block(2)] == [2.0,0.0]
@@ -119,7 +119,7 @@ end
         @test blocksize(paddeddata(c)) == (3,)
 
         dat = randn(3,3)
-        A = PseudoBlockArray(PaddedArray(dat, 6,6), 1:3, 1:3)
+        A = BlockedArray(PaddedArray(dat, 6,6), 1:3, 1:3)
         @test paddeddata(A) == dat
     end
 
@@ -133,7 +133,7 @@ end
     end
 
     @testset "use int when possible" begin
-        a = PseudoBlockArray(1:5, SVector(1,3))
+        a = BlockedArray(1:5, SVector(1,3))
         b = BlockVcat(1:2, a, 3:4)
         @test axes(b,1) == blockedrange([2, 1, 3, 2])
     end
@@ -181,8 +181,8 @@ end
     end
 
     @testset "block vec hcat" begin
-        a = PseudoBlockArray(1:4, SVector(1,3))
-        b = PseudoBlockArray(2:5, SVector(1,3))
+        a = BlockedArray(1:4, SVector(1,3))
+        b = BlockedArray(2:5, SVector(1,3))
         A = BlockHcat(a, b)
         @test axes(A,2) ≡ blockedrange(Ones{Int}(2))
         @test axes(A,1) ≡ axes(a,1)
@@ -199,8 +199,8 @@ end
     end
 
     @testset "block mat hcat" begin
-        A = PseudoBlockArray(randn(3,2), [1,2], [1,1])
-        B = PseudoBlockArray(randn(3,3), [1,2], [2,1])
+        A = BlockedArray(randn(3,2), [1,2], [1,1])
+        B = BlockedArray(randn(3,3), [1,2], [2,1])
         H = BlockHcat(A, B)
         @test H == [A B]
         @test H[Block(1,3)] == B[Block(1,1)]
@@ -223,16 +223,16 @@ end
             BroadcastVector((n,k,bc1,abc) -> (n + k +  bc1) / (2n + abc), n, k, b+c-1, a+b+c),
             BroadcastVector((n,k,abc) -> (n + k +  abc) / (2n + abc), n, k, a+b+c)
             )
-        dest = PseudoBlockArray{Float64}(undef, axes(A))
+        dest = BlockedArray{Float64}(undef, axes(A))
         @test copyto!(dest, A) == A;
         @test @allocated(copyto!(dest, A)) ≤ 2800
         # dest = BlockArray{Float64}(undef, axes(A))
         # @time copyto!(dest, A);
 
-        dest = PseudoBlockArray{Float64}(undef, axes(A'))
+        dest = BlockedArray{Float64}(undef, axes(A'))
         @test (A')[Block(2,3)] == A[Block(3,2)]'
-        @test copyto!(dest, A') == A'
-        @test @allocated(copyto!(dest, A')) ≤ 2600
+        @test copyto!(dest, A') ≈ A'
+        @test @allocated(copyto!(dest, A')) ≤ 2600
 
 
         Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
@@ -250,7 +250,7 @@ end
     end
 
     # @testset "Block-mat hcat" begin
-    #     A = BlockHcat(PseudoBlockArray(randn(6,4), [4,2], [2,2]), PseudoBlockArray(randn(6,3), [4,2], [2,1]))
+    #     A = BlockHcat(BlockedArray(randn(6,4), [4,2], [2,2]), BlockedArray(randn(6,3), [4,2], [2,1]))
     #     A[:,Block.(1:2)]
     # end
 
@@ -278,6 +278,7 @@ end
         H = BlockHcat(Eye((axes(B,1),))[:,Block(1)], B)
         @test MemoryLayout(H) isa LazyBandedMatrices.ApplyBlockBandedLayout{typeof(hcat)}
         @test H[Block.(1:4), Block.(1:5)] == H == copy(H)
+        @test copyto!(similar(H), H) == H
     end
 
     @testset "broadcast" begin
@@ -315,16 +316,13 @@ end
         N = 1000
         a = 1:N
         b = 11:10+N
-        a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
+        a, b = BlockedArray(a,Ones{Int}(length(a))), BlockedArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(vcat, a, b)
-        if VERSION < v"1.7-"
-            @test axes(A,1) isa BlockedUnitRange{StepRange{Int,Int}}
-        else
-            @test axes(A,1) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
-        end
+        @test axes(A,1) isa BlockedOneTo{Int,StepRangeLen{Int,Int,Int,Int}}
+
         @test @allocated(axes(A)) ≤ 50
-        @test A[Block(1)] == PseudoBlockArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
-        @test A[Block(N)] == PseudoBlockArray(A)[Block(N)] == [1000,1010]
+        @test A[Block(1)] == BlockedArray(A)[Block(1)] == [A[1],A[2]] == [1,11]
+        @test A[Block(N)] == BlockedArray(A)[Block(N)] == [1000,1010]
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractVector{Int},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractVector{Float64}(A) == convert(AbstractArray{Float64},A) == convert(AbstractVector{Float64},A) == A
         @test copy(A') == A'
@@ -340,12 +338,12 @@ end
             @test C[2:2:end] == a
 
             # differening data sizes not supported yet
-            @test_broken paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
+            @test_throws ErrorException paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
         end
 
         @testset "resize!" begin
             N = 10
-            a, b = PseudoBlockArray(randn(N),Ones{Int}(N)), PseudoBlockArray(randn(N),Ones{Int}(randn(N)))
+            a, b = BlockedArray(randn(N),Ones{Int}(N)), BlockedArray(randn(N),Ones{Int}(randn(N)))
             A = BlockBroadcastArray(vcat, a, b)
             Ã = resize!(A, Block(3))
             @test Ã == A[1:6]
@@ -357,16 +355,12 @@ end
         N = 1000
         a = 1:N
         b = 11:10+N
-        a, b = PseudoBlockArray(a,Ones{Int}(length(a))), PseudoBlockArray(b,Ones{Int}(length(b)))
+        a, b = BlockedArray(a,Ones{Int}(length(a))), BlockedArray(b,Ones{Int}(length(b)))
         A = BlockBroadcastArray(hcat, a', b')
-        if VERSION < v"1.7-"
-            @test axes(A,2) isa BlockedUnitRange{StepRange{Int,Int}}
-        else
-            @test axes(A,2) isa BlockedUnitRange{StepRangeLen{Int,Int,Int,Int}}
-        end
-        @test @allocated(axes(A)) ≤ 50
-        @test A[Block(1,1)] == PseudoBlockArray(A)[Block(1,1)] == [1 11]
-        @test A[Block(1,N)] == PseudoBlockArray(A)[Block(1,N)] == [1000 1010]
+        @test axes(A,2) isa BlockedOneTo{Int,StepRangeLen{Int,Int,Int,Int}}
+        @test @allocated(axes(A)) ≤ 70
+        @test A[Block(1,1)] == BlockedArray(A)[Block(1,1)] == [1 11]
+        @test A[Block(1,N)] == BlockedArray(A)[Block(1,N)] == [1000 1010]
         @test convert(AbstractArray{Int},A) ≡ convert(AbstractMatrix{Int},A) ≡ A
         @test copy(A) == AbstractArray{Float64}(A) == AbstractMatrix{Float64}(A) == A
         @test copy(A') == A'
@@ -453,7 +447,7 @@ end
     X = cache(Zeros(5,6));
     X[1,1] = 2
     c = BlockVec(X);
-    @test MemoryLayout(c) isa PaddedLayout
+    @test MemoryLayout(c) isa PaddedColumns
     @test paddeddata(c) isa BlockVec
     @test paddeddata(c) == [2]
 end

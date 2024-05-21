@@ -1,8 +1,3 @@
-###
-# PseudoBlockArray apply
-###
-
-arguments(LAY::MemoryLayout, A::PseudoBlockArray) = arguments(LAY, A.blocks)
 
 
 ##########
@@ -91,53 +86,6 @@ MemoryLayout(::Type{<:BlockVcat}) = ApplyLayout{typeof(vcat)}()
 arguments(::ApplyLayout{typeof(vcat)}, b::BlockVcat) = b.arrays
 
 
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:BlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
-
-LazyArrays._vcat_sub_arguments(lay::ApplyLayout{typeof(vcat)}, A, V, kr::BlockSlice{<:BlockRange{1}}) =
-    arguments(lay, A)[Int.(kr.block)]
-
-
-_split2blocks(KR) = ()
-function _split2blocks(KR, ax::OneTo, C...)
-    if isempty(KR)
-        (Base.OneTo(0), _split2blocks(Block.(1:0), C...)...)
-    elseif first(KR) ≠ Block(1)
-        (Base.OneTo(0), _split2blocks((KR[1] - Block(1)):(KR[end] - Block(1)), C...)...)
-    elseif length(KR) == 1
-        (ax, _split2blocks(Block.(1:0), C...)...)
-    else
-        (ax, _split2blocks((KR[2]- Block(1)):(KR[end]-Block(1)), C...)...)
-    end
-end
-function _split2blocks(KR, A, C...)
-    M = blocklength(A)
-    if Int(last(KR)) ≤ M
-        (KR, _split2blocks(Block.(1:0), C...)...)
-    else
-        (KR[1]:Block(M), _split2blocks(Block(1):(last(KR)-Block(M)), C...)...)
-    end
-end
-
-function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,1,<:Any,<:Tuple{BlockSlice{<:BlockRange1}}})
-    kr, = parentindices(V)
-    P = parent(V)
-    a = arguments(lay, P)
-    KR = _split2blocks(kr.block, axes.(a,1)...)
-    filter(!isempty,getindex.(a, KR))
-end
-
-
-function arguments(lay::ApplyLayout{typeof(vcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice}})
-    kr, jr = parentindices(V)
-    P = parent(V)
-    a = arguments(lay, P)
-    KR = _split2blocks(kr.block, axes.(a,1)...)
-    filter(!isempty,getindex.(a, KR, Ref(jr.block)))
-end
-
-
 ##########
 # BlockHcat
 ##########
@@ -202,25 +150,14 @@ getindex(A::BlockHcat, KR::BlockRange{1}, JR::BlockRange{1}) = _blockhcat_blockr
 
 arguments(::ApplyLayout{typeof(hcat)}, b::BlockHcat) = b.arrays
 
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:AbstractUnitRange}) = blockhcat(arguments(lay, V)...)
-sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockhcat(arguments(lay, V)...)
+sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:AbstractBlockedUnitRange}) = blockhcat(arguments(lay, V)...)
 
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:AbstractBlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
 
-function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice,BlockSlice{<:BlockRange1}}})
-    kr, jr = parentindices(V)
-    P = parent(V)
-    a = arguments(lay, P)
-    JR = _split2blocks(jr.block, axes.(a,2)...)
-    filter(!isempty,getindex.(a, Ref(kr.block), JR))
-end
-
-function arguments(lay::ApplyLayout{typeof(hcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
-    kr, jr = parentindices(V)
-    J = jr.block
-    P = parent(V)
-    arguments(lay, view(P,kr,J:J))
-end
 
 
 for adj in (:adjoint, :transpose)
@@ -230,6 +167,36 @@ for adj in (:adjoint, :transpose)
     end
 end
 
+
+####
+# copyto!
+####
+
+sublayout(::ApplyBlockBandedLayout{typeof(hcat)}, ::Type{<:Tuple{<:BlockSlice{<:BlockRange1}, <:BlockSlice{<:BlockRange1}}}) = ApplyBlockBandedLayout{typeof(hcat)}()
+
+_copyto!(_, LAY::ApplyBlockBandedLayout{typeof(hcat)}, dest::AbstractMatrix, H::AbstractMatrix) =
+    block_hcat_copyto!(dest, arguments(LAY,H)...)
+function block_hcat_copyto!(dest::AbstractMatrix, arrays...)
+    nrows = blocksize(dest, 1)
+    ncols = 0
+    dense = true
+    for a in arrays
+        dense &= isa(a,Array)
+        nd = ndims(a)
+        ncols += (nd==2 ? blocksize(a,2) : 1)
+    end
+
+    nrows == blocksize(first(arrays),1) || throw(DimensionMismatch("Destination rows must match"))
+    ncols == blocksize(dest,2) || throw(DimensionMismatch("Destination columns must match"))
+
+    pos = 1
+    for a in arrays
+        p1 = pos+(isa(a,AbstractMatrix) ? blocksize(a, 2) : 1)-1
+        copyto!(view(dest,:, Block.(pos:p1)), a)
+        pos = p1+1
+    end
+    return dest
+end
 
 ##########
 # BlockHvcat
@@ -268,8 +235,8 @@ getindex(b::BlockHvcat, k::Integer, j::Integer) = b[findblockindex(axes(b,1),k),
 # MemoryLayout(::Type{<:BlockHvcat}) = ApplyLayout{typeof(hvcat)}()
 # arguments(::ApplyLayout{typeof(hvcat)}, b::BlockHvcat) = b.args
 
-# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:BlockedUnitRange,<:BlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
-# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:BlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
+# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
+# sub_materialize(lay::ApplyLayout{typeof(hvcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:AbstractBlockedUnitRange}) = BlockHvcat(arguments(lay, V)...)
 
 # function arguments(lay::ApplyLayout{typeof(hvcat)}, V::SubArray{<:Any,2,<:Any,<:Tuple{BlockSlice{<:BlockRange1},BlockSlice{<:Block1}}})
 #     kr, jr = parentindices(V)
@@ -316,11 +283,11 @@ BlockBroadcastArray{T}(::typeof(hvcat), args...) where T = BlockBroadcastMatrix{
 BlockBroadcastArray{T}(::typeof(Diagonal), args...) where T = BlockBroadcastMatrix{T}(Diagonal, args...)
 
 
-_block_vcat_axes(ax...) = BlockArrays._BlockedUnitRange(1,+(map(blocklasts,ax)...))
+_block_vcat_axes(ax...) = BlockArrays.BlockedOneTo(+(map(blocklasts,ax)...))
 
-_block_interlace_axes(::Int, ax::Tuple{BlockedUnitRange{OneTo{Int}}}...) = _block_vcat_axes(ax...)
+_block_interlace_axes(::Int, ax::Tuple{BlockedOneTo{Int,OneTo{Int}}}...) = _block_vcat_axes(ax...)
 
-function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedUnitRange{OneTo{Int}}}...)
+function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneTo{Int}}}...)
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
@@ -439,32 +406,6 @@ blockhcatlayout(_...) = ApplyLayout{typeof(hcat)}()
 # This can be generalised later as needed
 blockhcatlayout(::AbstractBandedLayout, ::AbstractBlockBandedLayout) = ApplyBlockBandedLayout{typeof(hcat)}()
 MemoryLayout(::Type{<:BlockHcat{<:Any,Arrays}}) where Arrays = blockhcatlayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
-sublayout(::ApplyBlockBandedLayout{typeof(hcat)}, ::Type{<:Tuple{<:BlockSlice{<:BlockRange1}, <:BlockSlice{<:BlockRange1}}}) = ApplyBlockBandedLayout{typeof(hcat)}()
-
-_copyto!(_, LAY::ApplyBlockBandedLayout{typeof(hcat)}, dest::AbstractMatrix, H::AbstractMatrix) =
-    block_hcat_copyto!(dest, arguments(LAY,H)...)
-function block_hcat_copyto!(dest::AbstractMatrix, arrays...)
-    nrows = blocksize(dest, 1)
-    ncols = 0
-    dense = true
-    for a in arrays
-        dense &= isa(a,Array)
-        nd = ndims(a)
-        ncols += (nd==2 ? blocksize(a,2) : 1)
-    end
-
-    nrows == blocksize(first(arrays),1) || throw(DimensionMismatch("Destination rows must match"))
-    ncols == blocksize(dest,2) || throw(DimensionMismatch("Destination columns must match"))
-
-    pos = 1
-    for a in arrays
-        p1 = pos+(isa(a,AbstractMatrix) ? blocksize(a, 2) : 1)-1
-        copyto!(view(dest,:, Block.(pos:p1)), a)
-        pos = p1+1
-    end
-    return dest
-end
-
 
 struct BlockBandedInterlaceLayout <: AbstractLazyBlockBandedLayout end
 
@@ -474,7 +415,7 @@ arguments(::BlockBandedInterlaceLayout, A::BlockBroadcastMatrix{<:Any,typeof(vca
 
 # avoid extra types, since we are using int indexing for now...
 # TODO: rewrite when other block sizes are allowed
-deblock(A::PseudoBlockArray) = A.blocks
+deblock(A::BlockedArray) = A.blocks
 deblock(A::Zeros{T}) where T = Zeros{T}(size(A)...)
 function arguments(::BlockBandedInterlaceLayout, A::SubArray)
     P = parent(A)
@@ -491,7 +432,7 @@ end
 # end
 
 blockinterlacelayout(_...) = LazyLayout()
-blockinterlacelayout(::Union{ZerosLayout,PaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
+blockinterlacelayout(::Union{ZerosLayout,AbstractPaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
 
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
@@ -500,19 +441,7 @@ MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hcat),Arrays}}) where Ar
 
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(Diagonal),Arrays}}) where Arrays = LazyBandedBlockBandedLayout()
 
-##
-# special for unitblocks
-blockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = bandwidths(A.blocks)
-blockbandwidths(A::PseudoBlockMatrix{<:Any,<:Diagonal,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = bandwidths(A.blocks)
-subblockbandwidths(A::PseudoBlockMatrix{<:Any,<:Any,<:NTuple{2,BlockedUnitRange{<:AbstractUnitRange{Int}}}}) = (0,0)
 
-
-###
-# work around bug in dat
-###
-
-LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::UnitRange) = view(dat.blocks,kr)
-LazyArrays._lazy_getindex(dat::PseudoBlockArray, kr::OneTo) = view(dat.blocks,kr)
 
 
 ###
@@ -546,7 +475,7 @@ blockrowsupport(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k) = Block.(convex
 blockcolsupport(A::BlockBroadcastVector{<:Any,typeof(vcat)}, j) = Block.(convexunion(colsupport.(tail(A.args), Ref(Int.(j)))...))
 
 blockbroadcastlayout(FF, args...) = UnknownLayout()
-blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedLayout...) = PaddedLayout{UnknownLayout}()
+blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedColumns...) = PaddedColumns{UnknownLayout}()
 
 function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
     dats = map(paddeddata,B.args)
@@ -579,7 +508,7 @@ _resize!(At::Transpose, m, n) = transpose(transpose(At)[1:n, 1:m])
 _resize!(Ac::Adjoint, m, n) = (Ac')[1:n, 1:m]'
 resize!(b::BlockVec, K::Block{1}) = BlockVec(_resize!(b.args[1], size(b.args[1],1), Int(K)))
 
-applylayout(::Type{typeof(blockvec)}, ::PaddedLayout) = PaddedLayout{ApplyLayout{typeof(blockvec)}}()
+applylayout(::Type{typeof(blockvec)}, ::AbstractPaddedLayout) = PaddedColumns{ApplyLayout{typeof(blockvec)}}()
 paddeddata(b::BlockVec) = BlockVec(paddeddata(b.args[1]))
 
 
