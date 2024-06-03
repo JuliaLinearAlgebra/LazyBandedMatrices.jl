@@ -461,6 +461,18 @@ import LazyBandedMatrices: SymTridiagonal, Tridiagonal
         B = randn(5,5)
         @test SymTridiagonal(ApplyArray(*, A, B)) ≈ SymTridiagonal(A*B)
     end
+
+    @testset "Broadcast" begin
+        A = SymTridiagonal(Zeros(5), exp.(1:4))
+        @test 2 .+ A isa Matrix
+        B = SymTridiagonal(Zeros(5), BroadcastArray(exp, 1:4))
+        @test 2 .+ B isa BroadcastArray
+
+        C = Tridiagonal(exp.(1:4), Zeros(5), exp.(1:4))
+        @test 2 .+ C isa Matrix
+        D = Tridiagonal(BroadcastArray(exp, 1:4), Zeros(5), BroadcastArray(exp, 1:4))
+        @test 2 .+ D isa BroadcastArray
+    end
 end # testset
 
 end # module TestTridiagonal

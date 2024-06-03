@@ -688,8 +688,12 @@ bandwidths(::SymTridiagonal) = (1,1)
 bandwidths(::Tridiagonal) = (1,1)
 
 
-Base.BroadcastStyle(::Type{SymTridiagonal{T,DV,EV}}) where {T,DV,EV} = StructuredMatrixStyle{LinearAlgebra.SymTridiagonal{T,DV}}()
-Base.BroadcastStyle(::Type{Tridiagonal{T,DL,D,DU}}) where {T,DL,D,DU} = StructuredMatrixStyle{LinearAlgebra.Tridiagonal{T,D}}()
+Base.BroadcastStyle(::Type{SymTridiagonal{T,DV,EV}}) where {T,DV,EV} =
+    structuredmatrix_broadcaststyle(SymTridiagonal, Base.Broadcast.result_style(Base.BroadcastStyle(DV), Base.BroadcastStyle(EV)))
+Base.BroadcastStyle(::Type{Tridiagonal{T,DL,D,DU}}) where {T,DL,D,DU} =
+    structuredmatrix_broadcaststyle(Tridiagonal, Base.Broadcast.result_style(Base.BroadcastStyle(DL), Base.Broadcast.result_style(Base.BroadcastStyle(D), Base.BroadcastStyle(DU))))
+structuredmatrix_broadcaststyle(Typ, ::LazyArrayStyle) = LazyArrayStyle{2}()
+structuredmatrix_broadcaststyle(Typ, _) = StructuredMatrixStyle{Typ}()
 
 
 convert(::Type{LinearAlgebra.Tridiagonal}, B::Tridiagonal) = LinearAlgebra.Tridiagonal(B.dl, B.d, B.du)
