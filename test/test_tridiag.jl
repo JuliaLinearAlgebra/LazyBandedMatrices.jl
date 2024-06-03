@@ -461,6 +461,10 @@ import LazyBandedMatrices: SymTridiagonal, Tridiagonal
         B = randn(5,5)
         @test SymTridiagonal(ApplyArray(*, A, B)) ≈ SymTridiagonal(A*B)
     end
+
+    @testset "Broadcast" begin
+        
+    end
 end # testset
 
 end # module TestTridiagonal
