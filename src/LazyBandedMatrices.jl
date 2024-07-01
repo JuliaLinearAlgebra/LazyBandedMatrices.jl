@@ -22,19 +22,19 @@ import BlockBandedMatrices: AbstractBlockBandedLayout, AbstractBandedBlockBanded
                              BlockBandedStyle, BandedBlockBandedStyle, isblockbanded, isbandedblockbanded
 import BlockArrays: BlockSlices, BlockSlice1, BlockSlice, blockvec, AbstractBlockLayout, blockcolsupport, blockrowsupport, BlockLayout, block, blockindex, viewblock, AbstractBlockedUnitRange
 
-LazyArraysBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBandedMatricesExt)
-LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
+const LazyArraysBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBandedMatricesExt)
+const LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
 
-BroadcastBandedLayout = LazyArraysBandedMatricesExt.BroadcastBandedLayout
-AbstractLazyBandedLayout = LazyArraysBandedMatricesExt.AbstractLazyBandedLayout
-ApplyBandedLayout = LazyArraysBandedMatricesExt.ApplyBandedLayout
-LazyBandedLayout = LazyArraysBandedMatricesExt.LazyBandedLayout
-AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
-BroadcastBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.BroadcastBandedBlockBandedLayout
-ApplyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBlockBandedLayout
-LazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.LazyBandedBlockBandedLayout
-AbstractLazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBandedBlockBandedLayout
-ApplyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBandedBlockBandedLayout
+const BroadcastBandedLayout = LazyArraysBandedMatricesExt.BroadcastBandedLayout
+const AbstractLazyBandedLayout = LazyArraysBandedMatricesExt.AbstractLazyBandedLayout
+const ApplyBandedLayout = LazyArraysBandedMatricesExt.ApplyBandedLayout
+const LazyBandedLayout = LazyArraysBandedMatricesExt.LazyBandedLayout
+const AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
+const BroadcastBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.BroadcastBandedBlockBandedLayout
+const ApplyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBlockBandedLayout
+const LazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.LazyBandedBlockBandedLayout
+const AbstractLazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBandedBlockBandedLayout
+const ApplyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBandedBlockBandedLayout
 
 
 
