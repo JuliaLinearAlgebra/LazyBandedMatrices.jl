@@ -134,6 +134,7 @@ function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout})
     M.A * Vector(M.B)
 end
 
+LazyArrays.simplifiable(::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}}) = Val(true)
 function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}})
     A,B = M.A, M.B
 
