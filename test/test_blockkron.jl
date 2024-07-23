@@ -26,6 +26,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
         @test resize!(DiagTrav(A), Block(2)) == [1, 4,2]
         @test maximum(abs, DiagTrav(A)) == 7
+        @test copy(DiagTrav(A)) == DiagTrav(A)
 
         A = [1 2 3; 4 5 6]
         @test DiagTrav(A) == [1, 4, 2, 5, 3]

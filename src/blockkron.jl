@@ -33,6 +33,8 @@ end
 
 axes(A::DiagTrav) = (_krontrav_axes(axes(A.array)...),)
 
+copy(A::DiagTrav) = DiagTrav(copy(A.array))
+
 struct DiagTravLayout{Lay} <: AbstractBlockLayout end
 MemoryLayout(::Type{<:DiagTrav{T, N, AA}}) where {T,N,AA} = DiagTravLayout{typeof(MemoryLayout(AA))}()
 
