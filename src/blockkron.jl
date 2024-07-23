@@ -127,6 +127,13 @@ end
 
 pad(c, ax...) = PaddedArray(c, ax)
 
+copy(M::Mul{<:ApplyBandedBlockBandedLayout{typeof(*)},<:DiagTravLayout{<:AbstractPaddedLayout}}) =
+    copy(Mul{ApplyLayout{typeof(*)},UnknownLayout}(M.A, M.B))
+
+function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout})
+    M.A * Vector(M.B)
+end
+
 function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}})
     A,B = M.A, M.B
 
