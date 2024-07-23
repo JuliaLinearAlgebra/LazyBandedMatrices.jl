@@ -125,6 +125,10 @@ function Base._maximum(f, a::DiagTrav, ::Colon; kws...)
     ret
 end
 
+function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}})
+    error("hi")
+end
+
 struct InvDiagTrav{T, AA<:AbstractVector{T}} <: LayoutMatrix{T}
     vector::AA
 end
