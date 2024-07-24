@@ -3,7 +3,7 @@ module TestBlockKron
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 using LinearAlgebra
 import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad
 import ArrayLayouts: FillLayout, OnesLayout
 import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
 import BandedMatrices: BandedColumns
@@ -115,7 +115,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             @test K*DiagTrav(X) == DiagTrav(B*X*A')
 
             @test K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2), Block.(1:2)] == K
-        end 
+        end
 
         @testset "tensor" begin
             A = [1 2;
@@ -290,13 +290,27 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             @test B[Block(1), [1,2,3]] == Δ[Block(1), [1,2,3]]
             @test B[[1,2,3], Block(1)] == Δ[[1,2,3], Block(1)]
         end
-    
+
         @testset "resizedata!" begin
             B = cache(Δ);
             resizedata!(B,5,5);
             @test B.data[1:5,1:5] == Δ[1:5,1:5]
             @test B == Δ
         end
+    end
+
+    @testset "DiagTrav Padded" begin
+        n = 5
+        C = pad([1 2; 3 4], n, n)
+        x = DiagTrav(C)
+        Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+        A = KronTrav(Δ, Eye(n))
+        B = KronTrav(Eye(n), Δ)
+        @test A * x ≈ A * DiagTrav(Matrix(C))
+        @test BroadcastArray(+, A, B) * x ≈ BroadcastArray(+, A, B) * DiagTrav(Matrix(C)) ≈ A * x + B * x
+        @test ApplyArray(*, A, B) * x ≈ ApplyArray(*, A, B) * DiagTrav(Matrix(C)) ≈ A * B * x
+        @test LazyArrays.simplifiable(*, ApplyArray(*, A, B), x) == Val(true)
+        @test LazyArrays.simplifiable(*, BroadcastArray(+, A, B), x) == Val(true)
     end
 end
 

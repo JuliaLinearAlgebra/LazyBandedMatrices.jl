@@ -125,6 +125,26 @@ function Base._maximum(f, a::DiagTrav, ::Colon; kws...)
     ret
 end
 
+pad(c, ax...) = PaddedArray(c, ax)
+
+copy(M::Mul{<:ApplyBandedBlockBandedLayout{typeof(*)},<:DiagTravLayout{<:AbstractPaddedLayout}}) =
+    copy(Mul{ApplyLayout{typeof(*)},UnknownLayout}(M.A, M.B))
+
+function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout})
+    M.A * Vector(M.B)
+end
+
+LazyArrays.simplifiable(::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}}) = Val(true)
+function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}})
+    A,B = M.A, M.B
+    dat = paddeddata(B.array)
+    N = 2max(size(dat)...)-1
+    P = DiagTrav(convert(Matrix, B.array[1:N,1:N]))
+    JR = blockaxes(P,1)
+    KR = blockcolsupport(A,JR)
+    pad(A[KR,JR] * P, axes(A,1))
+end
+
 struct InvDiagTrav{T, AA<:AbstractVector{T}} <: LayoutMatrix{T}
     vector::AA
 end

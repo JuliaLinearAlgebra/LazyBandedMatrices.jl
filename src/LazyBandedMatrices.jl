@@ -35,7 +35,7 @@ const ApplyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBlockBanded
 const LazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.LazyBandedBlockBandedLayout
 const AbstractLazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBandedBlockBandedLayout
 const ApplyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBandedBlockBandedLayout
-
+const LazyBlockBandedLayouts = LazyArraysBlockBandedMatricesExt.LazyBlockBandedLayouts
 
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
