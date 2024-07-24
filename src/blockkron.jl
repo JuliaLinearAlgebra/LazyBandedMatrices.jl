@@ -138,7 +138,8 @@ LazyArrays.simplifiable(::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:Abstra
 function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedLayout}})
     A,B = M.A, M.B
 
-    P = DiagTrav(paddeddata(B.array))
+    n = max(size(B.array)...)
+    P = DiagTrav(B.array[1:n,1:n])
     JR = blockaxes(P,1)
     KR = blockcolsupport(A,JR)
     pad(A[KR,JR] * P, axes(A,1))

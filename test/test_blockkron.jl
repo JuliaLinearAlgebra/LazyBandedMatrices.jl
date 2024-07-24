@@ -306,8 +306,11 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
         A = KronTrav(Δ, Eye(n))
         B = KronTrav(Eye(n), Δ)
+        @test A * x ≈ A * DiagTrav(Matrix(C))
+        @test BroadcastArray(+, A, B) * x ≈ BroadcastArray(+, A, B) * DiagTrav(Matrix(C)) ≈ A * x + B * x
         @test ApplyArray(*, A, B) * x ≈ ApplyArray(*, A, B) * DiagTrav(Matrix(C)) ≈ A * B * x
         @test LazyArrays.simplifiable(*, ApplyArray(*, A, B), x) == Val(true)
+        @test LazyArrays.simplifiable(*, BroadcastArray(+, A, B), x) == Val(true)
     end
 end
 
