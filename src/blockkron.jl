@@ -141,7 +141,7 @@ function copy(M::Mul{<:LazyBlockBandedLayouts,<:DiagTravLayout{<:AbstractPaddedL
     N = 2max(size(dat)...)-1
     P = DiagTrav(convert(Matrix, B.array[1:N,1:N]))
     JR = blockaxes(P,1)
-    KR = blockcolsupport(A,JR)
+    KR = Block.(OneTo(Int(blockcolsupport(A,JR)[end])))
     pad(A[KR,JR] * P, axes(A,1))
 end
 

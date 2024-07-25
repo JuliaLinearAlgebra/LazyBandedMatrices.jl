@@ -2,7 +2,7 @@ module TestBlockKron
 
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
 using LinearAlgebra
-import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout
+import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout, _BandedBlockBandedMatrix
 import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad
 import ArrayLayouts: FillLayout, OnesLayout
 import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
@@ -311,6 +311,12 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         @test ApplyArray(*, A, B) * x ≈ ApplyArray(*, A, B) * DiagTrav(Matrix(C)) ≈ A * B * x
         @test LazyArrays.simplifiable(*, ApplyArray(*, A, B), x) == Val(true)
         @test LazyArrays.simplifiable(*, BroadcastArray(+, A, B), x) == Val(true)
+
+        k = BlockBroadcastArray(hcat, blockedrange(1:5), blockedrange(1:5))
+        D = _BandedBlockBandedMatrix(k', axes(k, 1), (1, -1), (1, 0))
+        C = pad(randn(3,3), 5,5)
+        x = DiagTrav(C)
+        @test D*x ≈ Matrix(D) * Vector(x)
     end
 end
 

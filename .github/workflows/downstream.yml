@@ -40,6 +40,8 @@ jobs:
         os: [ubuntu-latest]
         package:
           - {repo: InfiniteLinearAlgebra.jl, group: JuliaLinearAlgebra}
+          - {repo: ClassicalOrthogonalPolynomials.jl, group: JuliaApproximation}
+          - {repo: MultivariateOrthogonalPolynomials.jl, group: JuliaApproximation}
 
     steps:
       - uses: actions/checkout@v4
