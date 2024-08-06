@@ -3,7 +3,7 @@ using ArrayLayouts: symmetriclayout
 using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays,
         ArrayLayouts, MatrixFactorizations, Base, StaticArrays, LinearAlgebra
 
-import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy,
+import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy, copymutable,
             iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix, permutedims,
             OneTo, oneto, require_one_based_indexing, similar, convert, axes, tail, tuple_type_tail, view, resize!
 import Base.Broadcast: Broadcasted, BroadcastStyle, broadcasted, instantiate
