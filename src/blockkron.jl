@@ -152,7 +152,7 @@ end
 size(A::InvDiagTrav) = (blocksize(A.vector,1),blocksize(A.vector,1))
 
 function getindex(A::InvDiagTrav{T}, k::Int, j::Int)  where T
-    if k+j-1 ≤ blocksize(A.vector,1)
+    if k+j-1 ≤ blocksize(A.vector,1)
         A.vector[Block(k+j-1)][j]
     else
         zero(T)
@@ -185,18 +185,24 @@ KronTrav(A::AbstractArray...) = KronTrav{mapreduce(eltype, promote_type, A)}(A..
 copy(K::KronTrav) = KronTrav(map(copy,K.args), K.axes)
 axes(A::KronTrav) = A.axes
 
-function getindex(M::KronTrav{<:Any,1}, K::Block{1})
-    A,B = M.args
+function _krontrav_getindex(K::Block{1}, A, B)
     m,n = length(A), length(B)
     mn = min(m,n)
     k = Int(K)
-    if k ≤ mn
+    if k ≤ mn
         A[1:k] .* B[k:-1:1]
-    elseif m < n
+    elseif m < n
         A .* B[k:-1:(k-m+1)]
     else # n < m
         A[(k-n+1):k] .* B[end:-1:1]
     end
+end
+
+function _krontrav_getindex(K::Block{1}, A, B, C)
+    @assert length(A) == length(B) == length(C) # TODO: generalise
+    n = length(A)
+    k = Int(K)
+    vcat(((A[1:(k-j+1)] .* B[(k-j+1):-1:1]) * C[j] for j=1:k)...)
 end
 
 function _krontrav_getindex(K::Block{2}, A, B)
@@ -219,6 +225,7 @@ function _krontrav_getindex(Kin::Block{2}, A, B, C)
     AB
 end
 
+getindex(M::KronTrav{<:Any,1}, K::Block{1}) = _krontrav_getindex(K, M.args...)
 getindex(M::KronTrav{<:Any,2}, K::Block{2}) = _krontrav_getindex(K, M.args...)
 
 
