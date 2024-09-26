@@ -95,6 +95,7 @@ function _diagtravgetindex(::AbstractPaddedLayout{<:AbstractStridedLayout}, A::A
     end
 end
 
+
 function _diagtravgetindex(::AbstractStridedLayout, A::AbstractArray{T,3}, K::Block{1}) where T
     k = Int(K)
     m,n,p = size(A)
@@ -103,7 +104,7 @@ function _diagtravgetindex(::AbstractStridedLayout, A::AbstractArray{T,3}, K::Bl
     st3 = stride(A,3)
     ret = T[]
     for j = 0:k-1
-        append!(ret, view(A, range(j*st + k-j; step=st3-st, length=j+1)))
+        append!(ret, view(A, range(j*st + k-j; step=st3-st, length=j+1))) # this matches lexigraphical order
     end
     ret
 end
