@@ -186,6 +186,8 @@ KronTrav(A::AbstractArray...) = KronTrav{mapreduce(eltype, promote_type, A)}(A..
 copy(K::KronTrav) = KronTrav(map(copy,K.args), K.axes)
 axes(A::KronTrav) = A.axes
 
+
+
 function _krontrav_getindex(K::Block{1}, A, B)
     m,n = length(A), length(B)
     mn = min(m,n)
@@ -199,11 +201,18 @@ function _krontrav_getindex(K::Block{1}, A, B)
     end
 end
 
+
+
 function _krontrav_getindex(K::Block{1}, A, B, C)
     @assert length(A) == length(B) == length(C) # TODO: generalise
-    n = length(A)
-    k = Int(K)
-    vcat(((A[1:(k-j+1)] .* B[(k-j+1):-1:1]) * C[j] for j=1:k)...)
+
+    # make a tuple corresponding to lexigraphical order
+    ret = Vector{promote_type(eltype(A),eltype(B),eltype(C))}()
+    n = Int(K)
+    for k = 1:n, j=1:k
+        push!(ret, C[n-k+1]B[k-j+1]A[j])
+    end
+    ret
 end
 
 function _krontrav_getindex(K::Block{2}, A, B)

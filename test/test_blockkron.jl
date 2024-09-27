@@ -99,12 +99,12 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             a = [1,2,3]
             b = [4,5,6]
             c = [7,8]
-            @test KronTrav(a,b) == DiagTrav(b*a')
+            @test KronTrav(a,b) == DiagTrav(b*a') == DiagTrav(kron(a',b))
             @test KronTrav(a,c) == [7,8,14,16,21]
             @test KronTrav(c,a) == [7,14,8,21,16]
 
             X = rotl90(Matrix(UpperTriangular(randn(3,3)))) # triangle of coefficients
-            @test KronTrav(a,b)' * DiagTrav(X) ≈ b'*X*a ≈ sum(a' .* X .* b)
+            @test KronTrav(a,b)' * DiagTrav(X) ≈ b'*X*a ≈ sum(b .* X .* a')
         end
 
         @testset "3-vectors" begin
@@ -112,12 +112,8 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             b = [4,5,6]
             c = [7,8,9]
             
-
-            # X = [k + j + l - 2 ≤ 3 ? randn() : 0.0 for k=1:3,j=1:3,l=1:3]
-            X = zeros(3,3,3)
-            X[2,1,2] = 1;
-            KronTrav(a,b,c)' * DiagTrav(X)
-            sum(a' .* X .* b .* reshape(c,1,1,3))
+            X = [k + j + l - 2 ≤ 3 ? randn() : 0.0 for k=1:3,j=1:3,l=1:3]
+            @test KronTrav(a,b,c)' * DiagTrav(X) ≈ sum(c .* X .* b' .* reshape(a,1,1,3))
         end
 
         @testset "matrix" begin
