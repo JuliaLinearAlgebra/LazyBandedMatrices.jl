@@ -16,19 +16,15 @@ import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldat
                      colsupport, rowsupport, sublayout, sub_materialize, _copyto!
 import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout,
                    arguments, call, tuple_type_memorylayouts, paddeddata, _broadcast_sub_arguments, resizedata!,
-                   _cumsum, convexunion, applylayout
+                   _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout
 import BandedMatrices: AbstractBandedMatrix, BandedStyle, bandwidths, isbanded
 import BlockBandedMatrices: AbstractBlockBandedLayout, AbstractBandedBlockBandedLayout, BlockRange1, Block1, blockbandwidths, subblockbandwidths,
                              BlockBandedStyle, BandedBlockBandedStyle, isblockbanded, isbandedblockbanded
 import BlockArrays: BlockSlices, BlockSlice1, BlockSlice, blockvec, AbstractBlockLayout, blockcolsupport, blockrowsupport, BlockLayout, block, blockindex, viewblock, AbstractBlockedUnitRange
 
-const LazyArraysBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBandedMatricesExt)
+
 const LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
 
-const BroadcastBandedLayout = LazyArraysBandedMatricesExt.BroadcastBandedLayout
-const AbstractLazyBandedLayout = LazyArraysBandedMatricesExt.AbstractLazyBandedLayout
-const ApplyBandedLayout = LazyArraysBandedMatricesExt.ApplyBandedLayout
-const LazyBandedLayout = LazyArraysBandedMatricesExt.LazyBandedLayout
 const AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
 const BroadcastBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.BroadcastBandedBlockBandedLayout
 const ApplyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBlockBandedLayout
