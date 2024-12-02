@@ -1,16 +1,18 @@
 module LazyBandedMatricesInfiniteArraysExt
 using LazyBandedMatrices, InfiniteArrays
+using LazyBandedMatrices.BlockArrays
+using LazyBandedMatrices.ArrayLayouts
 
-using InfiniteArrays.LinearAlgebra
-
-import Base: BroadcastStyle, copy
-import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments
+import Base: BroadcastStyle, copy, OneTo
+import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout
 import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, LazyArrayStyle, OneToInf
-import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout
-import LazyBandedMatrices.BlockArrays: sizes_from_blocks
+import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout, RangeCumsum, Mul
+import LazyBandedMatrices.BlockArrays: sizes_from_blocks, BlockedOneTo, BlockSlice1, BlockSlice
 
-MemoryLayout(::Type{<:Bidiagonal{<:Any,<:InfFill}}) = BidiagonalToeplitzLayout()
-BroadcastStyle(::Type{<:Bidiagonal{<:Any,<:InfFill}}) = LazyArrayStyle{2}()
+const OneToInfCumsum = RangeCumsum{Int,OneToInf{Int}}
+
+MemoryLayout(::Type{<:LazyBandedMatrices.Bidiagonal{<:Any,<:InfFill}}) = BidiagonalToeplitzLayout()
+BroadcastStyle(::Type{<:LazyBandedMatrices.Bidiagonal{<:Any,<:InfFill}}) = LazyArrayStyle{2}()
 
 for Typ in (:(LazyBandedMatrices.Tridiagonal{<:Any,<:InfFill,<:InfFill,<:InfFill}),
             :(LazyBandedMatrices.SymTridiagonal{<:Any,<:InfFill,<:InfFill}))
