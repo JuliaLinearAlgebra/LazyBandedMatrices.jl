@@ -3,11 +3,12 @@ using LazyBandedMatrices, InfiniteArrays
 using LazyBandedMatrices.BlockArrays
 using LazyBandedMatrices.ArrayLayouts
 
-import Base: BroadcastStyle, copy, OneTo
-import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout
-import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, LazyArrayStyle, OneToInf
+import Base: BroadcastStyle, copy, OneTo, oneto
+import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs
+import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, LazyArrayStyle, OneToInf
 import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout, RangeCumsum, Mul
 import LazyBandedMatrices.BlockArrays: sizes_from_blocks, BlockedOneTo, BlockSlice1, BlockSlice
+import LazyBandedMatrices.LazyArrays: BroadcastBandedLayout
 
 const OneToInfCumsum = RangeCumsum{Int,OneToInf{Int}}
 
