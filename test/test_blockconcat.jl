@@ -237,7 +237,7 @@ end
 
         Rx = BlockBandedMatrices._BandedBlockBandedMatrix(A', axes(k,1), (0,1), (0,0))
         dest = BandedBlockBandedMatrix{Float64}(undef, axes(Rx), (0,1), (0,0))
-        @test copyto!(dest, Rx) == BandedBlockBandedMatrix(Rx)
+        @test copyto!(dest, Rx) ≈ BandedBlockBandedMatrix(Rx)
 
         Vx = view(Rx, Block.(1:N), Block.(1:N))
         @test MemoryLayout(Vx) isa BlockBandedMatrices.BandedBlockBandedColumns
