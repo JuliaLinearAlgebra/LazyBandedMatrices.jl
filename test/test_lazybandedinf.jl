@@ -1,8 +1,9 @@
-using LazyBandedMatrices, InfiniteArrays, ArrayLayouts, LazyArrays, BlockArrays, BandedMatrices, BlockBandedMatrices, Test
+using LazyBandedMatrices, InfiniteArrays, ArrayLayouts, LazyArrays, BlockArrays, BandedMatrices, BlockBandedMatrices, LinearAlgebra, Test
 using InfiniteArrays: TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, TridiagonalToeplitzLayout
 using Base: oneto
 using BlockArrays: blockcolsupport
 using LazyArrays: arguments
+using LazyBandedMatrices: BroadcastBandedBlockBandedLayout
 
 const InfiniteArraysBlockArraysExt = Base.get_extension(InfiniteArrays, :InfiniteArraysBlockArraysExt)
 const LazyBandedMatricesInfiniteArraysExt = Base.get_extension(LazyBandedMatrices, :LazyBandedMatricesInfiniteArraysExt)
