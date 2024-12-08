@@ -4,11 +4,11 @@ using LazyBandedMatrices.BlockArrays
 using LazyBandedMatrices.ArrayLayouts
 
 import Base: BroadcastStyle, copy, OneTo, oneto
-import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs
+import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs, DiagTravLayout
 import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, LazyArrayStyle, OneToInf
 import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout, RangeCumsum, Mul
 import LazyBandedMatrices.BlockArrays: sizes_from_blocks, BlockedOneTo, BlockSlice1, BlockSlice
-import LazyBandedMatrices.LazyArrays: BroadcastBandedLayout
+import LazyBandedMatrices.LazyArrays: BroadcastBandedLayout, AbstractPaddedLayout
 
 const OneToInfCumsum = RangeCumsum{Int,OneToInf{Int}}
 
@@ -52,5 +52,9 @@ _block_interlace_axes(::Int, ax::Tuple{BlockedOneTo{Int,OneToInf{Int}}}...) = (b
 _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneToInf{Int}}}...) =
     (blockedrange(Fill(length(ax) ÷ nbc, ∞)),blockedrange(Fill(mod1(length(ax),nbc), ∞)))
 
+
+# KronTrav * DiagTrav
+
+copy(M::Mul{InfKronTravBandedBlockBandedLayout, Lay}) where Lay<:DiagTravLayout{<:AbstractPaddedLayout} = copy(Mul{KronTravBandedBlockBandedLayout, Lay}(M.A, M.B))
 
 end

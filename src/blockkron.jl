@@ -4,6 +4,8 @@
 # Block
 ###
 
+function _DiagTrav end
+
 """
     DiagTrav(A::AbstractMatrix)
 
@@ -11,13 +13,57 @@ converts a matrix to a block vector by traversing the anti-diagonals.
 """
 struct DiagTrav{T, N, AA<:AbstractArray{T,N}} <: AbstractBlockVector{T}
     array::AA
-    function DiagTrav{T, N, AA}(array::AA) where {T, N, AA<:AbstractArray{T,N}}
+    global function _DiagTrav(array::AA) where {T, N, AA<:AbstractArray{T,N}}
         new{T,N,AA}(array)
     end
 end
+DiagTrav{T,N,AA}(A::AA) where {T, N, AA<:AbstractArray{T,N}} = _DiagTrav(zero_bottomright(A))
+
 DiagTrav{T,N}(A::AbstractArray) where {T,N} = DiagTrav{T,N,typeof(A)}(A)
 DiagTrav{T}(A::AbstractArray{<:Any,N}) where {T,N} = DiagTrav{T,N}(A)
 DiagTrav(A::AbstractArray{T}) where T = DiagTrav{T}(A)
+
+
+zero_bottomright(array) = zero_bottomright(array, axes(array))
+zero_bottomright!(array) = zero_bottomright!(array, axes(array))
+
+function zero_bottomright(X::AbstractMatrix, _)
+    m,n = size(X)
+    μ = max(m,n)
+    for j in rowsupport(X), k = (μ-j+2:m) ∩ colsupport(X,j)
+        iszero(X[k,j]) || return zero_bottomright!(copy(X))
+    end
+    X
+end
+
+function zero_bottomright!(X::AbstractMatrix{T}, _) where T
+    m,n = size(X)
+    μ = max(m,n)
+    for j in rowsupport(X), k = (μ-j+2:m) ∩ colsupport(X,j)
+        X[k,j] = zero(T)
+    end
+    X
+end
+
+function zero_bottomright(X::AbstractArray{<:Any,3}, _)
+    m,n,p = size(X)
+    @assert m == n == p
+    for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
+        iszero(X[k+1,j+1,ℓ+1]) || return zero_bottomright!(copy(X))
+    end
+    X
+end
+
+function zero_bottomright!(X::AbstractArray{T,3}, _) where T
+    m,n,p = size(X)
+    @assert m == n == p
+    for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
+        X[k+1,j+1,ℓ+1] = zero(T)
+    end
+    X
+end
+
+
 
 function _krontrav_axes(A, B)
     m,n = length(A), length(B)
@@ -34,6 +80,8 @@ end
 axes(A::DiagTrav) = (_krontrav_axes(axes(A.array)...),)
 
 copy(A::DiagTrav) = DiagTrav(copy(A.array))
+
+similar(A::DiagTrav, ::Type{T}) where T = DiagTrav(similar(A.array, T))
 
 struct DiagTravLayout{Lay} <: AbstractBlockLayout end
 MemoryLayout(::Type{<:DiagTrav{T, N, AA}}) where {T,N,AA} = DiagTravLayout{typeof(MemoryLayout(AA))}()
@@ -62,7 +110,7 @@ function _diagtravgetindex(_, A::AbstractMatrix, K::Block{1})
 end
 
 
-_diagtravgetindex(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1}) = layout_getindex(DiagTrav(A), K)
+_diagtravgetindex(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1}) = layout_getindex(_DiagTrav(A), K)
 
 function _diagtravview(::AbstractStridedLayout, A::AbstractMatrix, K::Block{1})
     k = Int(K)
@@ -110,6 +158,7 @@ function _diagtravgetindex(::AbstractStridedLayout, A::AbstractArray{T,3}, K::Bl
 end
 
 getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
+setindex!(A::DiagTrav, v, k::Int) = A[findblockindex(axes(A,1), k)] = v
 
 function resize!(A::DiagTrav{<:Any,2}, K::Block{1})
     k = Int(K)
@@ -261,6 +310,7 @@ convert(::Type{B}, A::KronTrav{<:Any,2}) where B<:BandedBlockBandedMatrix = conv
 struct KronTravBandedBlockBandedLayout <: AbstractBandedBlockBandedLayout end
 struct KronTravLayout{M} <: AbstractBlockLayout end
 
+const KronTravLayouts = Union{KronTravBandedBlockBandedLayout, KronTravLayout}
 
 
 krontravlayout(::Vararg{Any,M}) where M = KronTravLayout{M}()
@@ -321,3 +371,26 @@ BroadcastStyle(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} =
 
 *(a::Number, b::KronTrav) = KronTrav(a*first(b.args), tail(b.args)...)
 *(a::KronTrav, b::Number) = KronTrav(first(a.args)*b, tail(a.args)...)
+
+
+function copy(M::Mul{<:KronTravLayouts, <:DiagTravLayout})
+    K,x = M.A,M.B
+    A,B = K.args
+    _krontrav_mul_diagtrav(K.args, invdiagtrav(x), eltype(M))
+end
+
+_krontrav_mul_diagtrav((A,B), X::AbstractMatrix, ::Type{T}) where T = DiagTrav(convert(AbstractMatrix{T}, B*X*A'))
+function _krontrav_mul_diagtrav((A,B,C), X::AbstractArray{<:Any,3}, ::Type{T}) where T
+    m,n,p = size(X)
+    @assert m == n == p
+    Y = similar(X, T)
+    Z = similar(X, T)
+    for k = 1:n, j=1:n mul!(view(Y,k,j,:),A,view(X,k,j,:)) end
+    for k = 1:n, j=1:n mul!(view(Z,k,:,j),B,view(Y,k,:,j)) end
+    for k = 1:n, j=1:n mul!(view(Y,:,k,j),C,view(Z,:,k,j)) end
+    DiagTrav(Y)
+end
+
+
+
+# C = α*B*X*A' + β*C

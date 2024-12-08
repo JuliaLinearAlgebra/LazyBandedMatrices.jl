@@ -12,26 +12,28 @@ const OneToInfBlocks = InfiniteArraysBlockArraysExt.OneToInfBlocks
 const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.InfKronTravBandedBlockBandedLayout
 
 @testset "∞ LazyBandedMatrices" begin
-    @test MemoryLayout(LazyBandedMatrices.Tridiagonal(Fill(1,∞), Zeros(∞), Fill(3,∞))) isa TridiagonalToeplitzLayout
-    @test MemoryLayout(LazyBandedMatrices.Bidiagonal(Fill(1,∞), Zeros(∞), :U)) isa BidiagonalToeplitzLayout
-    @test MemoryLayout(LazyBandedMatrices.SymTridiagonal(Fill(1,∞), Zeros(∞))) isa TridiagonalToeplitzLayout
+    @testset "Tri/Bidiagonal" begin
+        @test MemoryLayout(LazyBandedMatrices.Tridiagonal(Fill(1,∞), Zeros(∞), Fill(3,∞))) isa TridiagonalToeplitzLayout
+        @test MemoryLayout(LazyBandedMatrices.Bidiagonal(Fill(1,∞), Zeros(∞), :U)) isa BidiagonalToeplitzLayout
+        @test MemoryLayout(LazyBandedMatrices.SymTridiagonal(Fill(1,∞), Zeros(∞))) isa TridiagonalToeplitzLayout
 
-    T = LazyBandedMatrices.Tridiagonal(Fill(1,∞), Zeros(∞), Fill(3,∞))
-    @test T[2:∞,3:∞] isa SubArray
-    @test exp.(T) isa BroadcastMatrix
-    @test exp.(T)[2:∞,3:∞][1:10,1:10] == exp.(T[2:∞,3:∞])[1:10,1:10] == exp.(T[2:11,3:12])
-    @test exp.(T)[2:∞,3:∞] isa BroadcastMatrix
-    @test exp.(T[2:∞,3:∞]) isa BroadcastMatrix
+        T = LazyBandedMatrices.Tridiagonal(Fill(1,∞), Zeros(∞), Fill(3,∞))
+        @test T[2:∞,3:∞] isa SubArray
+        @test exp.(T) isa BroadcastMatrix
+        @test exp.(T)[2:∞,3:∞][1:10,1:10] == exp.(T[2:∞,3:∞])[1:10,1:10] == exp.(T[2:11,3:12])
+        @test exp.(T)[2:∞,3:∞] isa BroadcastMatrix
+        @test exp.(T[2:∞,3:∞]) isa BroadcastMatrix
 
-    B = LazyBandedMatrices.Bidiagonal(Fill(1,∞), Zeros(∞), :U)
-    @test B[2:∞,3:∞] isa SubArray
-    @test exp.(B) isa BroadcastMatrix
-    @test exp.(B)[2:∞,3:∞][1:10,1:10] == exp.(B[2:∞,3:∞])[1:10,1:10] == exp.(B[2:11,3:12])
-    @test exp.(B)[2:∞,3:∞] isa BroadcastMatrix
+        B = LazyBandedMatrices.Bidiagonal(Fill(1,∞), Zeros(∞), :U)
+        @test B[2:∞,3:∞] isa SubArray
+        @test exp.(B) isa BroadcastMatrix
+        @test exp.(B)[2:∞,3:∞][1:10,1:10] == exp.(B[2:∞,3:∞])[1:10,1:10] == exp.(B[2:11,3:12])
+        @test exp.(B)[2:∞,3:∞] isa BroadcastMatrix
 
-    @testset "Diagonal{Fill} * Bidiagonal" begin
-        A, B = Diagonal(Fill(2,∞)) , LazyBandedMatrices.Bidiagonal(exp.(1:∞), exp.(1:∞), :L)
-        @test (A*B)[1:10,1:10] ≈ (B*A)[1:10,1:10] ≈ 2B[1:10,1:10]
+        @testset "Diagonal{Fill} * Bidiagonal" begin
+            A, B = Diagonal(Fill(2,∞)) , LazyBandedMatrices.Bidiagonal(exp.(1:∞), exp.(1:∞), :L)
+            @test (A*B)[1:10,1:10] ≈ (B*A)[1:10,1:10] ≈ 2B[1:10,1:10]
+        end
     end
 
     @testset "∞-unit blocks" begin
@@ -102,6 +104,12 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
 
         @test A*A isa KronTrav
         @test (A*A)[Block.(Base.OneTo(3)), Block.(Base.OneTo(3))] ≈ A[Block.(1:3), Block.(1:4)]A[Block.(1:4), Block.(1:3)]
+
+        @testset "mul" begin
+            X = zeros(∞,∞); X[1,1] = 1;
+            KR = Block.(1:10)
+            @test (A*DiagTrav(X))[KR] == ((A + 0I) * DiagTrav(X))[KR]
+        end
     end
 
     @testset "BlockHcat copyto!" begin
