@@ -68,8 +68,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
 
     @testset "InvDiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
-        @test invdiagtrav(BlockedVector(DiagTrav(A))) == [1 2 3; 4 5 0; 7 0 0]
-        @test invdiagtrav(DiagTrav(A)) == A
+        @test invdiagtrav(BlockedVector(DiagTrav(A))) == invdiagtrav(DiagTrav(A)) == [1 2 3; 4 5 0; 7 0 0]
     end
 
     @testset "BlockKron" begin
@@ -124,7 +123,9 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             @test copy(K) == K
 
             X = [9 10; 11 0]
-            @test K*DiagTrav(X) == DiagTrav(B*X*A')
+            Y = [9 10; 11 12]
+            @test K*DiagTrav(X) == K*DiagTrav(Y) == DiagTrav(B*X*A')
+            @test K*DiagTrav(X) isa DiagTrav
 
             @test K[Block.(Base.OneTo(2)), Block.(Base.OneTo(2))] == K[Block.(1:2), Block.(1:2)] == K
         end
@@ -160,9 +161,11 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             K = KronTrav(A,B,C)
 
             X = randn(n,n,n)
+            Y = copy(X)
             for ℓ = 0:n-1, j=0:n-1, k=max(0,n-(ℓ+j)):n-1
                 X[k+1,j+1,ℓ+1] = 0
             end
+            @test DiagTrav(Y).array == X
             Y = float(similar(X))
             for k = 1:n, j=1:n Y[k,j,:] = A*X[k,j,:] end
             for k = 1:n, j=1:n Y[k,:,j] = B*Y[k,:,j] end
