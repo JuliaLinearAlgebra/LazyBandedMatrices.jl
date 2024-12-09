@@ -109,6 +109,7 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
             X = zeros(∞,∞); X[1,1] = 1;
             KR = Block.(1:10)
             @test (A*DiagTrav(X))[KR] == ((A + 0I) * DiagTrav(X))[KR]
+            @test A*DiagTrav(X) isa DiagTrav
         end
     end
 
