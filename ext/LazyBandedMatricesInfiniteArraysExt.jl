@@ -8,7 +8,7 @@ import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub
 import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, LazyArrayStyle, OneToInf
 import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout, RangeCumsum, Mul
 import LazyBandedMatrices.BlockArrays: sizes_from_blocks, BlockedOneTo, BlockSlice1, BlockSlice
-import LazyBandedMatrices.LazyArrays: BroadcastBandedLayout, AbstractPaddedLayout
+import LazyBandedMatrices.LazyArrays: BroadcastBandedLayout, AbstractPaddedLayout, simplifiable
 
 const OneToInfCumsum = RangeCumsum{Int,OneToInf{Int}}
 
@@ -39,6 +39,7 @@ MemoryLayout(::Type{<:KronTrav{<:Any,2,<:Any,NTuple{2,BlockedOneTo{Int,OneToInfC
 sublayout(::InfKronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice1}}) = BroadcastBandedLayout{typeof(*)}()
 sublayout(::InfKronTravBandedBlockBandedLayout, ::Type{<:NTuple{2,BlockSlice{BlockRange{1,Tuple{OneTo{Int}}}}}}) = KronTravBandedBlockBandedLayout()
 
+simplifiable(::Mul{InfKronTravBandedBlockBandedLayout, InfKronTravBandedBlockBandedLayout}) = Val(true)
 copy(M::Mul{InfKronTravBandedBlockBandedLayout, InfKronTravBandedBlockBandedLayout}) = KronTrav((krontravargs(M.A) .* krontravargs(M.B))...)
 
 _broadcast_sub_arguments(::InfKronTravBandedBlockBandedLayout, M, V) = _broadcast_sub_arguments(KronTravBandedBlockBandedLayout(), M, V)
