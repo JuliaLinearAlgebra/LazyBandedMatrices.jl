@@ -2,7 +2,7 @@ using LazyBandedMatrices, InfiniteArrays, ArrayLayouts, LazyArrays, BlockArrays,
 using InfiniteArrays: TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, TridiagonalToeplitzLayout
 using Base: oneto
 using BlockArrays: blockcolsupport
-using LazyArrays: arguments
+using LazyArrays: arguments, simplifiable
 using LazyBandedMatrices: BroadcastBandedBlockBandedLayout
 
 const InfiniteArraysBlockArraysExt = Base.get_extension(InfiniteArrays, :InfiniteArraysBlockArraysExt)
@@ -103,6 +103,10 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test bandwidths(view(A, Block(1, 1))) == (1, 1)
 
         @test A*A isa KronTrav
+        @test *(A,A,A) isa KronTrav
+        @test *(A,A,A,A) isa KronTrav
+        @test *(A,A,A,A,A) isa KronTrav
+        @test simplifiable(*,A,A) == Val(true)
         @test (A*A)[Block.(Base.OneTo(3)), Block.(Base.OneTo(3))] ≈ A[Block.(1:3), Block.(1:4)]A[Block.(1:4), Block.(1:3)]
 
         @testset "mul" begin
