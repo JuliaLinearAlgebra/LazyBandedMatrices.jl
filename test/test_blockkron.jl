@@ -1,9 +1,10 @@
 module TestBlockKron
 
 using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, BlockArrays, ArrayLayouts, LazyArrays, Test
+
 using LinearAlgebra
 import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout, _BandedBlockBandedMatrix
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad, krontrav
 import ArrayLayouts: FillLayout, OnesLayout
 import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
 import BandedMatrices: BandedColumns
@@ -332,6 +333,26 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         C = pad(randn(3,3), 5,5)
         x = DiagTrav(C)
         @test D*x ≈ Matrix(D) * Vector(x)
+    end
+
+    @testset "krontrav" begin
+        a = [1,2,3]
+        b = [4,5,6]
+        c = [7,8,9]
+        @test krontrav(a,b) == KronTrav(a,b)
+        @test krontrav(a,b,c) == KronTrav(a,b,c)
+        @test krontrav(a,b) isa BlockedVector
+        @test krontrav(a,b,c) isa BlockedVector
+        
+        A = [1 2; 3 4]
+        B = [5 6; 7 8]
+        @test krontrav(A,B) == KronTrav(A,B)
+        @test krontrav(A,B) isa BlockedMatrix
+
+        n = 4
+        Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
+        @test krontrav(Δ,Eye(n)) == KronTrav(Δ, Eye(n))
+        @test krontrav(Δ,Eye(n)) isa BandedBlockBandedMatrix
     end
 end
 
