@@ -4,7 +4,7 @@ using LazyBandedMatrices.BlockArrays
 using LazyBandedMatrices.ArrayLayouts
 
 import Base: BroadcastStyle, copy, OneTo, oneto
-import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs, DiagTravLayout
+import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs, DiagTravLayout, krontrav_materialize_layout, krontrav
 import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, LazyArrayStyle, OneToInf
 import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout, RangeCumsum, Mul
 import LazyBandedMatrices.BlockArrays: sizes_from_blocks, BlockedOneTo, BlockSlice1, BlockSlice
@@ -57,5 +57,8 @@ _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneToInf{Int}}}...
 # KronTrav * DiagTrav
 
 copy(M::Mul{InfKronTravBandedBlockBandedLayout, Lay}) where Lay<:DiagTravLayout{<:AbstractPaddedLayout} = copy(Mul{KronTravBandedBlockBandedLayout, Lay}(M.A, M.B))
+
+krontrav_materialize_layout(::InfKronTravBandedBlockBandedLayout, K) = K
+
 
 end
