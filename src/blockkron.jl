@@ -398,7 +398,7 @@ krontrav(A...) = krontrav_materialize(KronTrav(A...))
 
 
 function krontrav(a::SquareEye{T}, b::SquareEye{V}) where {T,V}
-    @assert size(a) == size(b)
+    size(a) == size(b) || throw(ArgumentError("size must match"))
     SquareEye{promote_type(T,V)}((blockedrange(oneto(size(a,1))),))
 end
 # C = α*B*X*A' + β*C

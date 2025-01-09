@@ -195,6 +195,8 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test subblockbandwidths(A + B) == (1, 1)
         @test subblockbandwidths(2A) == (1, 1)
         @test subblockbandwidths(2 * (A + B)) == (1, 1)
+
+        @test krontrav(Eye(∞), Eye(∞)) isa Eye
     end
 
     @testset "BlockTridiagonal" begin
