@@ -391,7 +391,7 @@ function _krontrav_mul_diagtrav((A,B,C), X::AbstractArray{<:Any,3}, ::Type{T}) w
     DiagTrav(Y)
 end
 
-kron_materialize_layout(_, K) = BlockedMatrix(K)
+kron_materialize_layout(_, K) = BlockedArray(K)
 kron_materialize_layout(::AbstractBandedBlockBandedLayout, K) = BandedBlockBandedMatrix(K)
 kron_materialize(K) = kron_materialize_layout(MemoryLayout(K), K)
 krontrav(A...) = kron_materialize(KronTrav(A...))
