@@ -353,6 +353,11 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         Δ = BandedMatrix(1 => Ones(n-1), 0 => Fill(-2,n), -1 => Ones(n-1))
         @test krontrav(Δ,Eye(n)) == KronTrav(Δ, Eye(n))
         @test krontrav(Δ,Eye(n)) isa BandedBlockBandedMatrix
+
+        @test krontrav(Eye(4), Eye(4)) isa Eye
+        @test krontrav(Eye(4), Eye(4)) == KronTrav(Eye(4), Eye(4))
+
+        @test_throws ArgumentError krontrav(Eye(4), Eye(5))
     end
 end
 

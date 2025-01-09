@@ -3,7 +3,7 @@ using InfiniteArrays: TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, Tridi
 using Base: oneto
 using BlockArrays: blockcolsupport
 using LazyArrays: arguments, simplifiable
-using LazyBandedMatrices: BroadcastBandedBlockBandedLayout
+using LazyBandedMatrices: BroadcastBandedBlockBandedLayout, krontrav
 
 const InfiniteArraysBlockArraysExt = Base.get_extension(InfiniteArrays, :InfiniteArraysBlockArraysExt)
 const LazyBandedMatricesInfiniteArraysExt = Base.get_extension(LazyBandedMatrices, :LazyBandedMatricesInfiniteArraysExt)
@@ -195,6 +195,8 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test subblockbandwidths(A + B) == (1, 1)
         @test subblockbandwidths(2A) == (1, 1)
         @test subblockbandwidths(2 * (A + B)) == (1, 1)
+
+        @test krontrav(Eye(∞), Eye(∞)) isa Eye
     end
 
     @testset "BlockTridiagonal" begin
