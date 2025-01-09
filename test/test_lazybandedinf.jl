@@ -3,7 +3,7 @@ using InfiniteArrays: TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, Tridi
 using Base: oneto
 using BlockArrays: blockcolsupport
 using LazyArrays: arguments, simplifiable
-using LazyBandedMatrices: BroadcastBandedBlockBandedLayout
+using LazyBandedMatrices: BroadcastBandedBlockBandedLayout, krontrav
 
 const InfiniteArraysBlockArraysExt = Base.get_extension(InfiniteArrays, :InfiniteArraysBlockArraysExt)
 const LazyBandedMatricesInfiniteArraysExt = Base.get_extension(LazyBandedMatrices, :LazyBandedMatricesInfiniteArraysExt)
