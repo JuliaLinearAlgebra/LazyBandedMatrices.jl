@@ -212,8 +212,18 @@ end
 invdiagtrav(a) = InvDiagTrav(a)
 invdiagtrav(a::DiagTrav) = a.array
 
+-(A::DiagTrav) = DiagTrav(-A.array)
+
 for op in (:+, :-)
     @eval $op(A::DiagTrav, B::DiagTrav) = DiagTrav($op(A.array, B.array))
+end
+
+for op in (:*, :/)
+    @eval $op(A::DiagTrav, k::Number) = DiagTrav($op(A.array, k))
+end
+
+for op in (:*, :\)
+    @eval $op(k::Number, A::DiagTrav) = DiagTrav($op(k, A.array))
 end
 
 """

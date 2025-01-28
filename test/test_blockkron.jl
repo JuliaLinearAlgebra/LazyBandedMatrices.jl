@@ -37,8 +37,16 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         @test DiagTrav(A) + DiagTrav(A) isa DiagTrav
         @test DiagTrav(A) - DiagTrav(A) isa DiagTrav
         @test 2DiagTrav(A) isa DiagTrav
-        @test DiagTrav(A) + DiagTrav(A) == 2DiagTrav(A) == 2Vector(DiagTrav(A))
+        @test 2\DiagTrav(A) isa DiagTrav
+        @test DiagTrav(A)*2 isa DiagTrav
+        @test DiagTrav(A)/2 isa DiagTrav
+        @test -DiagTrav(A) isa DiagTrav
+
+
+        @test DiagTrav(A) + DiagTrav(A) == 2DiagTrav(A) == DiagTrav(A)*2 == 2Vector(DiagTrav(A))
         @test DiagTrav(A) - DiagTrav(A) == 0DiagTrav(A) == 0Vector(DiagTrav(A))
+        @test 2\DiagTrav(A) == DiagTrav(A)/2 == Vector(DiagTrav(A))/2
+        @test -DiagTrav(A) == -Vector(DiagTrav(A))
 
         @test resize!(DiagTrav(A), Block(2)) == [1, 3,2]
 
