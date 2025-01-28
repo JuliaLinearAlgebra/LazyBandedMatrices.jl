@@ -34,6 +34,12 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         A = [1 2; 3 4; 5 6]
         @test DiagTrav(A) == [1, 3, 2, 5, 4]
 
+        @test DiagTrav(A) + DiagTrav(A) isa DiagTrav
+        @test DiagTrav(A) - DiagTrav(A) isa DiagTrav
+        @test 2DiagTrav(A) isa DiagTrav
+        @test DiagTrav(A) + DiagTrav(A) == 2DiagTrav(A) == 2Vector(DiagTrav(A))
+        @test DiagTrav(A) - DiagTrav(A) == 0DiagTrav(A) == 0Vector(DiagTrav(A))
+
         @test resize!(DiagTrav(A), Block(2)) == [1, 3,2]
 
         A = DiagTrav(randn(3,3,3))

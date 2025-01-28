@@ -212,6 +212,9 @@ end
 invdiagtrav(a) = InvDiagTrav(a)
 invdiagtrav(a::DiagTrav) = a.array
 
+for op in (:+, :-)
+    @eval $op(A::DiagTrav, B::DiagTrav) = DiagTrav($op(A.array, B.array))
+end
 
 """
     KronTrav(A,B,C...)
