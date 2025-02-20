@@ -98,7 +98,20 @@ function colsupport(A::DiagTrav{<:Any,2}, _)
 end
 
 
-function getindex(A::DiagTrav, K::Block{1})
+Base.@propagate_inbounds function getindex(A::DiagTrav, Kk::BlockIndex{1})
+    @boundscheck checkbounds(A, Kk)
+    K,j = Int(block(Kk)), blockindex(Kk)
+    A.array[K-j+1,j]
+end
+
+Base.@propagate_inbounds function setindex!(A::DiagTrav, v, Kk::BlockIndex{1})
+    @boundscheck checkbounds(A, Kk)
+    K,j = Int(block(Kk)), blockindex(Kk)
+    A.array[K-j+1,j] = v
+    A
+end
+
+Base.@propagate_inbounds function getindex(A::DiagTrav, K::Block{1})
     @boundscheck checkbounds(A, K)
     _diagtravgetindex(MemoryLayout(A.array), A.array, K)
 end

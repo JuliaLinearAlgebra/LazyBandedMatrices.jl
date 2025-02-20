@@ -76,6 +76,13 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test blockcolsupport(A) == Block.(1:6)
         @test A[Block.(1:7)] == [1; 5; 2; 9; 6; 3; 0; 10; 7; 4; 0; 0; 11; 8; 0; 0; 0; 0; 12; zeros(9)]
 
+        C = zeros(∞,∞);
+        A = DiagTrav(C);
+        A[1] = 1
+        @test A[1] == 1
+        A[1:9] = 1:9
+        @test A[1:10] == [1:9; 0]
+
         C = zeros(∞,4);
         C[1:3,1:4] .= [1 2 3 4; 5 6 7 8; 9 10 11 12]
         A = DiagTrav(C)
