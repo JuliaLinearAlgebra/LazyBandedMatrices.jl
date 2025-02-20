@@ -100,15 +100,27 @@ end
 
 Base.@propagate_inbounds function getindex(A::DiagTrav, Kk::BlockIndex{1})
     @boundscheck checkbounds(A, Kk)
+    _diagtravgetindex(MemoryLayout(A.array), A.array, Kk)
+end
+
+function _diagtravgetindex(_, A::AbstractMatrix, Kk::BlockIndex{1})
     K,j = Int(block(Kk)), blockindex(Kk)
-    A.array[K-j+1,j]
+    m,n = size(A)
+    j = max(0,K-m)+j
+    A[K-j+1,j]
 end
 
 Base.@propagate_inbounds function setindex!(A::DiagTrav, v, Kk::BlockIndex{1})
     @boundscheck checkbounds(A, Kk)
-    K,j = Int(block(Kk)), blockindex(Kk)
-    A.array[K-j+1,j] = v
+    _diagtravsetindex!(MemoryLayout(A.array), A.array, v, Kk)
     A
+end
+
+function _diagtravsetindex!(_, A, v, Kk::BlockIndex{1})
+    K,j = Int(block(Kk)), blockindex(Kk)
+    m,n = size(A)
+    j = max(0,K-m)+j
+    A[K-j+1,j] = v
 end
 
 Base.@propagate_inbounds function getindex(A::DiagTrav, K::Block{1})
@@ -169,6 +181,9 @@ function _diagtravgetindex(::AbstractStridedLayout, A::AbstractArray{T,3}, K::Bl
     end
     ret
 end
+
+# TODO: don't build the block
+_diagtravgetindex(lay, A::AbstractArray{T,3}, Kk::BlockIndex{1}) where T = _diagtravgetindex(lay, A, block(Kk))[blockindex(Kk)]
 
 getindex(A::DiagTrav, k::Int) = A[findblockindex(axes(A,1), k)]
 setindex!(A::DiagTrav, v, k::Int) = A[findblockindex(axes(A,1), k)] = v
