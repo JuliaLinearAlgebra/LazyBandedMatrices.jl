@@ -17,7 +17,7 @@ import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldat
                      materialize!, MulAdd, MatMulVecAdd
 import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout,
                    arguments, call, tuple_type_memorylayouts, paddeddata, _broadcast_sub_arguments, resizedata!,
-                   _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout
+                   _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout, applied_eltype
 import BandedMatrices: AbstractBandedMatrix, BandedStyle, bandwidths, isbanded
 import BlockBandedMatrices: AbstractBlockBandedLayout, AbstractBandedBlockBandedLayout, BlockRange1, Block1, blockbandwidths, subblockbandwidths,
                              BlockBandedStyle, BandedBlockBandedStyle, isblockbanded, isbandedblockbanded
@@ -25,6 +25,7 @@ import BlockArrays: BlockSlices, BlockSlice1, BlockSlice, blockvec, AbstractBloc
 import FillArrays: SquareEye
 
 const LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
+const LazyArraysBlockArraysExt = Base.get_extension(LazyArrays, :LazyArraysBlockArraysExt)
 
 const AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
 const BroadcastBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.BroadcastBandedBlockBandedLayout
@@ -33,6 +34,8 @@ const LazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.LazyBandedB
 const AbstractLazyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBandedBlockBandedLayout
 const ApplyBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.ApplyBandedBlockBandedLayout
 const LazyBlockBandedLayouts = LazyArraysBlockBandedMatricesExt.LazyBlockBandedLayouts
+
+const BlockVec = LazyArraysBlockArraysExt.BlockVec
 
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks

@@ -421,35 +421,4 @@ end
     end
 end
 
-@testset "BlockVec" begin
-    X = randn(5,4)
-    b = BlockVec(X)
-    @test size(b) == (20,)
-    @test length(b) == 20
-    @test MemoryLayout(b) isa ApplyLayout{typeof(blockvec)}
-    @test b == vec(X)
-    @test view(b, Block(3)) ≡ view(X, :, 3)
-    @test b[Block(3)] isa Vector
-    b[5] = 6
-    @test X[5] == 6
-    @test resize!(b, Block(2)) == b[Block.(1:2)]
-
-    c = BlockVec(X')
-    @test c == vec(X')
-    @test view(c, Block(3)) ≡ view(X', :, 3)
-    @test resize!(c, Block(2)) == c[Block.(1:2)]
-
-    c = BlockVec(transpose(X))
-    @test c == vec(transpose(X))
-    @test view(c, Block(3)) ≡ view(transpose(X), :, 3)
-    @test resize!(c, Block(2)) == c[Block.(1:2)]
-
-    X = cache(Zeros(5,6));
-    X[1,1] = 2
-    c = BlockVec(X);
-    @test MemoryLayout(c) isa PaddedColumns
-    @test paddeddata(c) isa BlockVec
-    @test paddeddata(c) == [2]
-end
-
 end # module
