@@ -493,7 +493,9 @@ resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBro
 ####
 
 # support LazyArrays v2.8 where BlockVec is moved
-if !isdefined(LazyBandedMatrices.LazyArraysBlockArraysExt, :BlockVec)
+if isdefined(LazyBandedMatrices.LazyArraysBlockArraysExt, :BlockVec)
+    const BlockVec = LazyBandedMatrices.LazyArraysBlockArraysExt.BlockVec
+else
     const BlockVec{T, M<:AbstractMatrix{T}} = ApplyVector{T, typeof(blockvec), <:Tuple{M}}
 
     BlockVec{T}(M::AbstractMatrix{T}) where T = ApplyVector{T}(blockvec, M)
