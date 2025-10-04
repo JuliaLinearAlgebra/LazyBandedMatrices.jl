@@ -25,6 +25,7 @@ import BlockArrays: BlockSlices, BlockSlice1, BlockSlice, blockvec, AbstractBloc
 import FillArrays: SquareEye
 
 const LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
+const LazyArraysBlockArraysExt = Base.get_extension(LazyArrays, :LazyArraysBlockArraysExt)
 
 const AbstractLazyBlockBandedLayout = LazyArraysBlockBandedMatricesExt.AbstractLazyBlockBandedLayout
 const BroadcastBandedBlockBandedLayout = LazyArraysBlockBandedMatricesExt.BroadcastBandedBlockBandedLayout
