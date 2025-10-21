@@ -237,7 +237,22 @@ function getindex(A::InvDiagTrav{T}, k::Int, j::Int)  where T
     end
 end
 
-invdiagtrav(a) = InvDiagTrav(a)
+diagtrav(a::AbstractMatrix) = DiagTrav(a)
+function diagtrav(a::AbstractArray{T,3}; dims=1:3) where T
+    if dims == 1:3
+        DiagTrav(a)
+    else
+        @assert dims == 1:2
+        ret = BlockedMatrix{T}(undef, (_krontrav_axes(axes(a,1), axes(a,2)), axes(a,3)))
+        for ℓ in axes(a,3)
+            ret[:,ℓ] = DiagTrav(view(a,:,:,ℓ))
+        end
+        ret
+    end
+end
+
+diagtrav(a::InvDiagTrav) = a.vector
+invdiagtrav(a::AbstractVector) = InvDiagTrav(a)
 invdiagtrav(a::DiagTrav) = a.array
 
 -(A::DiagTrav) = DiagTrav(-A.array)
