@@ -4,7 +4,7 @@ using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, Block
 
 using LinearAlgebra
 import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout, _BandedBlockBandedMatrix
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad, krontrav
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad, krontrav, diagtrav
 import ArrayLayouts: FillLayout, OnesLayout
 import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
 import BandedMatrices: BandedColumns
@@ -24,7 +24,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
 @testset "Kron" begin
     @testset "DiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
-        @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
+        @test DiagTrav(A) == Vector(DiagTrav(A)) == diagtrav(A) == [1, 4, 2, 7, 5, 3]
         @test resize!(DiagTrav(A), Block(2)) == [1, 4,2]
         @test maximum(abs, DiagTrav(A)) == 7
         @test copy(DiagTrav(A)) == DiagTrav(A)
@@ -51,14 +51,18 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         @test resize!(DiagTrav(A), Block(2)) == [1, 3,2]
 
         A = DiagTrav(randn(3,3,3))
+        @test A == diagtrav(A.array)
         @test A[Block(1)] == A[1:1,1,1]
         @test A[Block(2)] == [A.array[2,1,1], A.array[1,2,1], A.array[1,1,2]]
         @test A[Block(3)] == [A.array[3,1,1], A.array[2,2,1], A.array[2,1,2],
                             A.array[1,3,1], A.array[1,2,2], A.array[1,1,3]]
         @test A == [A[Block(1)]; A[Block(2)]; A[Block(3)]]
 
+        A = randn(3,3,3)
+        @test diagtrav(A; dims=1:2) == [diagtrav(A[:,:,1]) diagtrav(A[:,:,2]) diagtrav(A[:,:,3])]
+
         A = reshape(1:9,3,3)'
-        @test DiagTrav(A) == Vector(DiagTrav(A)) == [1, 4, 2, 7, 5, 3]
+        @test DiagTrav(A) == Vector(DiagTrav(A)) == diagtrav(A) == [1, 4, 2, 7, 5, 3]
         A = reshape(1:12,3,4)'
         @test DiagTrav(A) == [1, 4, 2, 7, 5, 3, 10, 8, 6]
         A = reshape(1:12,3,4)
@@ -84,6 +88,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
     @testset "InvDiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
         @test invdiagtrav(BlockedVector(DiagTrav(A))) == invdiagtrav(DiagTrav(A)) == [1 2 3; 4 5 0; 7 0 0]
+        @test diagtrav(invdiagtrav(diagtrav(A))) == diagtrav(A)
     end
 
     @testset "BlockKron" begin
