@@ -88,7 +88,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
     @testset "InvDiagTrav" begin
         A = [1 2 3; 4 5 6; 7 8 9]
         @test invdiagtrav(BlockedVector(DiagTrav(A))) == invdiagtrav(DiagTrav(A)) == [1 2 3; 4 5 0; 7 0 0]
-        @test diagtrav(invdiagtrav(diagtrav(A))) == diagtrav(A)
+        @test diagtrav(invdiagtrav(diagtrav(A))) == diagtrav(invdiagtrav(BlockedVector(diagtrav(A))))  == diagtrav(A)
     end
 
     @testset "BlockKron" begin
