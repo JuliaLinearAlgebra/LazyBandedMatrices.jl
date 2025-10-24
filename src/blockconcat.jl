@@ -488,8 +488,11 @@ MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blo
 
 resize!(c::BlockBroadcastVector{T,typeof(vcat)}, N::Block{1}) where T = BlockBroadcastVector{T}(vcat, resize!.(c.args, N)...)
 
+####
+# BlockVec
+####
 
-
+const BlockVec = LazyBandedMatrices.LazyArraysBlockArraysExt.BlockVec
 
 ####
 # summary
