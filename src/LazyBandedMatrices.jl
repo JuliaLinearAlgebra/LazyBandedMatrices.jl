@@ -38,6 +38,8 @@ const LazyBlockBandedLayouts = LazyArraysBlockBandedMatricesExt.LazyBlockBandedL
 
 export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
 
+## TODO: export diagtrav, invdiagtrav
+
 include("tridiag.jl")
 include("bidiag.jl")
 include("special.jl")
