@@ -188,7 +188,8 @@ similar(B::Bidiagonal, ::Type{T}) where {T} = Bidiagonal(similar(B.dv, T), simil
 # The method below is moved to SparseArrays for now
 # similar(B::Bidiagonal, ::Type{T}, dims::Union{Dims{1},Dims{2}}) where {T} = spzeros(T, dims...)
 
-
+# Broadcasting 
+BroadcastStyle(::Type{<:Bidiagonal{<:Any, DV, EV}}) where {DV, EV} = result_style(BandedStyle(), result_style(BroadcastStyle(DV), BroadcastStyle(EV)))
 
 ####################
 # Generic routines #

@@ -6,7 +6,7 @@ using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays, FillArrays,
 import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real, imag, copy, copymutable,
             iszero, isone, one, zero, getindex, setindex!, copyto!, fill, fill!, promote_rule, show, print_matrix, permutedims,
             OneTo, oneto, require_one_based_indexing, similar, convert, axes, tail, tuple_type_tail, view, resize!
-import Base.Broadcast: Broadcasted, BroadcastStyle, broadcasted, instantiate
+import Base.Broadcast: Broadcasted, BroadcastStyle, broadcasted, instantiate, result_style
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling, char_uplo,
                         AbstractTriangular, AdjOrTrans, StructuredMatrixStyle, Diagonal
@@ -17,7 +17,8 @@ import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldat
                      materialize!, MulAdd, MatMulVecAdd
 import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout,
                    arguments, call, tuple_type_memorylayouts, paddeddata, _broadcast_sub_arguments, resizedata!,
-                   _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout, applied_eltype
+                   _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout, applied_eltype,
+                   CachedArrayStyle
 import BandedMatrices: AbstractBandedMatrix, BandedStyle, bandwidths, isbanded
 import BlockBandedMatrices: AbstractBlockBandedLayout, AbstractBandedBlockBandedLayout, BlockRange1, Block1, blockbandwidths, subblockbandwidths,
                              BlockBandedStyle, BandedBlockBandedStyle, isblockbanded, isbandedblockbanded

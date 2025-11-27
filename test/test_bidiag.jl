@@ -1,11 +1,14 @@
 module TestBidiag
 
 # This file is based on a part of Julia LinearAlgebra/test/bidiag.jl. License is MIT: https://julialang.org/license
-using Test, LazyBandedMatrices, SparseArrays, Random, FillArrays
+using Test, LazyBandedMatrices, SparseArrays, Random, FillArrays, LazyArrays, BandedMatrices 
 import LazyBandedMatrices: Bidiagonal, SymTridiagonal, Tridiagonal
 import LinearAlgebra
 import LinearAlgebra: mul!, istril, istriu, diagm, isdiag, triu, tril, triu!, tril!, diag, UpperTriangular, LowerTriangular, UnitLowerTriangular, UnitUpperTriangular,
                         dot, Diagonal
+import LazyArrays: CachedArrayStyle
+import Base.Broadcast: BroadcastStyle
+import BandedMatrices: BandedStyle
 
 @testset "Bidiagonal" begin
     n = 10 #Size of test matrix
@@ -487,6 +490,13 @@ import LinearAlgebra: mul!, istril, istriu, diagm, isdiag, triu, tril, triu!, tr
         B = Bidiagonal(1:5, Ones{Int}(4), :U)
         @test B.dv ≡ 1:5
         @test B.ev ≡ Ones{Int}(4)
+    end
+
+    @testset "BroadcastStyle" begin
+        @test BroadcastStyle(typeof(Bidiagonal(1:3, 1:2, :U))) == BandedStyle()
+        @test BroadcastStyle(typeof(Bidiagonal(1:3, Accumulate(*, 1:2), :L))) == CachedArrayStyle{2}()
+        @test BroadcastStyle(typeof(Bidiagonal(Accumulate(*, 1:3), Accumulate(*, 1:2), :U))) == CachedArrayStyle{2}()
+        @test BroadcastStyle(typeof(Bidiagonal(Accumulate(*, 1:3), 1:2, :L))) == CachedArrayStyle{2}()
     end
 end # testset
 
