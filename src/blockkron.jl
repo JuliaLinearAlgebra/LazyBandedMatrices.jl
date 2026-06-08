@@ -458,3 +458,18 @@ function krontrav(a::SquareEye{T}, b::SquareEye{V}) where {T,V}
     SquareEye{promote_type(T,V)}((blockedrange(oneto(size(a,1))),))
 end
 # C = α*B*X*A' + β*C
+
+
+
+####
+# dot
+####
+copy(D::Dot{<:DiagTravLayout,<:DiagTravLayout}) = dot(D.A.array, D.B.array)
+
+
+####
+# adj/transpose
+#####
+for trans in (:adjoint, :transpose, :permutedims)
+    @eval $trans(K::KronTrav) = KronTrav(map($trans, K.args)...)
+end

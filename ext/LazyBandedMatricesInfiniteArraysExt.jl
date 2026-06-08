@@ -57,6 +57,7 @@ _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneToInf{Int}}}...
 # KronTrav * DiagTrav
 
 copy(M::Mul{InfKronTravBandedBlockBandedLayout, Lay}) where Lay<:DiagTravLayout{<:AbstractPaddedLayout} = copy(Mul{KronTravBandedBlockBandedLayout, Lay}(M.A, M.B))
+copy(M::Mul{<:DualLayout,InfKronTravBandedBlockBandedLayout}) = (M.B'M.A')'
 
 krontrav_materialize_layout(::InfKronTravBandedBlockBandedLayout, K) = K
 

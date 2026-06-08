@@ -378,6 +378,29 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
 
         @test_throws ArgumentError krontrav(Eye(4), Eye(5))
     end
+
+    @testset "transpose" begin
+        A = [1 2; 3 4]
+        B = [5 6; 7 8]
+        K = KronTrav(A,B)
+        @test K' == transpose(K) == KronTrav(A',B') == Matrix(K)'
+        
+        K = KronTrav(A+im*B,B+2im*A)
+        @test K' == KronTrav((A+im*B)',(B+2im*A)') == Matrix(K)'
+        @test transpose(K) == KronTrav(transpose(A+im*B),transpose(B+2im*A)) == transpose(Matrix(K))
+    end
+
+    @testset "dot" begin
+        A = randn(3,3)
+        B = randn(3,3)
+        a = DiagTrav(A)
+        b = DiagTrav(B)
+        K = KronTrav(randn(3,3),randn(3,3))
+
+        @test a'a ≈ norm(a)^2 ≈ norm(Vector(a))^2
+        @test a'b ≈ dot(a,b)
+        @test a'K*b ≈ a'*(K*b) ≈ a'Matrix(K)*b
+    end
 end
 
 end # module
