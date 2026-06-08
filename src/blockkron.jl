@@ -435,7 +435,9 @@ function copy(M::Mul{<:KronTravLayouts, <:DiagTravLayout})
     _krontrav_mul_diagtrav(K.args, invdiagtrav(x), eltype(M))
 end
 
-_krontrav_mul_diagtrav((A,B), X::AbstractMatrix, ::Type{T}) where T = DiagTrav(convert(AbstractMatrix{T}, B*X*A'))
+_convert_to_diagtrav_or_number(::Type{T}, A::Number) where T = convert(T, A)
+_convert_to_diagtrav_or_number(::Type{T}, A::AbstractMatrix) where T = DiagTrav(convert(AbstractMatrix{T}, A))
+_krontrav_mul_diagtrav((A,B), X::AbstractMatrix, ::Type{T}) where T = _convert_to_diagtrav_or_number(T, B*X*A')
 function _krontrav_mul_diagtrav((A,B,C), X::AbstractArray{<:Any,3}, ::Type{T}) where T
     m,n,p = size(X)
     @assert m == n == p
@@ -471,5 +473,5 @@ copy(D::Dot{<:DiagTravLayout,<:DiagTravLayout}) = dot(D.A.array, D.B.array)
 # adj/transpose
 #####
 for trans in (:adjoint, :transpose, :permutedims)
-    @eval $trans(K::KronTrav) = KronTrav(map($trans, K.args)...)
+    @eval $trans(K::KronTrav{<:Any,2}) = KronTrav(map($trans, K.args)...)
 end
