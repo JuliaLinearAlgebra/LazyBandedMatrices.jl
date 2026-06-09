@@ -432,9 +432,16 @@ BroadcastStyle(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} =
 
 function copy(M::Mul{<:KronTravLayouts, <:DiagTravLayout})
     K,x = M.A,M.B
-    A,B = K.args
     _krontrav_mul_diagtrav(K.args, invdiagtrav(x), eltype(M))
 end
+
+function copy(M::Dot{<:KronTravLayouts, <:DiagTravLayout})
+    K,x = M.A,M.B
+    @assert length(K.args) == 2
+    A,B = K.args
+    _krontrav_mul_diagtrav((A', B'), invdiagtrav(x), eltype(M))
+end
+
 
 _convert_to_diagtrav_or_number(::Type{T}, A::Number) where T = convert(T, A)
 _convert_to_diagtrav_or_number(::Type{T}, A::AbstractMatrix) where T = DiagTrav(convert(AbstractMatrix{T}, A))
