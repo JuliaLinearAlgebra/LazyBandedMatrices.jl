@@ -96,7 +96,7 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
 
     @testset "KronTrav" begin
         Δ = BandedMatrix(1 => Ones(∞), -1 => Ones(∞)) / 2
-        A = KronTrav(Δ - 2I, Eye(∞))
+        A = krontrav(Δ - 2I, Eye(∞))
         @test axes(A, 1) isa OneToInfBlocks
         V = view(A, Block.(Base.OneTo(3)), Block.(Base.OneTo(3)))
 
@@ -108,6 +108,8 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         u = A * [1; zeros(∞)]
         @test u[1:3] == A[1:3, 1]
         @test bandwidths(view(A, Block(1, 1))) == (1, 1)
+
+        @test ([1; zeros(∞)]'*A)[1:10] ≈ u'[1:10]
 
         @test A*A isa KronTrav
         @test *(A,A,A) isa KronTrav

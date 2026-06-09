@@ -370,6 +370,7 @@ const KronTravLayouts = Union{KronTravBandedBlockBandedLayout, KronTravLayout}
 
 
 krontravlayout(::Vararg{Any,M}) where M = KronTravLayout{M}()
+krontravlayout(::Vararg{DualLayout,M}) where M = DualLayout{KronTravLayout{M}}()
 krontravlayout(::AbstractBandedLayout, ::AbstractBandedLayout) = KronTravBandedBlockBandedLayout()
 MemoryLayout(::Type{KronTrav{T,N,AA,AXIS}}) where {T,N,AA,AXIS} = krontravlayout(tuple_type_memorylayouts(AA)...)
 

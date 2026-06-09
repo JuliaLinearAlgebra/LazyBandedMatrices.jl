@@ -4,7 +4,7 @@ using LazyBandedMatrices, FillArrays, BandedMatrices, BlockBandedMatrices, Block
 
 using LinearAlgebra
 import BlockBandedMatrices: isbandedblockbanded, isbanded, BandedBlockBandedStyle, BandedLayout, _BandedBlockBandedMatrix
-import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad, krontrav, diagtrav
+import LazyBandedMatrices: KronTravBandedBlockBandedLayout, BroadcastBandedLayout, BroadcastBandedBlockBandedLayout, arguments, call, blockcolsupport, InvDiagTrav, invdiagtrav, pad, krontrav, diagtrav, KronTravLayout
 import ArrayLayouts: FillLayout, OnesLayout
 import LazyArrays: resizedata!, FillLayout, arguments, colsupport, call, LazyArrayStyle
 import BandedMatrices: BandedColumns
@@ -400,6 +400,15 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         @test a'a ≈ norm(a)^2 ≈ norm(Vector(a))^2
         @test a'b ≈ dot(a,b)
         @test a'K*b ≈ a'*(K*b) ≈ a'Matrix(K)*b
+
+
+        d = KronTrav((1:3)', (4:6)')
+        D = KronTrav(permutedims(1:3), permutedims(4:6))
+        @test MemoryLayout(d) isa DualLayout
+        @test MemoryLayout(D) isa KronTravLayout
+        x = DiagTrav(randn(3,3))
+        @test d*x ≈ Vector(vec(d))'x
+        @test D*x ≈ Matrix(D)*x
     end
 end
 
