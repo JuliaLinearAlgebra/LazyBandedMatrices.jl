@@ -435,15 +435,7 @@ function copy(M::Mul{<:KronTravLayouts, <:DiagTravLayout})
     _krontrav_mul_diagtrav(K.args, invdiagtrav(x), eltype(M))
 end
 
-function copy(M::Dot{<:KronTravLayouts, <:DiagTravLayout})
-    K,x = M.A,M.B
-    @assert length(K.args) == 2
-    A,B = K.args
-    _krontrav_mul_diagtrav((A', B'), invdiagtrav(x), eltype(M))
-end
-
-
-_convert_to_diagtrav_or_number(::Type{T}, A::Number) where T = convert(T, A)
+# _convert_to_diagtrav_or_number(::Type{T}, A::Number) where T = convert(T, A)
 _convert_to_diagtrav_or_number(::Type{T}, A::AbstractMatrix) where T = DiagTrav(convert(AbstractMatrix{T}, A))
 _krontrav_mul_diagtrav((A,B), X::AbstractMatrix, ::Type{T}) where T = _convert_to_diagtrav_or_number(T, B*X*A')
 function _krontrav_mul_diagtrav((A,B,C), X::AbstractArray{<:Any,3}, ::Type{T}) where T
