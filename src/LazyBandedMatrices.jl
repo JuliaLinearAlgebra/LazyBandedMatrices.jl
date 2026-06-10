@@ -9,7 +9,7 @@ import Base: -, +, *, /, \, ==, AbstractMatrix, Matrix, Array, size, conj, real,
 import Base.Broadcast: Broadcasted, BroadcastStyle, broadcasted, instantiate
 import LinearAlgebra: transpose, adjoint, istriu, istril, isdiag, tril!, triu!, det, logabsdet,
                         symmetric, symmetric_type, diag, issymmetric, UniformScaling, char_uplo,
-                        AbstractTriangular, AdjOrTrans, StructuredMatrixStyle, Diagonal
+                        AbstractTriangular, AdjOrTrans, StructuredMatrixStyle, Diagonal, dot
 
 import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldata, supdiagonaldata, subdiagonaldata,
                      symtridiagonallayout, tridiagonallayout, symmetriclayout,
