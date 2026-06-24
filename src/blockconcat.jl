@@ -500,3 +500,46 @@ end
 function BlockArrays._show_typeof(io::IO, B::BlockVcat{T}) where T
     print(io, "BlockVcat{$T}")
 end
+
+
+####
+# broadcasting
+####
+
+for Cat in (:BlockVcat, :BlockHcat)
+     @eval begin
+        function layout_broadcasted(op, A::$Cat, c::Number)
+            Aargs = arguments(A)
+            $Cat(_flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, x, y), Aargs, c))...)
+        end
+        function layout_broadcasted(op, c::Number, A::$Cat)
+            Aargs = arguments(A)
+            $Cat(_flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, x, y), c, Aargs))...)
+        end
+        function layout_broadcasted(op, A::$Cat, c::Ref)
+            Aargs = arguments(A)
+            $Cat(_flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, x, Ref(y)), Aargs, c))...)
+        end
+        function layout_broadcasted(op, c::Ref, A::$Cat)
+            Aargs = arguments(A)
+            $Cat(_flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, Ref(x), y), c, Aargs))...)
+        end
+     end
+ end
+
+function layout_broadcasted(op, A::BlockHvcat, c::Number)
+    Aargs = arguments(A)
+    BlockHvcat(A.n, _flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, x, y), Aargs, c))...)
+end
+function layout_broadcasted(op, c::Number, A::BlockHvcat)
+    Aargs = arguments(A)
+    BlockHvcat(A.n, _flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, x, y), c, Aargs))...)
+end
+function layout_broadcasted(op, A::BlockHvcat, c::Ref)
+    Aargs = arguments(A)
+    BlockHvcat(A.n, _flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, x, Ref(y)), Aargs, c))...)
+end
+function layout_broadcasted(op, c::Ref, A::BlockHvcat)
+    Aargs = arguments(A)
+    BlockHvcat(A.n, _flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, Ref(x), y), c, Aargs))...)
+end

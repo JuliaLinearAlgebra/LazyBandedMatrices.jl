@@ -154,6 +154,12 @@ end
         a = BlockVcat(1:2, 1:3)
         @test summary(a) == "2-blocked 5-element BlockVcat{$Int}"
     end
+
+    @testset "multiplication" begin
+        a = BlockVcat(1:2, 1:3)
+        @test 2a ≡ a*2 ≡ BlockVcat(2*(1:2), 2*(1:3))
+        @test 2a == Ref(2) .* a  ==  a .* Ref(2)
+    end
 end
 
 @testset "BlockHcat" begin
@@ -291,6 +297,12 @@ end
         a = BlockHcat(1:3, 1:3)
         @test summary(a) == "1×2-blocked 3×2 BlockHcat{$Int}"
     end
+
+    @testset "multiplication" begin
+        a = BlockHcat(1:3, 1:3)
+        @test 2a ≡ a*2 ≡ BlockHcat(2*(1:3), 2*(1:3))
+        @test 2a == Ref(2) .* a  ==  a .* Ref(2)
+    end
 end
 
 @testset "BlockHvcat" begin
@@ -308,6 +320,11 @@ end
 
     @test H + I isa BroadcastArray
     @test H' + I isa BroadcastArray
+
+    @testset "multiplication" begin
+        @test blockisequal(axes(H), axes(2H))
+        @test 2H == H*2 == Ref(2) .* H  ==  H .* Ref(2)
+    end
 end
 
 
