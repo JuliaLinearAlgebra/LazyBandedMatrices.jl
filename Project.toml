@@ -24,7 +24,7 @@ LazyBandedMatricesInfiniteArraysExt = "InfiniteArrays"
 [compat]
 ArrayLayouts = "1.2.1"
 BandedMatrices = "1.0"
-BlockArrays = "1.0"
+BlockArrays = "1.9.4"
 BlockBandedMatrices = "0.13"
 FillArrays = "1.0"
 InfiniteArrays = "0.15"

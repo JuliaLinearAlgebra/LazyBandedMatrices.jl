@@ -40,7 +40,8 @@ _vcat_axes_2(a...) = __vcat_axes(_vcat_axes_args_2(a...)...)
 axes(b::BlockVcat) = b.axes
 
 copy(b::BlockVcat{T,N}) where {T,N} = BlockVcat{T,N}(map(copy, b.arrays)...)
-copy(b::AdjOrTrans{<:Any,<:BlockVcat}) = copy(parent(b))'
+copy(b::Adjoint{<:Any,<:BlockVcat}) = copy(parent(b))'
+copy(b::Transpose{<:Any,<:BlockVcat}) = transpose(copy(parent(b)))
 AbstractArray{T}(B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(map(AbstractArray{T}, B.arrays)...)
 AbstractArray{T,N}(B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(map(AbstractArray{T}, B.arrays)...)
 convert(::Type{AbstractArray{T}}, B::BlockVcat{<:Any,N}) where {T,N} = BlockVcat{T,N}(convert.(AbstractArray{T}, B.arrays)...)
@@ -329,15 +330,8 @@ Base.BroadcastStyle(::Type{<:AdjOrTrans{<:Any,<:BlockHcat}}) = LazyArrayStyle{2}
 Base.BroadcastStyle(::Type{<:AdjOrTrans{<:Any,<:BlockHvcat}}) = LazyArrayStyle{2}()
 
 
-function getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int)
-    K = findblockindex(axes(A,1), k)
-    A.args[blockindex(K)][Int(block(K))]
-end
-
-function getindex(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int)
-    J = findblockindex(axes(A,2), j)
-    A.args[blockindex(J)][k,Int(block(J))]
-end
+getindex(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Int) = A[findblockindex(axes(A,1), k)]
+getindex(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, k::Int, j::Int) = A[findblockindex(axes(A,1), k), findblockindex(axes(A,2), j)]
 
 function getindex(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, k::Int, j::Int)
     K,J = findblockindex.(axes(A), (k,j))
@@ -353,7 +347,7 @@ end
 _view_blockvec(A, k) = view(A, k)
 _view_blockvec(A::AbstractVector, k::Block{2}) = view(A, Block(k.n[1]))
 
-viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Int(k))...)
+viewblock(A::BlockBroadcastVector{<:Any,typeof(vcat)}, k::Block{1}) = Vcat(getindex.(A.args, Ref(k))...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}, kj::Block{2}) = Hcat(_view_blockvec.(A.args, Ref(kj))...)
 viewblock(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}, kj::Block{2}) = ApplyArray(hvcat, first(A.args), getindex.(tail(A.args), kj.n...)...)
 
@@ -543,3 +537,45 @@ function layout_broadcasted(op, c::Ref, A::BlockHvcat)
     Aargs = arguments(A)
     BlockHvcat(A.n, _flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, Ref(x), y), c, Aargs))...)
 end
+
+
+"""
+    BlockInterlaceVector(a1, a2, a3, …)
+
+Creates a new block vector by interlacing the blocks of the inputs.
+"""
+struct BlockInterlaceVector{T, Arrays, Axes} <: AbstractBlockVector{T}
+    vectors::Arrays
+    axes::Axes
+end
+
+function BlockInterlaceVector{T,Arrays}(vectors::Arrays) where {T,Arrays}
+    ax = _blockinterlacevector_axes(axes.(vectors,1)...)
+    BlockInterlaceVector{T,Arrays, typeof(ax)}(vectors, ax)
+end
+BlockInterlaceVector{T}(vectors...) where T = BlockInterlaceVector{T,typeof(vectors)}(vectors)
+BlockInterlaceVector(vectors::AbstractArray...) = BlockInterlaceVector{mapreduce(eltype, promote_type, vectors)}(arrays...)
+
+
+
+axes(b::BlockInterlaceVector) = b.axes
+
+copy(b::BlockInterlaceVector{T}) where {T} = BlockInterlaceVector{T}(map(copy, b.vectors)...)
+copy(b::Adjoint{<:Any,<:BlockInterlaceVector}) = copy(parent(b))'
+copy(b::Transpose{<:Any,<:BlockInterlaceVector}) = transpose(copy(parent(b)))
+AbstractArray{T}(B::BlockInterlaceVector{<:Any}) where {T} = BlockInterlaceVector{T}(map(AbstractArray{T}, B.vectors)...)
+AbstractVector{T}(B::BlockInterlaceVector{<:Any,1}) where {T} = BlockInterlaceVector{T}(map(AbstractArray{T}, B.vectors)...)
+convert(::Type{AbstractArray{T}}, B::BlockInterlaceVector) where {T} = BlockInterlaceVector{T}(convert.(AbstractArray{T}, B.vectors)...)
+convert(::Type{AbstractVector{T}}, B::BlockInterlaceVector) where {T} = BlockInterlaceVector{T}(convert.(AbstractArray{T}, B.vectors)...)
+convert(::Type{AbstractArray{T}}, B::BlockInterlaceVector{T}) where {T} = B
+convert(::Type{AbstractVector{T}}, B::BlockInterlaceVector{T}) where {T} = B
+
+
+# avoid making naive view
+
+viewblock(b::BlockInterlaceVector, K::Block) = view(b.vectors[mod(Int(K)-1, length(b.arrays))], Block((Int(K) - 1 ) ÷ length(b.vectors) + 1))
+
+getindex(b::BlockInterlaceVector, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
+getindex(b::BlockInterlaceVector, k::Integer) = b[findblockindex(axes(b,1), k)]
+
+MemoryLayout(::Type{<:BlockInterlaceVector}) = LazyLayout()

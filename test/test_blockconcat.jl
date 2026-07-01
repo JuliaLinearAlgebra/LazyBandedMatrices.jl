@@ -1,7 +1,7 @@
 module TestBlockConcat
 
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
+import LazyBandedMatrices: BlockBroadcastArray, BlockBroadcastVector, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
 import BlockArrays: blockvec
 using LinearAlgebra
 import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
@@ -366,6 +366,18 @@ end
             @test Ã == A[1:6]
             @test_throws BoundsError A[7]
             @test !isassigned(A,7)
+        end
+
+        @testset "different block sizes" begin
+            n = 10
+            a = BlockVcat([1], BlockBroadcastVector{Int}(vcat, unitblocks(1:n), unitblocks(Fill(2,n))))
+            b = unitblocks(1:n+1)
+            v = BlockBroadcastVector{Int}(vcat, a, b)
+            h = BlockBroadcastMatrix{Int}(hcat, a', b');
+            @test v[Block(1)] == v[1:2] == [1,1]
+            @test v[Block(2)] == v[3:5] == [1,2,2]
+            @test h[Block(1,2)] == h[Block(1),Block(2)] == h[1:1,3:5] == [1 2 2] 
+            @test h[1,Block(2)[3]] == h[Block(1,2)[1,3]] == h[Block(1)[1], Block(2)[3]] == 2
         end
     end
     @testset "hcat" begin

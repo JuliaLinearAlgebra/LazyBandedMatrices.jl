@@ -38,7 +38,7 @@ const LazyBlockBandedLayouts = LazyArraysBlockBandedMatricesExt.LazyBlockBandedL
 const BlockVec = LazyArraysBlockArraysExt.BlockVec
 
 
-export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
+export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockBroadcastVector, BlockBroadcastMatrix, BlockVcat, BlockHcat, BlockHvcat, unitblocks
 
 ## TODO: export diagtrav, invdiagtrav
 
