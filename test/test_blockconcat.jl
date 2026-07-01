@@ -432,7 +432,7 @@ end
 
 
             V = view(A, Block.(1:3),Block.(1:3))
-            @test MemoryLayout(V) isa LazyBandedMatrices.BlockBandedInterlaceLayout
+            @test MemoryLayout(V) isa LazyBandedMatrices.BlockBandedHvcatLayout
             @test arguments(V) == (2,a[1:3,1:3],z[1:3,1:3],z[1:3,1:3],a[1:3,1:3])
         end
     end
