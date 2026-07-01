@@ -286,9 +286,9 @@ BlockBroadcastArray{T}(::typeof(Diagonal), args...) where T = BlockBroadcastMatr
 
 _block_vcat_axes(ax...) = BlockArrays.BlockedOneTo(+(map(blocklasts,ax)...))
 
-_block_interlace_axes(::Int, ax::Tuple{BlockedOneTo{Int,OneTo{Int}}}...) = _block_vcat_axes(ax...)
+_block_hvcat_axes(::Int, ax::Tuple{BlockedOneTo{Int,OneTo{Int}}}...) = _block_vcat_axes(ax...)
 
-function _block_interlace_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneTo{Int}}}...)
+function _block_hvcat_axes(nbc::Int, ax::NTuple{2,BlockedOneTo{Int,OneTo{Int}}}...)
     n,m = max(length.(first.(ax))...),max(length.(last.(ax))...)
     (blockedrange(Fill(length(ax) ÷ nbc, n)),blockedrange(Fill(mod1(length(ax),nbc), m)))
 end
@@ -298,7 +298,7 @@ blockbroadcast_eltype(::typeof(hvcat), ::Integer, args::AbstractArray...) = prom
 axes(A::BlockBroadcastVector{<:Any,typeof(vcat)}) = (_block_vcat_axes(axes.(A.args,1)...),)
 axes(A::BlockBroadcastMatrix{<:Any,typeof(hcat)}) = (axes(A.args[1],1), _block_vcat_axes(axes.(A.args,2)...))
 
-axes(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = _block_interlace_axes(A.args[1], map(axes,A.args[2:end])...)
+axes(A::BlockBroadcastMatrix{<:Any,typeof(hvcat)}) = _block_hvcat_axes(A.args[1], map(axes,A.args[2:end])...)
 axes(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = (_block_vcat_axes(axes.(A.args,1)...), _block_vcat_axes(axes.(A.args,2)...))
 # size(A::BlockBroadcastArray) = map(length, axes(A))
 
@@ -401,34 +401,34 @@ blockhcatlayout(_...) = ApplyLayout{typeof(hcat)}()
 blockhcatlayout(::AbstractBandedLayout, ::AbstractBlockBandedLayout) = ApplyBlockBandedLayout{typeof(hcat)}()
 MemoryLayout(::Type{<:BlockHcat{<:Any,Arrays}}) where Arrays = blockhcatlayout(LazyArrays.tuple_type_memorylayouts(Arrays)...)
 
-struct BlockBandedInterlaceLayout <: AbstractLazyBlockBandedLayout end
+struct BlockBandedHvcatLayout <: AbstractLazyBlockBandedLayout end
 
-sublayout(::BlockBandedInterlaceLayout, ::Type{<:NTuple{2,BlockSlices}}) = BlockBandedInterlaceLayout()
+sublayout(::BlockBandedHvcatLayout, ::Type{<:NTuple{2,BlockSlices}}) = BlockBandedHvcatLayout()
 
-arguments(::BlockBandedInterlaceLayout, A::BlockBroadcastMatrix{<:Any,typeof(vcat)}) = A.args
+arguments(::BlockBandedHvcatLayout, A::BlockBroadcastMatrix{<:Any,typeof(vcat)}) = A.args
 
 # avoid extra types, since we are using int indexing for now...
 # TODO: rewrite when other block sizes are allowed
 deblock(A::BlockedArray) = A.blocks
 deblock(A::Zeros{T}) where T = Zeros{T}(size(A)...)
-function arguments(::BlockBandedInterlaceLayout, A::SubArray)
+function arguments(::BlockBandedHvcatLayout, A::SubArray)
     P = parent(A)
-    args = arguments(BlockBandedInterlaceLayout(), P)
+    args = arguments(BlockBandedHvcatLayout(), P)
     KR,JR = parentindices(A)
     kr,jr = Int.(KR.block),Int.(JR.block)
     tuple(first(args), view.(deblock.(tail(args)), Ref(kr), Ref(jr))...)
 end
 
-# function _copyto!(::BlockBandedColumnMajor, ::BlockBandedInterlaceLayout, dest::AbstractMatrix, src::AbstractMatrix)
-#     args = arguments(BlockBandedInterlaceLayout(), src)
+# function _copyto!(::BlockBandedColumnMajor, ::BlockBandedHvcatLayout, dest::AbstractMatrix, src::AbstractMatrix)
+#     args = arguments(BlockBandedHvcatLayout(), src)
 #     N,M = blocksize(dest)
 
 # end
 
-blockinterlacelayout(_...) = LazyLayout()
-blockinterlacelayout(::Union{ZerosLayout,AbstractPaddedLayout,AbstractBandedLayout}...) = BlockBandedInterlaceLayout()
+blockhvcatlayout(_...) = LazyLayout()
+blockhvcatlayout(::Union{ZerosLayout,AbstractPaddedLayout,AbstractBandedLayout}...) = BlockBandedHvcatLayout()
 
-MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockinterlacelayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
+MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hvcat),Arrays}}) where Arrays = blockhvcatlayout(Base.tail(LazyArrays.tuple_type_memorylayouts(Arrays))...)
 
 # temporary hack, need to think of how to flag as lazy for infinite case.
 MemoryLayout(::Type{<:BlockBroadcastMatrix{<:Any,typeof(hcat),Arrays}}) where Arrays = LazyLayout()
