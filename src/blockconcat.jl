@@ -588,3 +588,4 @@ function layout_broadcasted(op, c::Ref, A::BlockHvcat)
     Aargs = arguments(A)
     BlockHvcat(A.n, _flatten_nums(Aargs, broadcast((x,y) -> broadcast(op, Ref(x), y), c, Aargs))...)
 end
+end
