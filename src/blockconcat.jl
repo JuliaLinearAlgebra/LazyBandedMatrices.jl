@@ -497,61 +497,61 @@ end
 
 
 """
-    BlockInterlaceVector(a1, a2, a3, …)
+    BlockInterlace(a1, a2, a3, …)
 
 Creates a new block vector by interlacing the blocks of the inputs.
 """
-struct BlockInterlaceVector{T, Arrays, Axes} <: AbstractBlockVector{T}
+struct BlockInterlace{T, Arrays, Axes} <: AbstractBlockVector{T}
     vectors::Arrays
     axes::Axes
 end
 
-_blockinterlacevector_axes(a...) = blockedrange(vec(Vcat(map(permutedims, map(blocklengths, a))...)))
+_blockinterlace_axes(a...) = blockedrange(vec(Vcat(map(permutedims, map(blocklengths, a))...)))
 
-function BlockInterlaceVector{T,Arrays}(vectors::Arrays) where {T,Arrays}
-    ax = _blockinterlacevector_axes(axes.(vectors,1)...)
-    BlockInterlaceVector{T,Arrays, typeof(ax)}(vectors, ax)
+function BlockInterlace{T,Arrays}(vectors::Arrays) where {T,Arrays}
+    ax = _blockinterlace_axes(axes.(vectors,1)...)
+    BlockInterlace{T,Arrays, typeof(ax)}(vectors, ax)
 end
-BlockInterlaceVector{T}(vectors...) where T = BlockInterlaceVector{T,typeof(vectors)}(vectors)
-BlockInterlaceVector(vectors::AbstractArray...) = BlockInterlaceVector{mapreduce(eltype, promote_type, vectors)}(vectors...)
+BlockInterlace{T}(vectors...) where T = BlockInterlace{T,typeof(vectors)}(vectors)
+BlockInterlace(vectors::AbstractArray...) = BlockInterlace{mapreduce(eltype, promote_type, vectors)}(vectors...)
 
 
 
-axes(b::BlockInterlaceVector) = (b.axes,)
+axes(b::BlockInterlace) = (b.axes,)
 
-copy(b::BlockInterlaceVector{T}) where {T} = BlockInterlaceVector{T}(map(copy, b.vectors)...)
-copy(b::Adjoint{<:Any,<:BlockInterlaceVector}) = copy(parent(b))'
-copy(b::Transpose{<:Any,<:BlockInterlaceVector}) = transpose(copy(parent(b)))
-AbstractArray{T}(B::BlockInterlaceVector{<:Any}) where {T} = BlockInterlaceVector{T}(map(AbstractArray{T}, B.vectors)...)
-AbstractVector{T}(B::BlockInterlaceVector{<:Any,1}) where {T} = BlockInterlaceVector{T}(map(AbstractArray{T}, B.vectors)...)
-convert(::Type{AbstractArray{T}}, B::BlockInterlaceVector) where {T} = BlockInterlaceVector{T}(convert.(AbstractArray{T}, B.vectors)...)
-convert(::Type{AbstractVector{T}}, B::BlockInterlaceVector) where {T} = BlockInterlaceVector{T}(convert.(AbstractArray{T}, B.vectors)...)
-convert(::Type{AbstractArray{T}}, B::BlockInterlaceVector{T}) where {T} = B
-convert(::Type{AbstractVector{T}}, B::BlockInterlaceVector{T}) where {T} = B
+copy(b::BlockInterlace{T}) where {T} = BlockInterlace{T}(map(copy, b.vectors)...)
+copy(b::Adjoint{<:Any,<:BlockInterlace}) = copy(parent(b))'
+copy(b::Transpose{<:Any,<:BlockInterlace}) = transpose(copy(parent(b)))
+AbstractArray{T}(B::BlockInterlace{<:Any}) where {T} = BlockInterlace{T}(map(AbstractArray{T}, B.vectors)...)
+AbstractVector{T}(B::BlockInterlace{<:Any,1}) where {T} = BlockInterlace{T}(map(AbstractArray{T}, B.vectors)...)
+convert(::Type{AbstractArray{T}}, B::BlockInterlace) where {T} = BlockInterlace{T}(convert.(AbstractArray{T}, B.vectors)...)
+convert(::Type{AbstractVector{T}}, B::BlockInterlace) where {T} = BlockInterlace{T}(convert.(AbstractArray{T}, B.vectors)...)
+convert(::Type{AbstractArray{T}}, B::BlockInterlace{T}) where {T} = B
+convert(::Type{AbstractVector{T}}, B::BlockInterlace{T}) where {T} = B
 
 
 # avoid making naive view
 
-viewblock(b::BlockInterlaceVector, K::Block) = view(b.vectors[mod(Int(K)-1, length(b.vectors))+1], Block((Int(K) - 1 ) ÷ length(b.vectors) + 1))
+viewblock(b::BlockInterlace, K::Block) = view(b.vectors[mod(Int(K)-1, length(b.vectors))+1], Block((Int(K) - 1 ) ÷ length(b.vectors) + 1))
 
-getindex(b::BlockInterlaceVector, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
-getindex(b::BlockInterlaceVector, k::Integer) = b[findblockindex(axes(b,1), k)]
-
-
-struct BlockInterlaceVectorLayout <: AbstractLazyLayout end
-MemoryLayout(::Type{<:BlockInterlaceVector}) = BlockInterlaceVectorLayout()
-
-arguments(::BlockInterlaceVectorLayout, a) = a.vectors
+getindex(b::BlockInterlace, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
+getindex(b::BlockInterlace, k::Integer) = b[findblockindex(axes(b,1), k)]
 
 
-Base.BroadcastStyle(::Type{<:BlockInterlaceVector}) = LazyArrayStyle{1}()
+struct BlockInterlaceLayout <: AbstractLazyLayout end
+MemoryLayout(::Type{<:BlockInterlace}) = BlockInterlaceLayout()
+
+arguments(::BlockInterlaceLayout, a) = a.vectors
+
+
+Base.BroadcastStyle(::Type{<:BlockInterlace}) = LazyArrayStyle{1}()
 
 
 ####
 # broadcasting
 ####
 
-for Cat in (:BlockVcat, :BlockHcat, :BlockInterlaceVector)
+for Cat in (:BlockVcat, :BlockHcat, :BlockInterlace)
      @eval begin
         function layout_broadcasted(op, A::$Cat, c::Number)
             Aargs = arguments(A)
