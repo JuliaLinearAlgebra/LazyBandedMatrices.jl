@@ -15,7 +15,7 @@ import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldat
                      symtridiagonallayout, tridiagonallayout, symmetriclayout,
                      colsupport, rowsupport, sublayout, sub_materialize, _copyto!,
                      materialize!, MulAdd, MatMulVecAdd
-import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout,
+import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout, AbstractLazyLayout,
                    arguments, call, tuple_type_memorylayouts, paddeddata, _broadcast_sub_arguments, resizedata!, _flatten_nums,
                    _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout, applied_eltype, layout_broadcasted
 import BandedMatrices: AbstractBandedMatrix, BandedStyle, bandwidths, isbanded

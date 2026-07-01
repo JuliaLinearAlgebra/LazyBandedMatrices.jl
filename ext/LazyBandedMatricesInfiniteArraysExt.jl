@@ -4,8 +4,8 @@ using LazyBandedMatrices.BlockArrays
 using LazyBandedMatrices.ArrayLayouts
 
 import Base: BroadcastStyle, copy, OneTo, oneto
-import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs, DiagTravLayout, krontrav_materialize_layout, krontrav
-import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, LazyArrayStyle, OneToInf
+import LazyBandedMatrices: _krontrav_axes, _block_interlace_axes, _broadcast_sub_arguments, AbstractLazyBandedBlockBandedLayout, KronTravBandedBlockBandedLayout, krontravargs, DiagTravLayout, krontrav_materialize_layout, krontrav, _blockinterlacevector_axes
+import InfiniteArrays: InfFill, TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, LazyArrayStyle, OneToInf, InfStepRange, InfiniteCardinal
 import LazyBandedMatrices.ArrayLayouts: MemoryLayout, sublayout, RangeCumsum, Mul
 import LazyBandedMatrices.BlockArrays: sizes_from_blocks, BlockedOneTo, BlockSlice1, BlockSlice
 import LazyBandedMatrices.LazyArrays: BroadcastBandedLayout, AbstractPaddedLayout, simplifiable
@@ -62,4 +62,14 @@ copy(M::Mul{<:DualLayout,InfKronTravBandedBlockBandedLayout}) = (M.B'M.A')'
 krontrav_materialize_layout(::InfKronTravBandedBlockBandedLayout, K) = K
 
 
+
+_mod(a,b) = mod(a,b)
+_mod(::InfiniteCardinal{0}, b) = 0 # support last
+# special case for current usage in DeRhamOrthogonalPolynomials
+function _blockinterlacevector_axes(a::BlockedOneTo{Int,InfStepRange{Int,Int}}, ::BlockedOneTo{Int,OneToInf{Int}})
+    n = 1:∞
+    @assert step(a.lasts) == 2
+    @assert first(a.lasts) == 1
+    BlockedOneTo(3 * (n .÷ 2) .+ 2 * _mod.(n,2) .- 1)
+end
 end
