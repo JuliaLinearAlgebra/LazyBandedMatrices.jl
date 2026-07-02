@@ -15,7 +15,7 @@ import ArrayLayouts: MemoryLayout, bidiagonallayout, bidiagonaluplo, diagonaldat
                      symtridiagonallayout, tridiagonallayout, symmetriclayout,
                      colsupport, rowsupport, sublayout, sub_materialize, _copyto!,
                      materialize!, MulAdd, MatMulVecAdd
-import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout,
+import LazyArrays: ApplyLayout, AbstractPaddedLayout, PaddedLayout, PaddedColumns, BroadcastLayout, LazyArrayStyle, LazyLayout, AbstractLazyLayout,
                    arguments, call, tuple_type_memorylayouts, paddeddata, _broadcast_sub_arguments, resizedata!, _flatten_nums,
                    _cumsum, convexunion, applylayout, AbstractLazyBandedLayout, ApplyBandedLayout, BroadcastBandedLayout, LazyBandedLayout, applied_eltype, layout_broadcasted
 import BandedMatrices: AbstractBandedMatrix, BandedStyle, bandwidths, isbanded
@@ -38,7 +38,7 @@ const LazyBlockBandedLayouts = LazyArraysBlockBandedMatricesExt.LazyBlockBandedL
 const BlockVec = LazyArraysBlockArraysExt.BlockVec
 
 
-export DiagTrav, KronTrav, blockkron, BlockKron, BlockBroadcastArray, BlockVcat, BlockHcat, BlockHvcat, unitblocks
+export DiagTrav, KronTrav, blockkron, BlockKron, BlockInterlace, BlockBroadcastArray, BlockBroadcastVector, BlockBroadcastMatrix, BlockVcat, BlockHcat, BlockHvcat, unitblocks, blockinterlace
 
 ## TODO: export diagtrav, invdiagtrav
 
@@ -50,6 +50,7 @@ include("special.jl")
 unitblocks(a::AbstractArray) = BlockedArray(a, Ones{Int}.(axes(a))...)
 unitblocks(a::OneTo) = blockedrange(Ones{Int}(length(a)))
 unitblocks(a::AbstractUnitRange) = BlockArrays._BlockedUnitRange(first(a), (first(a)-1) .+ BlockArrays._blocklengths2blocklasts(Ones{Int}(length(a))))
+unitblocks(D::Diagonal) = Diagonal(unitblocks(D.diag))
 
 
 
