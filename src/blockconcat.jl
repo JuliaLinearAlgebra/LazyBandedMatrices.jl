@@ -540,7 +540,7 @@ viewblock(b::BlockInterlace{<:Any,1}, K::Block{1}) = view(b.arrays[mod(Int(K)-1,
 function viewblock(b::BlockInterlace{T,2}, KJ::Block{2}) where T
     k,j = KJ.n
     ind = mod(k-1, length(b.arrays))+1
-    if mod(j-1, length(b.arrays))+1 == k
+    if mod(j-1, length(b.arrays))+1 == ind
         view(b.arrays[ind],  Block((k-1) ÷ length(b.arrays) + 1, (j-1) ÷ length(b.arrays) + 1))
     else
         Zeros{T}(length(axes(b,1)[Block(k)]),  length(axes(b,2)[Block(j)]))
