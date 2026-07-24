@@ -327,6 +327,45 @@ end
     end
 end
 
+@testset "BlockInterlace" begin
+    @testset "vector" begin
+        a = BlockedArray(1:4, [2,2])
+        b = BlockedArray(11:14, [2,2])
+        v = blockinterlace(a, b)
+
+        @test v[Block(1)] == a[Block(1)]
+        @test v[Block(2)] == b[Block(1)]
+        @test v[Block(3)] == a[Block(2)]
+        @test v[3] == 11
+
+        @test copy(v) == v
+        @test AbstractArray{Float64}(v) == convert(AbstractVector{Float64}, v) == v
+        @test convert(AbstractArray{Int}, v) === v
+        @test convert(AbstractVector{Int}, v) === v
+        @test copy(v') == v'
+    end
+
+    @testset "matrix" begin
+        A = BlockedArray(reshape(1:4, 2, 2), [1,1], [1,1])
+        B = BlockedArray(reshape(11:14, 2, 2), [1,1], [1,1])
+        M = BlockInterlace(A, B)
+
+        @test M[Block(1,1)] == A[Block(1,1)]
+        @test M[Block(2,2)] == B[Block(1,1)]
+        @test M[Block(1,2)] == zeros(1,1)
+        @test M[1,2] == 0
+    end
+
+    @testset "diagonal" begin
+        d1 = Diagonal(unitblocks([1,2]))
+        d2 = Diagonal(unitblocks([3,4]))
+        D = blockinterlace(d1, d2)
+
+        @test D isa Diagonal
+        @test D.diag == [1,3,2,4]
+    end
+end
+
 
 @testset "Interlace" begin
     @testset "vcat" begin
