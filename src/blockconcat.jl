@@ -548,7 +548,7 @@ function viewblock(b::BlockInterlace{T,2}, KJ::Block{2}) where T
 end
 
 getindex(b::BlockInterlace, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
-getindex(b::BlockInterlace, k::Integer...) = b[findblockindex.(axes(b), k)...]
+getindex(b::BlockInterlace{<:Any,N}, k::Vararg{Integer,N}) where N = b[findblockindex.(axes(b), k)...]
 
 MemoryLayout(::Type{<:BlockInterlace}) = ApplyLayout{typeof(blockinterlace)}()
 

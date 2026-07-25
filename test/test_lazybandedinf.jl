@@ -214,4 +214,11 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test T[Block(2, 2)] == [1 2; 3 4]
         @test_broken T[Block(1, 3)] == Zeros(2, 2)
     end
+
+    @testset "inf BlockInterlace" begin
+        a = BlockedOneTo(1:2:∞)
+        b = unitblocks(Base.oneto(∞))
+        c = blockinterlace(a, b)
+        @test c[Block.(1:3)] == [1; 1; 2; 3]
+    end
 end

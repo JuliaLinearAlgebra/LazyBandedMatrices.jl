@@ -337,6 +337,7 @@ end
         @test v[Block(1)] == a[Block(1)]
         @test v[Block(2)] == b[Block(1)]
         @test v[Block(3)] == a[Block(2)]
+        @test v[1] == v[1,1] == 1
         @test v[3] == 11
         @test v[Block(2)[1]] == 11
         @test eltype(w) == Float64
