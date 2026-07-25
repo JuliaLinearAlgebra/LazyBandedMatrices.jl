@@ -332,17 +332,22 @@ end
         a = BlockedArray(1:4, [2,2])
         b = BlockedArray(11:14, [2,2])
         v = blockinterlace(a, b)
+        w = BlockInterlace(a, Float64.(b))
 
         @test v[Block(1)] == a[Block(1)]
         @test v[Block(2)] == b[Block(1)]
         @test v[Block(3)] == a[Block(2)]
         @test v[3] == 11
+        @test v[Block(2)[1]] == 11
+        @test eltype(w) == Float64
 
         @test copy(v) == v
         @test AbstractArray{Float64}(v) == convert(AbstractVector{Float64}, v) == v
         @test convert(AbstractArray{Int}, v) === v
         @test convert(AbstractVector{Int}, v) === v
         @test copy(v') == v'
+        @test Ref(2) .* v == v .* Ref(2) == 2 .* v
+        @test arguments(MemoryLayout(v), v) == v.arrays
     end
 
     @testset "matrix" begin
@@ -354,6 +359,9 @@ end
         @test M[Block(2,2)] == B[Block(1,1)]
         @test M[Block(1,2)] == zeros(1,1)
         @test M[1,2] == 0
+        @test copy(M') == M'
+        @test copy(transpose(M)) == transpose(M)
+        @test AbstractArray{Float64,2}(M) == AbstractArray{Float64}(M) == convert(AbstractArray{Float64}, M) == M
     end
 
     @testset "diagonal" begin
