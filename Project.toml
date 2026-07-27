@@ -1,7 +1,7 @@
 name = "LazyBandedMatrices"
 uuid = "d7e5e226-e90b-4449-9968-0f923699bf6f"
 authors = ["Sheehan Olver <solver@mac.com>"]
-version = "0.11.9"
+version = "0.11.10"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
@@ -24,7 +24,7 @@ LazyBandedMatricesInfiniteArraysExt = "InfiniteArrays"
 [compat]
 ArrayLayouts = "1.2.1"
 BandedMatrices = "1.0"
-BlockArrays = "1.0"
+BlockArrays = "1.9.4"
 BlockBandedMatrices = "0.13"
 FillArrays = "1.0"
 InfiniteArrays = "0.15"

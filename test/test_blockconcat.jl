@@ -1,7 +1,7 @@
 module TestBlockConcat
 
 using LazyBandedMatrices, BlockBandedMatrices, BlockArrays, StaticArrays, FillArrays, LazyArrays, ArrayLayouts, BandedMatrices, Test
-import LazyBandedMatrices: BlockBroadcastArray, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
+import LazyBandedMatrices: BlockBroadcastArray, BlockBroadcastVector, blockcolsupport, blockrowsupport, arguments, paddeddata, resizedata!, BlockVec
 import BlockArrays: blockvec
 using LinearAlgebra
 import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
@@ -327,6 +327,54 @@ end
     end
 end
 
+@testset "BlockInterlace" begin
+    @testset "vector" begin
+        a = BlockedArray(1:4, [2,2])
+        b = BlockedArray(11:14, [2,2])
+        v = blockinterlace(a, b)
+        w = BlockInterlace(a, Float64.(b))
+
+        @test v[Block(1)] == a[Block(1)]
+        @test v[Block(2)] == b[Block(1)]
+        @test v[Block(3)] == a[Block(2)]
+        @test v[1] == v[1,1] == 1
+        @test v[3] == 11
+        @test v[Block(2)[1]] == 11
+        @test eltype(w) == Float64
+
+        @test copy(v) == v
+        @test AbstractArray{Float64}(v) == convert(AbstractVector{Float64}, v) == v
+        @test convert(AbstractArray{Int}, v) === v
+        @test convert(AbstractVector{Int}, v) === v
+        @test copy(v') == v'
+        @test Ref(2) .* v == v .* Ref(2) == 2 .* v
+        @test arguments(MemoryLayout(v), v) == v.arrays
+    end
+
+    @testset "matrix" begin
+        A = BlockedArray(reshape(1:4, 2, 2), [1,1], [1,1])
+        B = BlockedArray(reshape(11:14, 2, 2), [1,1], [1,1])
+        M = BlockInterlace(A, B)
+
+        @test M[Block(1,1)] == A[Block(1,1)]
+        @test M[Block(2,2)] == B[Block(1,1)]
+        @test M[Block(1,2)] == zeros(1,1)
+        @test M[1,2] == 0
+        @test copy(M') == M'
+        @test copy(transpose(M)) == transpose(M)
+        @test AbstractArray{Float64,2}(M) == AbstractArray{Float64}(M) == convert(AbstractArray{Float64}, M) == M
+    end
+
+    @testset "diagonal" begin
+        d1 = Diagonal(unitblocks([1,2]))
+        d2 = Diagonal(unitblocks([3,4]))
+        D = blockinterlace(d1, d2)
+
+        @test D isa Diagonal
+        @test D.diag == [1,3,2,4]
+    end
+end
+
 
 @testset "Interlace" begin
     @testset "vcat" begin
@@ -366,6 +414,18 @@ end
             @test Ã == A[1:6]
             @test_throws BoundsError A[7]
             @test !isassigned(A,7)
+        end
+
+        @testset "different block sizes" begin
+            n = 10
+            a = BlockVcat([1], BlockBroadcastVector{Int}(vcat, unitblocks(1:n), unitblocks(Fill(2,n))))
+            b = unitblocks(1:n+1)
+            v = BlockBroadcastVector{Int}(vcat, a, b)
+            h = BlockBroadcastMatrix{Int}(hcat, a', b');
+            @test v[Block(1)] == v[1:2] == [1,1]
+            @test v[Block(2)] == v[3:5] == [1,2,2]
+            @test h[Block(1,2)] == h[Block(1),Block(2)] == h[1:1,3:5] == [1 2 2] 
+            @test h[1,Block(2)[3]] == h[Block(1,2)[1,3]] == h[Block(1)[1], Block(2)[3]] == 2
         end
     end
     @testset "hcat" begin
@@ -420,7 +480,7 @@ end
 
 
             V = view(A, Block.(1:3),Block.(1:3))
-            @test MemoryLayout(V) isa LazyBandedMatrices.BlockBandedInterlaceLayout
+            @test MemoryLayout(V) isa LazyBandedMatrices.BlockBandedHvcatLayout
             @test arguments(V) == (2,a[1:3,1:3],z[1:3,1:3],z[1:3,1:3],a[1:3,1:3])
         end
     end
