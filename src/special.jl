@@ -267,3 +267,10 @@ import LinearAlgebra: TypeFuncs
 LinearAlgebra.isstructurepreserving(::Union{typeof(abs),typeof(big)}, ::Union{Tridiagonal,SymTridiagonal,Bidiagonal}) = true
 LinearAlgebra.isstructurepreserving(::TypeFuncs, ::Union{Tridiagonal,SymTridiagonal,Bidiagonal}) = true
 LinearAlgebra.isstructurepreserving(::TypeFuncs, ::Ref{<:Type}, ::Union{Tridiagonal,SymTridiagonal,Bidiagonal}) = true
+
+
+function resizedata!(B::SymTridiagonal, m, n)
+    resizedata!(B.dv, min(m, n))
+    resizedata!(B.ev, min(m, n)-1)
+    B
+end
