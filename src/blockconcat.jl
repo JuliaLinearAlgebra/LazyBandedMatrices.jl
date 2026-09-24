@@ -474,8 +474,10 @@ blockbroadcastlayout(::Type{typeof(vcat)}, ::PaddedColumns...) = PaddedColumns{U
 function paddeddata(B::BlockBroadcastVector{T,typeof(vcat)}) where T
     dats = map(paddeddata,B.args)
     N = max(map(length,dats)...)
-    all(length.(dats) .== N) || error("differening padded lengths not supported")
-    BlockBroadcastVector{T}(vcat, dats...)
+    all(length.(dats) .== N) && return BlockBroadcastVector{T}(vcat, dats...)
+    # differing lengths: take enough blocks of each argument to contain all the padded data
+    NB = maximum(map((a,d) -> isempty(d) ? 0 : Int(findblock(axes(a,1), length(d))), B.args, dats))
+    BlockBroadcastVector{T}(vcat, map(a -> a[Block.(1:NB)], B.args)...)
 end
 
 MemoryLayout(::Type{BlockBroadcastArray{T,N,FF,Args}}) where {T,N,FF,Args} = blockbroadcastlayout(FF, tuple_type_memorylayouts(Args)...)
