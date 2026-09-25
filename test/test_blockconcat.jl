@@ -402,8 +402,13 @@ end
             @test C[1:2:end] == a
             @test C[2:2:end] == a
 
-            # differening data sizes not supported yet
-            @test_throws ErrorException paddeddata(BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b)))
+            # differing data sizes are padded with zeros
+            D = BlockBroadcastArray(vcat,unitblocks(a),unitblocks(b))
+            @test paddeddata(D) == [vec([a[1:4] b[1:4]]'); zeros(0)]
+            @test blocksize(paddeddata(D)) == (4,)
+            @test D[1:2:end] == a
+            @test D[2:2:end] == b
+            @test paddeddata(BlockBroadcastArray(vcat,unitblocks(b),unitblocks(a))) == vec([b[1:4] a[1:4]]')
         end
 
         @testset "resize!" begin
