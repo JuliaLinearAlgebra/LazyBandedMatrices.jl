@@ -511,8 +511,8 @@ end
     a = BlockedVector(randn(ComplexF64,3), [1,2])
     b = BlockedVector(randn(ComplexF64,3), [1,2])
     for M in (BlockVcat(A, C), BlockHcat(A, B), BlockHvcat(2, A, B, C, D), BlockBroadcastArray(hcat, a, b))
-        @test copy(M') == Matrix(M)'
-        @test copy(transpose(M)) == transpose(Matrix(M))
+        @test copy(M') == copy(Adjoint(M)) == Matrix(M)'
+        @test copy(transpose(M)) == copy(Transpose(M)) == transpose(Matrix(M))
     end
 end
 
