@@ -112,7 +112,8 @@ _block_hcat_axes(a::AbstractVector, b::AbstractVector...) = (axes(a,1),blockedra
 axes(b::BlockHcat) = b.axes
 
 copy(b::BlockHcat{T}) where T = BlockHcat{T}(map(copy, b.arrays)...)
-copy(b::AdjOrTrans{<:Any,<:BlockHcat}) = copy(parent(b))'
+copy(b::Adjoint{<:Any,<:BlockHcat}) = copy(parent(b))'
+copy(b::Transpose{<:Any,<:BlockHcat}) = transpose(copy(parent(b)))
 AbstractArray{T}(B::BlockHcat) where T = BlockHcat{T}(map(AbstractArray{T}, B.arrays)...)
 AbstractMatrix{T}(B::BlockHcat) where T = BlockHcat{T}(map(AbstractArray{T}, B.arrays)...)
 convert(::Type{AbstractArray{T}}, B::BlockHcat) where T = BlockHcat{T}(convert.(AbstractArray{T}, B.arrays)...)
@@ -217,7 +218,8 @@ BlockHvcat(n::Int, args...) = BlockHvcat{mapreduce(eltype, promote_type, args)}(
 axes(b::BlockHvcat) = (_vcat_axes_1(b.args[1:b.n:end]...),_vcat_axes_2(b.args[1:b.n]...))
 
 copy(b::BlockHvcat{T}) where T = BlockHvcat{T}(b.n, map(copy, b.args)...)
-copy(b::AdjOrTrans{<:Any,<:BlockHvcat}) = copy(parent(b))'
+copy(b::Adjoint{<:Any,<:BlockHvcat}) = copy(parent(b))'
+copy(b::Transpose{<:Any,<:BlockHvcat}) = transpose(copy(parent(b)))
 
 # _hvcat_viewifblocked(::OneTo, a::AbstractMatrix, k) = a
 # _hvcat_viewifblocked(::OneTo, a::AbstractVector, k) = a
@@ -303,7 +305,8 @@ axes(A::BlockBroadcastMatrix{<:Any,typeof(Diagonal)}) = (_block_vcat_axes(axes.(
 # size(A::BlockBroadcastArray) = map(length, axes(A))
 
 copy(b::BlockBroadcastArray{T,N}) where {T,N} = BlockBroadcastArray{T,N}(b.f, map(copy, b.args)...)
-copy(b::AdjOrTrans{<:Any,<:BlockBroadcastArray}) = copy(parent(b))'
+copy(b::Adjoint{<:Any,<:BlockBroadcastArray}) = copy(parent(b))'
+copy(b::Transpose{<:Any,<:BlockBroadcastArray}) = transpose(copy(parent(b)))
 
 AbstractArray{T}(B::BlockBroadcastArray{<:Any,N}) where {T,N} = BlockBroadcastArray{T,N}(B.f, map(AbstractArray{T}, B.args)...)
 AbstractArray{T,N}(B::BlockBroadcastArray{<:Any,N}) where {T,N} = BlockBroadcastArray{T,N}(B.f, map(AbstractArray{T}, B.args)...)

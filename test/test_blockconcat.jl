@@ -503,4 +503,17 @@ end
     end
 end
 
+@testset "copy of adjoint/transpose with complex entries" begin
+    A = randn(ComplexF64,2,2)
+    B = randn(ComplexF64,2,3)
+    C = randn(ComplexF64,3,2)
+    D = randn(ComplexF64,3,3)
+    a = BlockedVector(randn(ComplexF64,3), [1,2])
+    b = BlockedVector(randn(ComplexF64,3), [1,2])
+    for M in (BlockVcat(A, C), BlockHcat(A, B), BlockHvcat(2, A, B, C, D), BlockBroadcastArray(hcat, a, b))
+        @test copy(M') == Matrix(M)'
+        @test copy(transpose(M)) == transpose(Matrix(M))
+    end
+end
+
 end # module
