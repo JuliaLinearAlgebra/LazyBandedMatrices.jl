@@ -156,9 +156,9 @@ sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:Abs
 sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockhcat(arguments(lay, V)...)
 sub_materialize(lay::ApplyLayout{typeof(hcat)}, V::AbstractMatrix, ::Tuple{<:AbstractUnitRange,<:AbstractBlockedUnitRange}) = blockhcat(arguments(lay, V)...)
 
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:AbstractBlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
-sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockvcat(sub_materialize.(arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractVector, ::Tuple{<:AbstractBlockedUnitRange}) = blockvcat(map(sub_materialize, arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractBlockedUnitRange}) = blockvcat(map(sub_materialize, arguments(lay, V))...)
+sub_materialize(lay::ApplyLayout{typeof(vcat)}, V::AbstractMatrix, ::Tuple{<:AbstractBlockedUnitRange,<:AbstractUnitRange}) = blockvcat(map(sub_materialize, arguments(lay, V))...)
 
 
 
