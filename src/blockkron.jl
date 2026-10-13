@@ -405,7 +405,7 @@ function _broadcast_sub_arguments(::Union{KronTravLayout{2},KronTravBandedBlockB
     view(A,1:k,1:j), ApplyMatrix(rot180,view(B,1:k,1:j))
 end
 
-const BandedStyles = Union{BandedStyle, StructuredMatrixStyle{<:Diagonal}, StructuredMatrixStyle{<:Tridiagonal}, StructuredMatrixStyle{<:LinearAlgebra.Tridiagonal}}
+const BandedStyles = Union{BandedStyle, StructuredMatrixStyle{<:OffDiagonal}, StructuredMatrixStyle{<:Diagonal}, StructuredMatrixStyle{<:Tridiagonal}, StructuredMatrixStyle{<:LinearAlgebra.Tridiagonal}}
 
 krontravbroadcaststyle(::BandedStyles, ::BandedStyles) = BandedBlockBandedStyle()
 krontravbroadcaststyle(::BandedStyles...) = BlockBandedStyle()

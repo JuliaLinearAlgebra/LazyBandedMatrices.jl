@@ -256,7 +256,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             V = view(A, Block(2,2))
             @test MemoryLayout(V) isa BroadcastBandedLayout{typeof(*)}
             @test call(V) == *
-            @test MemoryLayout.(arguments(V)) isa Tuple{BandedColumns{DenseColumnMajor},BandedColumns{OnesLayout}}
+            @test MemoryLayout.(arguments(V)) isa Tuple{BandedColumns{DenseColumnMajor},AbstractBandedLayout}
             @test BandedMatrix(V) == V == A[Block(2,2)]
 
             V = view(A, Block.(2:4), Block.(1:4))
