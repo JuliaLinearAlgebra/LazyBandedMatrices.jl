@@ -22,7 +22,7 @@ import BandedMatrices: AbstractBandedMatrix, BandedStyle, bandwidths, isbanded
 import BlockBandedMatrices: AbstractBlockBandedLayout, AbstractBandedBlockBandedLayout, BlockRange1, Block1, blockbandwidths, subblockbandwidths,
                              BlockBandedStyle, BandedBlockBandedStyle, isblockbanded, isbandedblockbanded
 import BlockArrays: BlockSlices, BlockSlice1, BlockSlice, blockvec, AbstractBlockLayout, blockcolsupport, blockrowsupport, BlockLayout, block, blockindex, viewblock, AbstractBlockedUnitRange
-import FillArrays: SquareEye
+import FillArrays: SquareEye, OffDiagonal
 
 const LazyArraysBlockBandedMatricesExt = Base.get_extension(LazyArrays, :LazyArraysBlockBandedMatricesExt)
 const LazyArraysBlockArraysExt = Base.get_extension(LazyArrays, :LazyArraysBlockArraysExt)

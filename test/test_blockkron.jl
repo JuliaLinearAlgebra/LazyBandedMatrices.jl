@@ -219,6 +219,12 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
                 @test A+B isa BandedBlockBandedMatrix
                 @test A+B == Matrix(A) + Matrix(B)
 
+                # an OffDiagonal factor is banded, whatever its broadcast style
+                C = KronTrav(brand(3,3,1,1), FillArrays.OffDiagonal(randn(3), 0))
+                @test Base.BroadcastStyle(typeof(C)) isa BandedBlockBandedStyle
+                @test C ≈ Matrix(C)
+                @test C .+ C ≈ 2Matrix(C)
+
                 @test A[Block.(Base.OneTo(3)), Block.(Base.OneTo(3))] isa KronTrav
             end
             @testset "3D" begin
@@ -256,7 +262,7 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
             V = view(A, Block(2,2))
             @test MemoryLayout(V) isa BroadcastBandedLayout{typeof(*)}
             @test call(V) == *
-            @test MemoryLayout.(arguments(V)) isa Tuple{BandedColumns{DenseColumnMajor},BandedColumns{OnesLayout}}
+            @test MemoryLayout.(arguments(V)) isa Tuple{BandedColumns{DenseColumnMajor},AbstractBandedLayout}
             @test BandedMatrix(V) == V == A[Block(2,2)]
 
             V = view(A, Block.(2:4), Block.(1:4))
