@@ -504,7 +504,16 @@ end
 """
     BlockInterlace(a1, a2, a3, …)
 
-Creates a new block vector by interlacing the blocks of the inputs.
+Creates a new block array by interlacing the blocks of the inputs.
+
+For `n` block vectors, `Block(K)` of the result is `Block((K-1) ÷ n + 1)` of `a[mod(K-1, n) + 1]`,
+that is, the blocks are ordered as `a1[Block(1)], a2[Block(1)], …, an[Block(1)], a1[Block(2)], …`.
+
+For `n` block matrices, both the row and column blocks are interlaced in the same way and the inputs
+only interact along the block diagonal: `Block(K,J)` of the result is `Block((K-1) ÷ n + 1, (J-1) ÷ n + 1)`
+of `a[mod(K-1, n) + 1]` if `mod(K-1, n) == mod(J-1, n)`, and zero otherwise. That is, the result is a
+block-diagonal matrix with diagonal blocks `a1, …, an` whose block rows and columns have been permuted
+so that they are interlaced.
 """
 struct BlockInterlace{T, N, Arrays, Axes} <: AbstractBlockArray{T, N}
     arrays::Arrays
