@@ -1,7 +1,7 @@
 using LazyBandedMatrices, InfiniteArrays, ArrayLayouts, LazyArrays, BlockArrays, BandedMatrices, BlockBandedMatrices, LinearAlgebra, Test
 using InfiniteArrays: TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, TridiagonalToeplitzLayout
 using Base: oneto
-using BlockArrays: blockcolsupport
+using BlockArrays: blockcolsupport, blockrowsupport
 using LazyArrays: arguments, simplifiable
 using LazyBandedMatrices: BroadcastBandedBlockBandedLayout, krontrav
 
@@ -220,5 +220,30 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         b = unitblocks(Base.oneto(∞))
         c = blockinterlace(a, b)
         @test c[Block.(1:3)] == [1; 1; 2; 3]
+
+        X = BandedMatrix(0 => 1:∞, 2 => Ones(∞))
+        Y = BandedMatrix(0 => Ones(∞), -1 => 2Ones(∞))
+        for M in (blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (b,b))),
+                  blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (b,a)); dims=1),
+                  blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (a,b)); dims=2))
+            Md = M[1:40, 1:40]
+            for j in 1:20
+                @test findall(!iszero, Md[:, j]) ⊆ colsupport(M, j)
+                @test findall(!iszero, Md[j, :]) ⊆ rowsupport(M, j)
+                @test last(colsupport(M, j)) isa Int
+                @test last(blockcolsupport(M, Block(j))) isa Block{1,Int}
+                @test colsupport(M', j) == rowsupport(M, j)
+            end
+            @test last(colsupport(M, 2:∞)) ≡ ℵ₀
+        end
+        M = blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (b,b)))
+        @test colsupport(M, 1:4) == 1:5
+        @test rowsupport(M, 1:4) == 1:7
+        @test blockcolsupport(M, Block.(1:3)) == Block.(1:4)
+        @test blockrowsupport(M, Block(4)) == Block.(2:4)
+
+        v = blockinterlace(BlockedArray(Vcat([1,2,3], Zeros(∞)), (a,)), BlockedArray(Vcat([0,1], Zeros(∞)), (b,)))
+        @test colsupport(v) == 1:5
+        @test blockcolsupport(v) == Block.(1:4)
     end
 end

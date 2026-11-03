@@ -608,6 +608,81 @@ _copyto!(lay::ApplyLayout{typeof(blockinterlace)}, ::ApplyLayout{typeof(blockint
 _copyto!(lay, ::LazyLayout, dest::AbstractArray{<:Any,N}, src::BlockInterlace{<:Any,N}) where N =
     _copyto!(lay, BlockLayout{UnknownLayout,UnknownLayout}(), dest, src)
 
+# col/rowsupport
+
+# blocks of the i-th of n interlaced arrays corresponding to blocks kr of the interlaced array, and vice versa
+_blockinterlace_localblocks(n, i, kr) = (cld(first(kr) - i, n) + 1):(fld(last(kr) - i, n) + 1)
+_blockinterlace_globalblocks(n, i, kr) = ((first(kr)-1)*n + i):((last(kr)-1)*n + i)
+
+function _blockinterlace_globalindex(ax, axi, n, i, k)
+    Kα = findblockindex(axi, k)
+    ax[Block((Int(block(Kα))-1)*n + i)][blockindex(Kα)]
+end
+
+# indices of the interlaced axis ax corresponding to indices kr of axi, the axis of the i-th of n interlaced arrays
+function _blockinterlace_globalindices(ax, axi, n, i, kr)
+    start = _blockinterlace_globalindex(ax, axi, n, i, first(kr))
+    # avoid findblockindex at ∞: the lengths only agree if n == 1, the other axes are empty or both are infinite
+    last(kr) == last(axi) && length(axi) == length(ax) && return start:last(ax)
+    start:_blockinterlace_globalindex(ax, axi, n, i, last(kr))
+end
+
+# indices of axi, the axis of the i-th of n interlaced arrays, corresponding to indices jr of the interlaced axis ax
+function _blockinterlace_localindices(ax, axi, n, i, jr)
+    isempty(jr) && return 1:0
+    Jα = findblockindex(ax, first(jr))
+    J = Int(block(Jα))
+    k = cld(J - i, n) + 1 # first block of axi at or after Block(J) of ax
+    k > blocklength(axi) && return 1:0
+    start = mod(J-1, n)+1 == i ? axi[Block(k)][blockindex(Jα)] : first(axi[Block(k)])
+    last(jr) == last(ax) && return start:last(axi) # avoid findblockindex at ∞
+    Jα = findblockindex(ax, last(jr))
+    J = Int(block(Jα))
+    k = fld(J - i, n) + 1 # last block of axi at or before Block(J) of ax
+    k < 1 && return 1:0
+    start:(mod(J-1, n)+1 == i ? axi[Block(k)][blockindex(Jα)] : last(axi[Block(k)]))
+end
+
+_blockinterlace_range(j::Integer) = j:j
+_blockinterlace_range(j) = j
+
+# the support is the convex union of the supports of the arrays, mapped to the interlaced indices
+for (supp, d, e) in ((:colsupport, 1, 2), (:rowsupport, 2, 1))
+    @eval function $supp(A::BlockInterlace, j)
+        jr, n = _blockinterlace_range(j), length(A.arrays)
+        convexunion(map(ntuple(identity, n), A.arrays) do i, a
+            jr_i = $e in A.dims ? _blockinterlace_localindices(axes(A,$e), axes(a,$e), n, i, jr) : jr
+            isempty(jr_i) && return 1:0
+            kr = $supp(a, jr_i)
+            isempty(kr) || !($d in A.dims) ? kr : _blockinterlace_globalindices(axes(A,$d), axes(a,$d), n, i, kr)
+        end...)
+    end
+end
+
+_blockinterlace_ints(K::Block{1}) = Int(K):Int(K)
+_blockinterlace_ints(KR) = Int.(KR)
+
+for (supp, d, e) in ((:blockcolsupport, 1, 2), (:blockrowsupport, 2, 1))
+    @eval function $supp(A::BlockInterlace, J)
+        jr, n = _blockinterlace_ints(J), length(A.arrays)
+        Block.(convexunion(map(ntuple(identity, n), A.arrays) do i, a
+            jr_i = $e in A.dims ? _blockinterlace_localblocks(n, i, jr) : jr
+            isempty(jr_i) && return 1:0
+            kr = Int.($supp(a, Block.(jr_i)))
+            isempty(kr) || !($d in A.dims) ? kr : _blockinterlace_globalblocks(n, i, kr)
+        end...))
+    end
+end
+
+for Adj in (:Adjoint, :Transpose)
+    @eval begin
+        colsupport(A::$Adj{<:Any,<:BlockInterlace}, j) = rowsupport(parent(A), j)
+        rowsupport(A::$Adj{<:Any,<:BlockInterlace}, k) = colsupport(parent(A), k)
+        blockcolsupport(A::$Adj{<:Any,<:BlockInterlace}, J) = blockrowsupport(parent(A), J)
+        blockrowsupport(A::$Adj{<:Any,<:BlockInterlace}, K) = blockcolsupport(parent(A), K)
+    end
+end
+
 
 Base.BroadcastStyle(::Type{<:BlockInterlace{<:Any,N}}) where N = LazyArrayStyle{N}()
 
