@@ -469,6 +469,7 @@ end
                            BlockedArray(Vcat([0.,0.,1.], Zeros(2)), [3,2]))
         @test colsupport(v) == 1:12
         @test blockcolsupport(v) == Block.(1:5)
+
     end
 end
 

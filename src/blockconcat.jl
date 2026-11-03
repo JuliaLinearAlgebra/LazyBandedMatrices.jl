@@ -684,6 +684,7 @@ for Adj in (:Adjoint, :Transpose)
 end
 
 
+
 Base.BroadcastStyle(::Type{<:BlockInterlace{<:Any,N}}) where N = LazyArrayStyle{N}()
 
 
