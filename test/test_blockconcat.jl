@@ -341,6 +341,8 @@ end
         @test v[3] == 11
         @test v[Block(2)[1]] == 11
         @test eltype(w) == Float64
+        @test w[1] isa Float64
+        @test w[Block(1)] isa AbstractVector{Float64}
 
         @test copy(v) == v
         @test AbstractArray{Float64}(v) == convert(AbstractVector{Float64}, v) == v
@@ -419,6 +421,25 @@ end
         R = blockinterlace(d1, d2; dims=1)
         @test R isa BlockInterlace
         @test R == [1 0; 3 0; 0 2; 0 4]
+    end
+
+    @testset "promotion" begin
+        A = BlockedArray(reshape(1:6, 2, 3), [1,1], [2,1])
+        B = BlockedArray(reshape(11.0:16.0, 2, 3), [1,1], [2,1])
+        d = Diagonal(Fill(2.0im, (unitblocks(Base.OneTo(3)),)))
+        for M in (BlockInterlace(A, B), BlockInterlace(A, B; dims=1), BlockInterlace(A, B; dims=2))
+            @test eltype(M) == Float64
+            @test all(a -> eltype(a) == Float64, M.arrays)
+            @test M[1,1] isa Float64
+            @test M[Block(1,1)] isa AbstractMatrix{Float64}
+        end
+        R = BlockInterlace(unitblocks(reshape(1:9, 3, 3)), d; dims=1)
+        @test eltype(R) == ComplexF64
+        @test R.arrays[2] isa Diagonal{ComplexF64,<:Fill}
+        @test R[1,1] isa ComplexF64
+        @test R[Block(1,1)] isa AbstractMatrix{ComplexF64}
+        @test R == [1 4 7; 2im 0 0; 2 5 8; 0 2im 0; 3 6 9; 0 0 2im]
+        @test BlockInterlace{ComplexF64}(A, B)[1,1] isa ComplexF64
     end
 end
 

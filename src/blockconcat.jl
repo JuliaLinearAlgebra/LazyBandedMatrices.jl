@@ -550,7 +550,11 @@ function BlockInterlace{T,N,Arrays}(arrays::Arrays; dims=ntuple(identity, Val(N)
     ax = ntuple(d -> _blockinterlace_axis(arrays, d, dims), Val(N))
     BlockInterlace{T,N,Arrays,typeof(ax),typeof(dims)}(arrays, ax, dims)
 end
-BlockInterlace{T,N}(arrays...; kwds...) where {T,N} = BlockInterlace{T,N,typeof(arrays)}(arrays; kwds...)
+function BlockInterlace{T,N}(arrays...; kwds...) where {T,N}
+    # promote so that blocks (and hence entries) have eltype T
+    arrays = map(a -> convert(AbstractArray{T}, a), arrays)
+    BlockInterlace{T,N,typeof(arrays)}(arrays; kwds...)
+end
 BlockInterlace{T}(arrays::AbstractArray{<:Any,N}...; kwds...) where {T,N} = BlockInterlace{T,N}(arrays...; kwds...)
 BlockInterlace(arrays::AbstractArray...; kwds...) = BlockInterlace{mapreduce(eltype, promote_type, arrays)}(arrays...; kwds...)
 blockinterlace(arrays...; kwds...) = BlockInterlace(arrays...; kwds...)

@@ -72,4 +72,6 @@ function _blockinterlace_axes(a::BlockedOneTo{Int,InfStepRange{Int,Int}}, ::Bloc
     @assert first(a.lasts) == 1
     BlockedOneTo(3 * (n .÷ 2) .+ 2 * _mod.(n,2) .- 1)
 end
+# interlacing unit blocks gives unit blocks
+_blockinterlace_axes(::BlockedOneTo{Int,OneToInf{Int}}, ::BlockedOneTo{Int,OneToInf{Int}}...) = BlockedOneTo(oneto(∞))
 end
