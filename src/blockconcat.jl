@@ -502,56 +502,86 @@ end
 
 
 """
-    BlockInterlace(a1, a2, a3, …)
+    BlockInterlace(a1, a2, a3, …; dims=ntuple(identity, N))
 
-Creates a new block array by interlacing the blocks of the inputs.
+Creates a new block array by interlacing the blocks of the inputs along the dimensions `dims`.
 
 For `n` block vectors, `Block(K)` of the result is `Block((K-1) ÷ n + 1)` of `a[mod(K-1, n) + 1]`,
 that is, the blocks are ordered as `a1[Block(1)], a2[Block(1)], …, an[Block(1)], a1[Block(2)], …`.
 
-For `n` block matrices, both the row and column blocks are interlaced in the same way and the inputs
-only interact along the block diagonal: `Block(K,J)` of the result is `Block((K-1) ÷ n + 1, (J-1) ÷ n + 1)`
+For `n` block matrices, by default (`dims=(1,2)`) both the row and column blocks are interlaced in the same way
+and the inputs only interact along the block diagonal: `Block(K,J)` of the result is `Block((K-1) ÷ n + 1, (J-1) ÷ n + 1)`
 of `a[mod(K-1, n) + 1]` if `mod(K-1, n) == mod(J-1, n)`, and zero otherwise. That is, the result is a
 block-diagonal matrix with diagonal blocks `a1, …, an` whose block rows and columns have been permuted
 so that they are interlaced.
+
+With `dims=1` only the block rows are interlaced: `Block(K,J)` of the result is `Block((K-1) ÷ n + 1, J)` of
+`a[mod(K-1, n) + 1]`, that is, the result is a block vertical concatenation of `a1, …, an` whose block rows have
+been permuted so that they are interlaced. Similarly, with `dims=2` only the block columns are interlaced:
+`Block(K,J)` of the result is `Block(K, (J-1) ÷ n + 1)` of `a[mod(J-1, n) + 1]`. The inputs must have the same
+axes along the dimensions that are not interlaced.
 """
-struct BlockInterlace{T, N, Arrays, Axes} <: AbstractBlockArray{T, N}
+struct BlockInterlace{T, N, Arrays, Axes, Dims<:Tuple{Vararg{Int}}} <: AbstractBlockArray{T, N}
     arrays::Arrays
     axes::Axes
+    dims::Dims
 end
 
 _blockinterlace_axes(a...) = blockedrange(vec(Vcat(map(permutedims, map(blocklengths, a))...)))
 
-function BlockInterlace{T,N,Arrays}(arrays::Arrays) where {T,N,Arrays}
-    ax = map(_blockinterlace_axes, map(axes,arrays)...)
-    BlockInterlace{T,N ,Arrays, typeof(ax)}(arrays, ax)
+_blockinterlace_dims(dims::Integer, N) = _blockinterlace_dims((dims,), N)
+function _blockinterlace_dims(dims::Tuple{Vararg{Integer}}, N)
+    d = map(Int, dims)
+    (isempty(d) || !issorted(d; lt=<=) || first(d) < 1 || last(d) > N) &&
+        throw(ArgumentError("dims = $dims must be strictly increasing and between 1 and $N"))
+    d
 end
-BlockInterlace{T,N}(arrays...) where {T,N} = BlockInterlace{T,N,typeof(arrays)}(arrays)
-BlockInterlace{T}(arrays::AbstractArray{<:Any,N}...) where {T,N} = BlockInterlace{T,N}(arrays...)
-BlockInterlace(arrays::AbstractArray...) = BlockInterlace{mapreduce(eltype, promote_type, arrays)}(arrays...)
-blockinterlace(arrays...) = BlockInterlace(arrays...)
 
-blockinterlace(arrays::Diagonal...) = Diagonal(blockinterlace(getfield.(arrays, :diag)...))
+function _blockinterlace_axis(arrays, d, dims)
+    d in dims && return _blockinterlace_axes(map(a -> axes(a,d), arrays)...)
+    ax = axes(first(arrays), d)
+    all(a -> length(axes(a,d)) == length(ax), arrays) ||
+        throw(DimensionMismatch("arrays must have the same size along non-interlaced dimension $d"))
+    ax
+end
+
+function BlockInterlace{T,N,Arrays}(arrays::Arrays; dims=ntuple(identity, Val(N))) where {T,N,Arrays}
+    dims = _blockinterlace_dims(dims, N)
+    ax = ntuple(d -> _blockinterlace_axis(arrays, d, dims), Val(N))
+    BlockInterlace{T,N,Arrays,typeof(ax),typeof(dims)}(arrays, ax, dims)
+end
+BlockInterlace{T,N}(arrays...; kwds...) where {T,N} = BlockInterlace{T,N,typeof(arrays)}(arrays; kwds...)
+BlockInterlace{T}(arrays::AbstractArray{<:Any,N}...; kwds...) where {T,N} = BlockInterlace{T,N}(arrays...; kwds...)
+BlockInterlace(arrays::AbstractArray...; kwds...) = BlockInterlace{mapreduce(eltype, promote_type, arrays)}(arrays...; kwds...)
+blockinterlace(arrays...; kwds...) = BlockInterlace(arrays...; kwds...)
+
+blockinterlace(arrays::Diagonal...; dims=(1,2)) =
+    _blockinterlace_dims(dims, 2) == (1,2) ? Diagonal(blockinterlace(getfield.(arrays, :diag)...)) : BlockInterlace(arrays...; dims)
 
 
 
 axes(b::BlockInterlace) = b.axes
 
-copy(b::BlockInterlace{T}) where {T} = BlockInterlace{T}(map(copy, b.arrays)...)
+copy(b::BlockInterlace{T}) where {T} = BlockInterlace{T}(map(copy, b.arrays)...; dims=b.dims)
 copy(b::Adjoint{<:Any,<:BlockInterlace}) = copy(parent(b))'
 copy(b::Transpose{<:Any,<:BlockInterlace}) = transpose(copy(parent(b)))
-AbstractArray{T}(B::BlockInterlace) where {T} = BlockInterlace{T}(map(AbstractArray{T}, B.arrays)...)
-AbstractArray{T,N}(B::BlockInterlace{<:Any,N}) where {T,N} = BlockInterlace{T}(map(AbstractArray{T}, B.arrays)...)
-convert(::Type{AbstractArray{T}}, B::BlockInterlace) where {T} = BlockInterlace{T}(convert.(AbstractArray{T}, B.arrays)...)
-convert(::Type{AbstractVector{T}}, B::BlockInterlace) where {T} = BlockInterlace{T}(convert.(AbstractArray{T}, B.arrays)...)
+AbstractArray{T}(B::BlockInterlace) where {T} = BlockInterlace{T}(map(AbstractArray{T}, B.arrays)...; dims=B.dims)
+AbstractArray{T,N}(B::BlockInterlace{<:Any,N}) where {T,N} = BlockInterlace{T}(map(AbstractArray{T}, B.arrays)...; dims=B.dims)
+convert(::Type{AbstractArray{T}}, B::BlockInterlace) where {T} = BlockInterlace{T}(convert.(AbstractArray{T}, B.arrays)...; dims=B.dims)
+convert(::Type{AbstractVector{T}}, B::BlockInterlace) where {T} = BlockInterlace{T}(convert.(AbstractArray{T}, B.arrays)...; dims=B.dims)
 convert(::Type{AbstractArray{T}}, B::BlockInterlace{T}) where {T} = B
 convert(::Type{AbstractVector{T}}, B::BlockInterlace{T}) where {T} = B
 
 
 # avoid making naive view
 
-viewblock(b::BlockInterlace{<:Any,1}, K::Block{1}) = view(b.arrays[mod(Int(K)-1, length(b.arrays))+1], Block((Int(K) - 1 ) ÷ length(b.arrays) + 1))
-function viewblock(b::BlockInterlace{T,2}, KJ::Block{2}) where T
+# interlacing a single dimension, which includes all vectors
+function viewblock(b::BlockInterlace{<:Any,N,<:Any,<:Any,Tuple{Int}}, KJ::Block{N}) where N
+    d, n = only(b.dims), length(b.arrays)
+    k = KJ.n[d]
+    view(b.arrays[mod(k-1, n)+1], Block(Base.setindex(KJ.n, (k-1) ÷ n + 1, d)))
+end
+function viewblock(b::BlockInterlace{T,2,<:Any,<:Any,NTuple{2,Int}}, KJ::Block{2}) where T
     k,j = KJ.n
     ind = mod(k-1, length(b.arrays))+1
     if mod(j-1, length(b.arrays))+1 == ind
@@ -564,19 +594,29 @@ end
 getindex(b::BlockInterlace, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
 getindex(b::BlockInterlace{<:Any,N}, k::Vararg{Integer,N}) where N = b[findblockindex.(axes(b), k)...]
 
-MemoryLayout(::Type{<:BlockInterlace}) = ApplyLayout{typeof(blockinterlace)}()
+MemoryLayout(::Type{<:BlockInterlace{<:Any,N,<:Any,<:Any,NTuple{N,Int}}}) where N = ApplyLayout{typeof(blockinterlace)}()
+# interlacing only some dimensions can't be recovered from blockinterlace(arguments(A)...)
+MemoryLayout(::Type{<:BlockInterlace}) = LazyLayout()
 
 arguments(::ApplyLayout{typeof(blockinterlace)}, a) = a.arrays
 
+# copy block-by-block, as materializing blockinterlace(arguments(src)...) just recreates src
+_copyto!(lay, ::ApplyLayout{typeof(blockinterlace)}, dest::AbstractArray{<:Any,N}, src::AbstractArray{<:Any,N}) where N =
+    _copyto!(lay, BlockLayout{UnknownLayout,UnknownLayout}(), dest, src)
+_copyto!(lay::ApplyLayout{typeof(blockinterlace)}, ::ApplyLayout{typeof(blockinterlace)}, dest::AbstractArray{<:Any,N}, src::AbstractArray{<:Any,N}) where N =
+    _copyto!(lay, BlockLayout{UnknownLayout,UnknownLayout}(), dest, src)
+_copyto!(lay, ::LazyLayout, dest::AbstractArray{<:Any,N}, src::BlockInterlace{<:Any,N}) where N =
+    _copyto!(lay, BlockLayout{UnknownLayout,UnknownLayout}(), dest, src)
 
-Base.BroadcastStyle(::Type{<:BlockInterlace}) = LazyArrayStyle{1}()
+
+Base.BroadcastStyle(::Type{<:BlockInterlace{<:Any,N}}) where N = LazyArrayStyle{N}()
 
 
 ####
 # broadcasting
 ####
 
-for Cat in (:BlockVcat, :BlockHcat, :BlockInterlace)
+for Cat in (:BlockVcat, :BlockHcat)
      @eval begin
         function layout_broadcasted(op, A::$Cat, c::Number)
             Aargs = arguments(A)
@@ -596,6 +636,27 @@ for Cat in (:BlockVcat, :BlockHcat, :BlockInterlace)
         end
      end
  end
+
+# interlacing all dimensions of a matrix introduces zero blocks, so we can only
+# broadcast over the arrays if op preserves zeros
+_blockinterlace_haszeros(A::BlockInterlace{<:Any,N}) where N = N > 1 && length(A.dims) == N
+
+function layout_broadcasted(op, A::BlockInterlace{<:Any,N}, c::Number) where N
+    _blockinterlace_haszeros(A) && !iszero(op(zero(eltype(A)), c)) && return Broadcasted(LazyArrayStyle{N}(), op, (A, c))
+    BlockInterlace(map(a -> broadcast(op, a, c), A.arrays)...; dims=A.dims)
+end
+function layout_broadcasted(op, c::Number, A::BlockInterlace{<:Any,N}) where N
+    _blockinterlace_haszeros(A) && !iszero(op(c, zero(eltype(A)))) && return Broadcasted(LazyArrayStyle{N}(), op, (c, A))
+    BlockInterlace(map(a -> broadcast(op, c, a), A.arrays)...; dims=A.dims)
+end
+function layout_broadcasted(op, A::BlockInterlace{<:Any,N}, c::Ref) where N
+    _blockinterlace_haszeros(A) && !iszero(op(zero(eltype(A)), c[])) && return Broadcasted(LazyArrayStyle{N}(), op, (A, c))
+    BlockInterlace(map(a -> broadcast(op, a, c), A.arrays)...; dims=A.dims)
+end
+function layout_broadcasted(op, c::Ref, A::BlockInterlace{<:Any,N}) where N
+    _blockinterlace_haszeros(A) && !iszero(op(c[], zero(eltype(A)))) && return Broadcasted(LazyArrayStyle{N}(), op, (c, A))
+    BlockInterlace(map(a -> broadcast(op, c, a), A.arrays)...; dims=A.dims)
+end
 
 function layout_broadcasted(op, A::BlockHvcat, c::Number)
     Aargs = arguments(A)
