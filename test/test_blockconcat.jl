@@ -423,6 +423,57 @@ end
         @test R == [1 0; 3 0; 0 2; 0 4]
     end
 
+    @testset "col/rowsupport" begin
+        hull(v) = isempty(v) ? nothing : minimum(v):maximum(v)
+        hull(r::AbstractUnitRange) = isempty(r) ? nothing : first(r):last(r)
+        bbm(rows, cols, l, u) = BlockBandedMatrix(rand(sum(rows), sum(cols)), rows, cols, (l,u))
+        # compare against interlacing the sparsity patterns implied by the supports of the arrays
+        function test_supports(arrays, dims)
+            M = BlockInterlace(arrays...; dims)
+            S = Matrix(BlockInterlace(map(a -> BlockedArray([k in colsupport(a, j) for k in axes(a,1), j in axes(a,2)], axes(a)), arrays)...; dims))
+            R = Matrix(BlockInterlace(map(a -> BlockedArray([j in rowsupport(a, k) for k in axes(a,1), j in axes(a,2)], axes(a)), arrays)...; dims))
+            SB = Matrix(BlockInterlace(map(a -> unitblocks([Block(K) in blockcolsupport(a, Block(J)) for K in 1:blocksize(a,1), J in 1:blocksize(a,2)]), arrays)...; dims))
+            RB = Matrix(BlockInterlace(map(a -> unitblocks([Block(J) in blockrowsupport(a, Block(K)) for K in 1:blocksize(a,1), J in 1:blocksize(a,2)]), arrays)...; dims))
+            for j in axes(M,2), j2 in j:min(j+2, size(M,2))
+                @test hull(colsupport(M, j:j2)) == hull(findall(vec(any(S[:, j:j2]; dims=2))))
+            end
+            for k in axes(M,1), k2 in k:min(k+2, size(M,1))
+                @test hull(rowsupport(M, k:k2)) == hull(findall(vec(any(R[k:k2, :]; dims=1))))
+            end
+            for J in 1:blocksize(M,2), J2 in J:min(J+2, blocksize(M,2))
+                @test hull(Int.(blockcolsupport(M, Block.(J:J2)))) == hull(findall(vec(any(SB[:, J:J2]; dims=2))))
+            end
+            for K in 1:blocksize(M,1), K2 in K:min(K+2, blocksize(M,1))
+                @test hull(Int.(blockrowsupport(M, Block.(K:K2)))) == hull(findall(vec(any(RB[K:K2, :]; dims=1))))
+            end
+            @test colsupport(M, 2) == colsupport(M, 2:2)
+            @test blockrowsupport(M, Block(2)) == blockrowsupport(M, Block.(2:2))
+            for k in axes(M,1)
+                @test colsupport(M', k) == colsupport(transpose(M), k) == rowsupport(M, k)
+            end
+            for j in axes(M,2)
+                @test rowsupport(M', j) == colsupport(M, j)
+            end
+            for J in 1:blocksize(M,1)
+                @test blockcolsupport(M', Block(J)) == blockrowsupport(M, Block(J))
+            end
+        end
+
+        test_supports((bbm([1,2,2], [2,1,2], 1, 0), bbm([2,1,1], [1,1,3], 0, 1)), (1,2))
+        test_supports((bbm([1,2,2], [2,1,2], 0, 0), bbm([2,1,1], [1,1,3], 1, 1), bbm([1,1,1], [1,1,1], 0, 2)), (1,2))
+        test_supports((bbm([1,2,2], [2,1,2], 1, 0), bbm([2,1,1], [2,1,2], 0, 1)), 1)
+        test_supports((bbm([1,2,2], [2,1,2], 0, 0), bbm([2,1,1], [2,1,2], 2, 0), bbm([1,1,1], [2,1,2], 0, 2)), 1)
+        test_supports((bbm([1,2,2], [2,1,2], 1, 0), bbm([1,2,2], [1,3,1], 0, 1)), 2)
+        test_supports((bbm([1,2,2], [2,1,2], 1, 0), BlockedArray(Zeros(5,5), [1,2,2], [2,1,2])), 1)
+        test_supports((BlockedArray(brand(5,5,1,0), [2,1,2], [1,2,2]), BlockedArray(brand(5,5,0,1), [1,2,2], [1,2,2])), 1)
+
+        v = BlockInterlace(BlockedArray(Vcat([1.,2.], Zeros(3)), [2,3]), BlockedArray(Vcat([0.,0.,0.,1.], Zeros(1)), [1,4]),
+                           BlockedArray(Vcat([0.,0.,1.], Zeros(2)), [3,2]))
+        @test colsupport(v) == 1:12
+        @test blockcolsupport(v) == Block.(1:5)
+    end
+
+
     @testset "promotion" begin
         A = BlockedArray(reshape(1:6, 2, 3), [1,1], [2,1])
         B = BlockedArray(reshape(11.0:16.0, 2, 3), [1,1], [2,1])
@@ -440,6 +491,8 @@ end
         @test R[Block(1,1)] isa AbstractMatrix{ComplexF64}
         @test R == [1 4 7; 2im 0 0; 2 5 8; 0 2im 0; 3 6 9; 0 0 2im]
         @test BlockInterlace{ComplexF64}(A, B)[1,1] isa ComplexF64
+
+
     end
 end
 
