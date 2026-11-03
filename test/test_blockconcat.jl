@@ -473,6 +473,7 @@ end
         @test blockcolsupport(v) == Block.(1:5)
     end
 
+
     @testset "promotion" begin
         A = BlockedArray(reshape(1:6, 2, 3), [1,1], [2,1])
         B = BlockedArray(reshape(11.0:16.0, 2, 3), [1,1], [2,1])
@@ -490,6 +491,7 @@ end
         @test R[Block(1,1)] isa AbstractMatrix{ComplexF64}
         @test R == [1 4 7; 2im 0 0; 2 5 8; 0 2im 0; 3 6 9; 0 0 2im]
         @test BlockInterlace{ComplexF64}(A, B)[1,1] isa ComplexF64
+
 
     end
 end

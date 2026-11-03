@@ -689,6 +689,7 @@ end
 
 
 
+
 Base.BroadcastStyle(::Type{<:BlockInterlace{<:Any,N}}) where N = LazyArrayStyle{N}()
 
 
