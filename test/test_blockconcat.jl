@@ -349,6 +349,9 @@ end
         @test copy(v') == v'
         @test Ref(2) .* v == v .* Ref(2) == 2 .* v
         @test arguments(MemoryLayout(v), v) == v.arrays
+        @test Vector(v) == [1,2,11,12,3,4,13,14]
+        @test blockinterlace(a, b; dims=1) == v
+        @test_throws ArgumentError blockinterlace(a, b; dims=2)
     end
 
     @testset "matrix" begin
@@ -363,6 +366,46 @@ end
         @test copy(M') == M'
         @test copy(transpose(M)) == transpose(M)
         @test AbstractArray{Float64,2}(M) == AbstractArray{Float64}(M) == convert(AbstractArray{Float64}, M) == M
+        @test Matrix(M) == [1 0 3 0; 0 11 0 13; 2 0 4 0; 0 12 0 14]
+        @test BlockInterlace(A, B; dims=(1,2)) == M
+        @test 2 .* M isa BlockInterlace
+        @test 2 .* M == 2 .* Matrix(M)
+        @test M .+ 1 == Matrix(M) .+ 1
+    end
+
+    @testset "matrix dims" begin
+        A = BlockedArray(reshape(1:6, 2, 3), [1,1], [2,1])
+        B = BlockedArray(reshape(11:16, 2, 3), [1,1], [2,1])
+
+        R = BlockInterlace(A, B; dims=1)
+        @test blocksize(R) == (4,2)
+        @test R[Block(1,1)] == A[Block(1,1)]
+        @test R[Block(2,2)] == B[Block(1,2)]
+        @test R[Block(3,1)] == A[Block(2,1)]
+        @test R == [1 3 5; 11 13 15; 2 4 6; 12 14 16]
+        @test R[2,3] == 15
+        @test MemoryLayout(R) isa LazyLayout
+
+        C = blockinterlace(A, B; dims=2)
+        @test blocksize(C) == (2,4)
+        @test C[Block(1,2)] == B[Block(1,1)]
+        @test C[Block(2,3)] == A[Block(2,2)]
+        @test C == [1 3 11 13 5 15; 2 4 12 14 6 16]
+
+        @test copy(R) == R
+        @test copy(R).dims == (1,)
+        @test AbstractArray{Float64}(C) == C
+        @test AbstractArray{Float64}(C).dims == (2,)
+        @test copy(R') == R'
+        @test copy(transpose(C)) == transpose(C)
+        @test R .+ 1 isa BlockInterlace
+        @test R .+ 1 == Matrix(R) .+ 1
+        @test Ref(2) .* C == C .* Ref(2) == 2 .* Matrix(C)
+        @test R * ones(3) == Matrix(R) * ones(3)
+
+        @test_throws ArgumentError BlockInterlace(A, B; dims=3)
+        @test_throws ArgumentError BlockInterlace(A, B; dims=(2,1))
+        @test_throws DimensionMismatch BlockInterlace(A, BlockedArray(rand(2,2), [1,1], [1,1]); dims=1)
     end
 
     @testset "diagonal" begin
@@ -372,6 +415,10 @@ end
 
         @test D isa Diagonal
         @test D.diag == [1,3,2,4]
+
+        R = blockinterlace(d1, d2; dims=1)
+        @test R isa BlockInterlace
+        @test R == [1 0; 3 0; 0 2; 0 4]
     end
 end
 
