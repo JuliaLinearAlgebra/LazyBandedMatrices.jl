@@ -220,5 +220,13 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         b = unitblocks(Base.oneto(∞))
         c = blockinterlace(a, b)
         @test c[Block.(1:3)] == [1; 1; 2; 3]
+        @test axes(blockinterlace(b, b, b), 1) == b
+        @test blockinterlace(b, b, b)[Block.(1:4)] == [1; 1; 1; 2]
+
+        R = BlockInterlace(Diagonal(unitblocks(Fill(1.0,∞))), Diagonal(Fill(2.0im, (unitblocks(Base.oneto(∞)),))); dims=1)
+        @test eltype(R) == ComplexF64
+        @test R[1,1] isa ComplexF64
+        @test R[Block(1,1)] isa AbstractMatrix{ComplexF64}
+        @test R[1:4,1:2] == [1 0; 2im 0; 0 1; 0 2im]
     end
 end
