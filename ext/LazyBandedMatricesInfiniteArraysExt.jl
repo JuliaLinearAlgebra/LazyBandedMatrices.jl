@@ -65,12 +65,12 @@ krontrav_materialize_layout(::InfKronTravBandedBlockBandedLayout, K) = K
 
 _mod(a,b) = mod(a,b)
 _mod(::InfiniteCardinal{0}, b) = 0 # support last
-# special case for current usage in DeRhamOrthogonalPolynomials
+# special case for current usage in DeRhamOrthogonalPolynomials: interlacing block lengths
+# f, s, s, … with unit blocks gives block lengths f, 1, s, 1, s, 1, …
 function _blockinterlace_axes(a::BlockedOneTo{Int,InfStepRange{Int,Int}}, ::BlockedOneTo{Int,OneToInf{Int}})
     n = 1:∞
-    @assert step(a.lasts) == 2
-    @assert first(a.lasts) == 1
-    BlockedOneTo(3 * (n .÷ 2) .+ 2 * _mod.(n,2) .- 1)
+    f, s = first(a.lasts), step(a.lasts)
+    BlockedOneTo((s+1) * (n .÷ 2) .+ s * _mod.(n,2) .+ (f - s))
 end
 # interlacing unit blocks gives unit blocks
 _blockinterlace_axes(::BlockedOneTo{Int,OneToInf{Int}}, ::BlockedOneTo{Int,OneToInf{Int}}...) = BlockedOneTo(oneto(∞))
