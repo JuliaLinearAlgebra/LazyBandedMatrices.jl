@@ -220,6 +220,11 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         b = unitblocks(Base.oneto(∞))
         c = blockinterlace(a, b)
         @test c[Block.(1:3)] == [1; 1; 2; 3]
+        for (f, s) in ((1,2), (2,2), (3,2), (1,3), (4,1))
+            ax = axes(blockinterlace(BlockedOneTo(f:s:∞), b), 1)
+            @test blocklengths(ax)[1:10] == vec([f fill(s,1,4); ones(Int,1,5)])
+            @test findblock(ax, 100) == Block(findfirst(≥(100), cumsum(vec([f fill(s,1,99); ones(Int,1,100)]))))
+        end
 
         X = BandedMatrix(0 => 1:∞, 2 => Ones(∞))
         Y = BandedMatrix(0 => Ones(∞), -1 => 2Ones(∞))
