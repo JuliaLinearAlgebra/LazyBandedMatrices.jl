@@ -261,6 +261,32 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test R[Block(1,1)] isa AbstractMatrix{ComplexF64}
         @test R[1:4,1:2] == [1 0; 2im 0; 0 1; 0 2im]
 
+        @testset "block indexing" begin
+            for M in (blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (b,b))),
+                      blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (b,a)); dims=1),
+                      blockinterlace(BlockedArray(X, (a,a)), BlockedArray(Y, (a,b)); dims=2),
+                      R)
+                for (K, J) in ((Block.(1:5), Block.(1:2)), (Block.(2:5), Block.(2:3)), (Block.(1:4), Block(2)), (Block(3), Block.(1:2)))
+                    S = M[K, J]
+                    @test S isa BlockInterlace || (M.dims == (1,) && K isa Block) || (M.dims == (2,) && J isa Block)
+                    kr, jr = axes(M,1)[K], axes(M,2)[J]
+                    @test S == M[first(kr):last(kr), first(jr):last(jr)]
+                end
+                # infinite slices stay lazy
+                for J in (Block(1), Block(2), Block.(2:3))
+                    S = M[:, J]
+                    @test S isa BlockInterlace || (M.dims == (2,) && J isa Block)
+                    jr = axes(M,2)[J]
+                    @test S[1:20, :] == M[1:20, first(jr):last(jr)]
+                end
+                S = M[Block.(1:3), :]
+                @test S isa BlockInterlace || M.dims == (2,)
+                @test S[:, 1:20] == M[1:last(axes(M,1)[Block(3)]), 1:20]
+            end
+            @test v[Block.(1:5)] isa BlockInterlace
+            @test v[Block.(1:5)] == v[1:last(axes(v,1)[Block(5)])]
+        end
+
 
     end
 end
