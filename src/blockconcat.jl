@@ -520,6 +520,13 @@ With `dims=1` only the block rows are interlaced: `Block(K,J)` of the result is 
 been permuted so that they are interlaced. Similarly, with `dims=2` only the block columns are interlaced:
 `Block(K,J)` of the result is `Block(K, (J-1) ÷ n + 1)` of `a[mod(J-1, n) + 1]`. The inputs must have the same
 axes along the dimensions that are not interlaced.
+
+Along the interlaced dimensions the inputs must have the same number of blocks, except that the interlacing may
+stop part way through a round, in which case the first inputs have one more block than the rest.
+
+Indexing by block ranges, e.g., `A[Block.(1:5), Block.(1:3)]` or `A[:, Block(1)]`, returns a `BlockInterlace` of
+the corresponding blocks of the inputs (with zeros where interlacing both dimensions requires them), unless the
+selected blocks come from a single input, e.g., `A[Block(1), :]` with `dims=1`, in which case those are returned.
 """
 struct BlockInterlace{T, N, Arrays, Axes, Dims<:Tuple{Vararg{Int}}} <: AbstractBlockArray{T, N}
     arrays::Arrays
@@ -527,7 +534,15 @@ struct BlockInterlace{T, N, Arrays, Axes, Dims<:Tuple{Vararg{Int}}} <: AbstractB
     dims::Dims
 end
 
-_blockinterlace_axes(a...) = blockedrange(vec(Vcat(map(permutedims, map(blocklengths, a))...)))
+function _blockinterlace_axes(a...)
+    ls = map(blocklengths, a)
+    allequal(map(length, ls)) && return blockedrange(vec(Vcat(map(permutedims, ls)...)))
+    # staggered block counts, where the interlacing stops part way through a round, as arises from block ranges
+    n, N = length(ls), sum(length, ls)
+    all(i -> length(ls[i]) == fld(N - i, n) + 1, 1:n) ||
+        throw(DimensionMismatch("arrays to interlace must have the same number of blocks, or the first ones one more"))
+    blockedrange([ls[mod(K-1, n)+1][(K-1) ÷ n + 1] for K in 1:N])
+end
 
 _blockinterlace_dims(dims::Integer, N) = _blockinterlace_dims((dims,), N)
 function _blockinterlace_dims(dims::Tuple{Vararg{Integer}}, N)
@@ -597,6 +612,67 @@ end
 
 getindex(b::BlockInterlace, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
 getindex(b::BlockInterlace{<:Any,N}, k::Vararg{Integer,N}) where N = b[findblockindex.(axes(b), k)...]
+
+# block range indexing: the selected blocks are an interlacing of block ranges of the arrays, possibly with
+# zero blocks where interlacing both dimensions puts different arrays along the selected rows and columns
+
+# along an interlaced dimension, the arrays (by index) and their block indices selected by K, in the order they appear
+_blockinterlace_select(n, ::Colon) = ntuple(i -> (i, :), n)
+_blockinterlace_select(n, K::Block{1}) = ((mod(Int(K)-1, n)+1, Block((Int(K)-1) ÷ n + 1)),)
+function _blockinterlace_select(n, KR::BlockRange{1})
+    kr = Int.(KR)
+    ntuple(n) do j
+        i = mod(first(kr) + j - 2, n) + 1
+        (i, Block.(_blockinterlace_localblocks(n, i, kr)))
+    end
+end
+
+# axis of the blocks K of ax
+_blockinterlace_subaxis(ax, ::Colon) = ax
+_blockinterlace_subaxis(ax, K::Block{1}) = oneto(length(ax[K]))
+_blockinterlace_subaxis(ax, KR::BlockRange{1}) = blockedrange(blocklengths(ax)[Int.(KR)])
+
+# Copy a view rather than calling getindex as materialising views is better supported, e.g., block range getindex
+# of a lazy product fails if the product has a zero block. Materialising may drop the blocking, e.g., for a
+# BlockedArray wrapping a BandedMatrix, in which case restore it. Infinite arrays can't be materialised in general
+# so stay as views.
+function _blockinterlace_sub(a, inds...)
+    V = view(a, inds...)
+    all(ax -> isfinite(length(ax)), axes(V)) || return V
+    b = copy(V)
+    all(map(blockisequal, axes(b), axes(V))) ? b : BlockedArray(b, axes(V))
+end
+
+# a single block of the interlaced axis comes from a single array, so needs no interlacing
+_blockinterlace_cat(::Type, pieces, ::Block{1}, dims) = only(pieces)
+_blockinterlace_cat(::Type{T}, pieces, _, dims) where T = BlockInterlace{T}(pieces...; dims)
+
+function _blockinterlace_getindex(A::BlockInterlace{T,N,<:Any,<:Any,Tuple{Int}}, inds::Vararg{Any,N}) where {T,N}
+    @boundscheck checkbounds(A, inds...)
+    d = only(A.dims)
+    pieces = map(((i, k),) -> _blockinterlace_sub(A.arrays[i], Base.setindex(inds, k, d)...), _blockinterlace_select(length(A.arrays), inds[d]))
+    _blockinterlace_cat(T, pieces, inds[d], d)
+end
+
+function _blockinterlace_getindex(A::BlockInterlace{T,2,<:Any,<:Any,NTuple{2,Int}}, K, J) where T
+    @boundscheck checkbounds(A, K, J)
+    rows, cols = _blockinterlace_select(length(A.arrays), K), _blockinterlace_select(length(A.arrays), J)
+    # if the rows and columns start with the same array the selected blocks are still block diagonal
+    if !(K isa Block{1}) && !(J isa Block{1}) && map(first, rows) == map(first, cols)
+        return BlockInterlace{T}(map(((i, k), (_, j)) -> _blockinterlace_sub(A.arrays[i], k, j), rows, cols)...)
+    end
+    # otherwise interlace the rows of strips, each of which interlaces the columns of an array and zeros
+    piece((i, k), (j, l)) = i == j ? _blockinterlace_sub(A.arrays[i], k, l) :
+        Zeros{T}((_blockinterlace_subaxis(axes(A.arrays[i],1), k), _blockinterlace_subaxis(axes(A.arrays[j],2), l)))
+    strip(r) = _blockinterlace_cat(T, map(c -> piece(r, c), cols), J, 2)
+    _blockinterlace_cat(T, map(strip, rows), K, 1)
+end
+
+getindex(A::BlockInterlace{<:Any,1}, KR::BlockRange{1}) = _blockinterlace_getindex(A, KR)
+for (KT, JT) in ((:Colon, :(Block{1})), (:(Block{1}), :Colon), (:Colon, :(BlockRange{1})), (:(BlockRange{1}), :Colon),
+                 (:(BlockRange{1}), :(BlockRange{1})), (:(Block{1}), :(BlockRange{1})), (:(BlockRange{1}), :(Block{1})))
+    @eval getindex(A::BlockInterlace{<:Any,2}, K::$KT, J::$JT) = _blockinterlace_getindex(A, K, J)
+end
 
 MemoryLayout(::Type{<:BlockInterlace{<:Any,N,<:Any,<:Any,NTuple{N,Int}}}) where N = ApplyLayout{typeof(blockinterlace)}()
 # interlacing only some dimensions can't be recovered from blockinterlace(arguments(A)...)
