@@ -632,14 +632,12 @@ _blockinterlace_subaxis(ax, ::Colon) = ax
 _blockinterlace_subaxis(ax, K::Block{1}) = oneto(length(ax[K]))
 _blockinterlace_subaxis(ax, KR::BlockRange{1}) = blockedrange(blocklengths(ax)[Int.(KR)])
 
-# Copy a view rather than calling getindex as materialising views is better supported, e.g., block range getindex
-# of a lazy product fails if the product has a zero block. Materialising may drop the blocking, e.g., for a
-# BlockedArray wrapping a BandedMatrix, in which case restore it. Infinite arrays can't be materialised in general
-# so stay as views.
+# Infinite arrays can't be materialised in general so stay as views. getindex may drop the blocking, e.g., for a
+# BlockedArray wrapping a BandedMatrix, in which case restore it.
 function _blockinterlace_sub(a, inds...)
     V = view(a, inds...)
     all(ax -> isfinite(length(ax)), axes(V)) || return V
-    b = copy(V)
+    b = a[inds...]
     all(map(blockisequal, axes(b), axes(V))) ? b : BlockedArray(b, axes(V))
 end
 
