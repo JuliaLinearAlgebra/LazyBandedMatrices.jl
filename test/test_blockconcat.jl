@@ -494,6 +494,59 @@ end
 
 
     end
+
+    @testset "staggered block counts" begin
+        v = blockinterlace(BlockedArray(1:6, [2,2,2]), BlockedArray(11:14, [2,2]))
+        @test blocklengths(axes(v,1)) == fill(2, 5)
+        @test v == [1,2,11,12,3,4,13,14,5,6]
+        @test v[Block(5)] == 5:6
+        @test blockcolsupport(v) == Block.(1:5)
+        @test_throws DimensionMismatch blockinterlace(BlockedArray(1:4, [2,2]), BlockedArray(11:16, [2,2,2]))
+        @test_throws DimensionMismatch blockinterlace(BlockedArray(1:6, [2,2,2]), BlockedArray(11:12, [2]))
+    end
+
+    @testset "block indexing" begin
+        v = blockinterlace(BlockedArray(1:4, [2,2]), BlockedArray(11:16, [3,3]), BlockedArray(21:22, [1,1]))
+        vf = BlockedArray(Vector(v), axes(v))
+        for KR in (Block.(1:6), Block.(1:5), Block.(2:6), Block.(3:4), Block.(4:4), Block.(1:0))
+            @test v[KR] isa BlockInterlace
+            @test v[KR] == vf[KR]
+            @test blockisequal(axes(v[KR]), axes(vf[KR]))
+        end
+        @test_throws BlockBoundsError v[Block.(1:7)]
+
+        A = BlockedArray(reshape(1.0:36, 6, 6), [1,2,3], [2,1,3])
+        B = BlockedArray(reshape(101.0:136, 6, 6), [3,2,1], [1,3,2])
+        Bc = BlockedArray(reshape(101.0:136, 6, 6), [3,2,1], [2,1,3]) # same column blocks as A
+        Br = BlockedArray(reshape(101.0:136, 6, 6), [1,2,3], [1,3,2]) # same row blocks as A
+        inds = (:, Block(1), Block(2), Block(4), Block.(1:5), Block.(2:5), Block.(3:4), Block.(2:2), Block.(1:0))
+        for M in (BlockInterlace(A, B), BlockInterlace(A, Bc; dims=1), BlockInterlace(A, Br; dims=2),
+                  BlockInterlace(A, Bc, A; dims=1), BlockInterlace(A, B, A), BlockInterlace(A, BlockedArray(brand(6,6,1,1), axes(B))))
+            Mf = BlockedArray(Matrix(M), axes(M))
+            for K in inds, J in inds
+                ((K isa Colon && J isa Colon) || (K isa Block && J isa Block) || !checkbounds(Bool, M, K, J)) && continue
+                R = M[K, J]
+                @test R == Mf[K, J]
+                @test blockisequal(axes(R), axes(Mf[K, J]))
+                # a single block along the interlaced dimension comes from a single array
+                @test R isa BlockInterlace || (M.dims == (1,) && K isa Block) || (M.dims == (2,) && J isa Block)
+            end
+        end
+
+        M = BlockInterlace(A, B)
+        @test M[:, Block(1)] isa BlockInterlace
+        @test M[Block.(1:5), Block.(1:3)] isa BlockInterlace
+        @test M[Block.(1:5), Block.(1:3)].dims == (1,2)
+        @test M[Block.(2:5), Block.(1:3)].dims == (1,) # the rows and columns start with different arrays
+        @test BlockInterlace(A, Bc; dims=1)[Block(4), :] == Bc[Block(2), :]
+        @test_throws BoundsError M[Block.(1:7), :]
+
+        # getindex of a lazy product with a zero block fails, so the arrays are indexed via views
+        P = ApplyArray(*, BandedBlockBandedMatrix(Eye(4), [2,2], [2,2], (0,0), (0,0)), BlockBandedMatrix(ones(4,2), [2,2], [1,1], (-1,1)))
+        M = BlockInterlace(P, BlockedArray(ones(4,2), [2,2], [1,1]); dims=2)
+        @test M[Block.(1:2), Block.(1:3)] isa BlockInterlace
+        @test M[Block.(1:2), Block.(1:3)] == Matrix(M)[:, 1:3]
+    end
 end
 
 
