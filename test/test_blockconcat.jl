@@ -16,6 +16,30 @@ import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
     a = unitblocks(2:5)
     @test a == 2:5
     @test blockaxes(a,1) == Block.(1:4)
+
+    @testset "OffDiagonal" begin
+        for A in (FillArrays.OffDiagonal([1,2,3], 1),
+                  FillArrays.OffDiagonal([1,2,3], -1),
+                  FillArrays.OffDiagonal([1,2,3], 1, 3, 4),
+                  FillArrays.OffDiagonal([1,2,3], -2, 5, 3))
+            B = unitblocks(A)
+            @test B isa FillArrays.OffDiagonal
+            @test B.k == A.k
+            @test B.band isa BlockedVector
+            @test B.band.blocks ≡ A.band
+            @test blockisequal(axes(B.band), (unitblocks(axes(A.band,1)),))
+            @test B == A
+            @test blocksize(B) == size(A)
+            @test blockaxes(B) == (Block.(1:size(A,1)), Block.(1:size(A,2)))
+            @test B[Block(2), Block(3)] == A[2:2, 3:3]
+            @test B[Block.(2:3), Block.(1:3)] == A[2:3, 1:3]
+            @test MemoryLayout(B) == MemoryLayout(A)
+        end
+
+        A = FillArrays.OffDiagonal(Ones(3), 1)
+        @test unitblocks(A) isa FillArrays.OffDiagonal{Float64,<:BlockedVector{Float64,<:Ones}}
+        @test unitblocks(A) == A
+    end
 end
 
 @testset "BlockVcat" begin

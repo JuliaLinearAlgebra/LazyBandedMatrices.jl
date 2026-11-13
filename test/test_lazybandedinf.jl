@@ -1,4 +1,5 @@
 using LazyBandedMatrices, InfiniteArrays, ArrayLayouts, LazyArrays, BlockArrays, BandedMatrices, BlockBandedMatrices, LinearAlgebra, Test
+using FillArrays: OffDiagonal
 using InfiniteArrays: TridiagonalToeplitzLayout, BidiagonalToeplitzLayout, TridiagonalToeplitzLayout
 using Base: oneto
 using BlockArrays: blockcolsupport, blockrowsupport
@@ -41,6 +42,14 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         @test unitblocks(2:∞) == 2:∞
 
         @test unitblocks(oneto(∞))[Block.(2:∞)] == 2:∞
+
+        A = OffDiagonal(Ones(∞), 1, (oneto(∞), oneto(∞)))
+        B = unitblocks(A)
+        @test B isa OffDiagonal
+        @test B.band isa BlockedVector{Float64,<:Ones}
+        @test B.band.blocks ≡ A.band
+        @test blockisequal(axes(B), (unitblocks(oneto(∞)), unitblocks(oneto(∞))))
+        @test B[Block.(1:3), Block.(1:4)] == A[1:3, 1:4]
     end
 
     @testset "concat" begin
