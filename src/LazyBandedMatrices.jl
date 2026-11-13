@@ -51,7 +51,7 @@ unitblocks(a::AbstractArray) = BlockedArray(a, Ones{Int}.(axes(a))...)
 unitblocks(a::OneTo) = blockedrange(Ones{Int}(length(a)))
 unitblocks(a::AbstractUnitRange) = BlockArrays._BlockedUnitRange(first(a), (first(a)-1) .+ BlockArrays._blocklengths2blocklasts(Ones{Int}(length(a))))
 unitblocks(D::Diagonal) = Diagonal(unitblocks(D.diag))
-unitblocks(A::OffDiagonal) = OffDiagonal(A.band, A.k, map(unitblocks, axes(A)))
+unitblocks(A::OffDiagonal) = OffDiagonal(unitblocks(A.band), A.k, map(unitblocks, axes(A)))
 
 
 
