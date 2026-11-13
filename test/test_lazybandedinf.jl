@@ -46,7 +46,8 @@ const InfKronTravBandedBlockBandedLayout = LazyBandedMatricesInfiniteArraysExt.I
         A = OffDiagonal(Ones(∞), 1, (oneto(∞), oneto(∞)))
         B = unitblocks(A)
         @test B isa OffDiagonal
-        @test B.band ≡ A.band
+        @test B.band isa BlockedVector{Float64,<:Ones}
+        @test B.band.blocks ≡ A.band
         @test blockisequal(axes(B), (unitblocks(oneto(∞)), unitblocks(oneto(∞))))
         @test B[Block.(1:3), Block.(1:4)] == A[1:3, 1:4]
     end

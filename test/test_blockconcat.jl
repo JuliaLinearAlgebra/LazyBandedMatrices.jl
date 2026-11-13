@@ -25,7 +25,9 @@ import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
             B = unitblocks(A)
             @test B isa FillArrays.OffDiagonal
             @test B.k == A.k
-            @test B.band ≡ A.band
+            @test B.band isa BlockedVector
+            @test B.band.blocks ≡ A.band
+            @test blockisequal(axes(B.band), (unitblocks(axes(A.band,1)),))
             @test B == A
             @test blocksize(B) == size(A)
             @test blockaxes(B) == (Block.(1:size(A,1)), Block.(1:size(A,2)))
@@ -35,7 +37,7 @@ import LazyArrays: resizedata!, arguments, colsupport, rowsupport, LazyLayout,
         end
 
         A = FillArrays.OffDiagonal(Ones(3), 1)
-        @test unitblocks(A) isa FillArrays.OffDiagonal{Float64,<:Ones}
+        @test unitblocks(A) isa FillArrays.OffDiagonal{Float64,<:BlockedVector{Float64,<:Ones}}
         @test unitblocks(A) == A
     end
 end

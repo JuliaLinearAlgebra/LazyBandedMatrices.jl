@@ -610,7 +610,7 @@ function viewblock(b::BlockInterlace{T,2,<:Any,<:Any,NTuple{2,Int}}, KJ::Block{2
     end
 end
 
-getindex(b::BlockInterlace, Kk::BlockIndex{1}) = view(b,block(Kk))[Kk.α...]
+getindex(b::BlockInterlace, Kk::BlockIndex{1}) = convert(eltype(b), view(b,block(Kk))[Kk.α...])
 getindex(b::BlockInterlace{<:Any,N}, k::Vararg{Integer,N}) where N = b[findblockindex.(axes(b), k)...]
 
 # block range indexing: the selected blocks are an interlacing of block ranges of the arrays, possibly with
