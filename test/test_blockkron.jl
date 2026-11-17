@@ -83,6 +83,30 @@ LinearAlgebra.factorize(A::MyLazyArray) = factorize(A.data)
         @test a == [1]
         a = DiagTrav(ones(1,3))
         @test a == ones(3)
+
+        @testset "indexing finite" begin
+            for (m,n) in ((3,3), (2,3), (3,2), (1,3), (3,1), (0,3), (3,0), (0,0), (6,4), (4,6))
+                v = DiagTrav(reshape(1:m*n, m, n) .+ 0)
+                @test blocklengths(axes(v,1)) == [min(K, m, n) for K = 1:max(m,n)]
+                # the axes are constructed lazily, as they are used when indexing. Allocations can only be
+                # tested without code coverage, as the instrumentation stops them being optimized away
+                if Base.JLOptions().code_coverage == 0
+                    ax(v) = axes(v,1); ax(v)
+                    @test @allocated(ax(v)) == 0
+                end
+                N = blocklength(axes(v,1))
+                for K1 = 1:N, K2 = K1-1:N
+                    w = v[Block.(K1:K2)]
+                    @test w isa BlockedVector
+                    @test w == mapreduce(K -> Vector(v[Block(K)]), vcat, K1:K2; init=Int[])
+                    @test blocklengths(axes(w,1)) == blocklengths(axes(v,1))[K1:K2]
+                end
+                @test v[Block.(Base.OneTo(N))] == v
+            end
+            v = DiagTrav(randn(3,3))
+            @test_throws BlockBoundsError v[Block.(1:4)]
+            @test_throws BlockBoundsError v[Block.(0:2)]
+        end
     end
 
     @testset "InvDiagTrav" begin
