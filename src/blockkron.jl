@@ -70,6 +70,13 @@ function _krontrav_axes(A, B)
     mn = min(m,n)
     blockedrange(Vcat(oneto(mn), Fill(mn,max(m,n)-mn)))
 end
+# For finite matrices the blocks have lengths 1,…,mn followed by mn repeated max(m,n)-mn times. Constructing
+# their cumulative sums lazily means the axes do not allocate, which matters as they are used when indexing.
+function _krontrav_axes(A::OneTo{Int}, B::OneTo{Int})
+    m,n = length(A), length(B)
+    mn = min(m,n)
+    BlockedOneTo(Vcat(RangeCumsum(oneto(mn)), StepRangeLen(mn*(mn+1)÷2 + mn, mn, max(m,n)-mn)))
+end
 
 function _krontrav_axes(A, B, C)
     m,n,ν = length(A), length(B), length(C)
@@ -108,6 +115,18 @@ function _diagtravgetindex(_, A::AbstractMatrix, Kk::BlockIndex{1})
     m,n = size(A)
     j = max(0,K-m)+j
     A[K-j+1,j]
+end
+
+# Gather directly using the entries, as the generic fallback for indexing by a range of blocks is very slow
+Base.@propagate_inbounds function getindex(A::DiagTrav{T,2}, KR::BlockRange{1,<:Tuple{Union{OneTo{Int},UnitRange{Int}}}}) where T
+    @boundscheck checkbounds(A, KR)
+    ax = axes(A,1)
+    ret = BlockedVector{T}(undef, [length(ax[K]) for K in KR])
+    k = 0
+    @inbounds for K in KR, j in 1:length(ax[K])
+        ret.blocks[k += 1] = A[K[j]]
+    end
+    ret
 end
 
 Base.@propagate_inbounds function setindex!(A::DiagTrav, v, Kk::BlockIndex{1})

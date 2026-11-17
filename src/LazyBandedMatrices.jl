@@ -1,5 +1,5 @@
 module LazyBandedMatrices
-using ArrayLayouts: symmetriclayout
+using ArrayLayouts: symmetriclayout, RangeCumsum
 using BandedMatrices, BlockBandedMatrices, BlockArrays, LazyArrays, FillArrays,
         ArrayLayouts, MatrixFactorizations, Base, StaticArrays, LinearAlgebra
 
